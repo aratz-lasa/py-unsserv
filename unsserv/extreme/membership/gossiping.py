@@ -3,12 +3,16 @@ import math
 import random
 from collections import Counter
 from enum import Enum, auto
-from typing import Tuple
+from typing import Union
 
-from unsserv.data_structures import Node
+from unsserv.data_structures import Node, Message
+from unsserv.extreme.membership.config import (
+    DATA_FIELD_VIEW,
+    LOCAL_VIEW_SIZE,
+    GOSSIPING_FREQUENCY,
+)
+from unsserv.extreme.membership.rpc import GossipRPC
 
-LOCAL_VIEW_SIZE = 10  # todo: select a proper size
-GOSSIPING_FREQUENCY = 0.2  # todo: select a proper size
 View = Counter
 
 
@@ -53,38 +57,47 @@ class Gossiping:
         self.local_view_size = local_view_size
         self.gossiping_frequency = gossiping_frequency
 
-    async def active_process(self):
-        await asyncio.sleep(self.gossiping_frequency)
-        peer = self.select_peer(self.local_view)
-        if self.view_propagation is not ViewPropagationPolicy.PULL:
-            my_descriptor = Counter({self.my_node: 0})
-            buffer = self.merge(my_descriptor, self.local_view)
-            await self.send_view(peer, buffer)
-        else:
-            # Empty view to tigger response
-            await self.send_view(peer, Counter())
-        if self.view_propagation is not ViewPropagationPolicy.PUSH:
-            view = await self.receive_view_from(peer)
-            view = self.increase_hop_count(view)
-            buffer = self.merge(view, self.local_view)
-            self.local_view = self.select_view(buffer)
+        self.rpc = GossipRPC(self.my_node, self.reactive_process)
 
-    async def passive_process(self):
-        peer, view = await self.wait_view()
+    async def proactive_process(self):
+        while True:
+            await asyncio.sleep(self.gossiping_frequency)
+            peer = self.select_peer(self.local_view)
+            push_view = Counter()  # if PUSH, empty view
+            if self.view_propagation is not ViewPropagationPolicy.PULL:
+                my_descriptor = Counter({self.my_node: 0})
+                push_view = self.merge(my_descriptor, self.local_view)
+            data = {DATA_FIELD_VIEW: push_view}
+            push_message = Message(self.my_node, data)
+            if self.view_propagation is ViewPropagationPolicy.PUSH:
+                await self.rpc.call_push(peer, push_message)
+            else:
+                push_message = await self.rpc.call_pushpull(
+                    peer, push_message
+                )  # rpc.pushpull used for bot PULL and PUSHPULL
+                view = Counter(push_message.data[DATA_FIELD_VIEW])
+                view = self.increase_hop_count(view)
+                buffer = self.merge(view, self.local_view)
+                self.local_view = self.select_view(buffer)
+
+    async def reactive_process(self, message: Message) -> Union[None, Message]:
+        view = Counter(message.data[DATA_FIELD_VIEW])
         view = self.increase_hop_count(view)
+        pull_return_message = None
         if self.view_propagation is not ViewPropagationPolicy.PUSH:
             my_descriptor = Counter({self.my_node: 0})
-            buffer = self.merge(my_descriptor, self.local_view)
-            await self.send_view(peer, buffer)
+            data = {DATA_FIELD_VIEW: self.merge(my_descriptor, self.local_view)}
+            pull_return_message = Message(self.my_node, data)
         buffer = self.merge(view, self.local_view)
         self.local_view = self.select_view(buffer)
+        return pull_return_message
 
     def select_peer(self, view: View) -> Node:
-        if self.peer_selection is ViewSelectionPolicy.RAND:
+        if self.peer_selection is PeerSelectionPolicy.RAND:
             return random.choice(list(view.keys()))
-        elif self.peer_selection is ViewSelectionPolicy.HEAD:
+        elif self.peer_selection is PeerSelectionPolicy.HEAD:
             return view.most_common()[-1][0]
-        elif self.peer_selection is ViewSelectionPolicy.TAIL:
+        elif self.peer_selection is PeerSelectionPolicy.TAIL:
             return view.most_common(1)[0][0]
         raise AttributeError("Invalid Peer Selection policy")
 
@@ -111,12 +124,3 @@ class Gossiping:
                 else view2[node]
             )
         return merged_view
-
-    async def send_view(self, peer: Node, view: View) -> None:
-        pass  # todo
-
-    async def receive_view_from(self, peer: Node) -> View:
-        pass  # todo
-
-    async def wait_view(self) -> Tuple[Node, View]:
-        pass  # todo
