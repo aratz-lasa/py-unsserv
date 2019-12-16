@@ -1,0 +1,3 @@
+-i https://pypi.org/simple
+rpcudp==4.0.0
+u-msgpack-python==2.5.2
