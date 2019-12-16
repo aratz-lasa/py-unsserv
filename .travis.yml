@@ -10,4 +10,4 @@ script:
   - pytest --cov-report term --cov=swaplink tests/
 # Upload coverage report to 'Codecov'
 after_script:
-  - codecov --token=8fe4817f-071f-4d3a-ad2c-b3b2509b461b
+  - codecov --token=e2776e79-fc57-44b2-9246-6421a9355853
