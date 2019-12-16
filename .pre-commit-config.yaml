@@ -1,0 +1,24 @@
+repos:
+
+  - repo: https://github.com/ambv/black
+    rev: stable
+
+    hooks:
+    - id: black
+      language_version: python3.8
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v2.3.0
+    hooks:
+      - id: flake8
+        args: ["--max-line-length", "88"]
+
+  - repo: local
+    hooks:
+      - id: mypy
+        name: Check mypy static types match
+        entry: mypy
+        pass_filenames: false
+        args: ["unsserv", "--no-strict-optional", "--ignore-missing-imports"]
+        language: system
+        types: [python]
