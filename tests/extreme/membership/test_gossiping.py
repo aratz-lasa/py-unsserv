@@ -1,15 +1,19 @@
+import asyncio
 from collections import Counter
 
+import pytest
+
 from tests.utils import get_random_nodes
+from unsserv.common.gossip import gossiping
+from unsserv.common.gossip.config import GOSSIPING_FREQUENCY
+from unsserv.common.gossip.gossiping import LOCAL_VIEW_SIZE
 from unsserv.data_structures import Node
-from unsserv.extreme.membership import gossiping
-from unsserv.extreme.membership.gossiping import LOCAL_VIEW_SIZE
 
 node = Node("127.0.0.1", 7771)
 
 
 def test_view_selection():
-    r_nodes = get_random_nodes(LOCAL_VIEW_SIZE * 2, first_port=772)
+    r_nodes = get_random_nodes(LOCAL_VIEW_SIZE * 2, first_port=7772)
     view = Counter(dict(map(lambda n: (n[1], n[0] + 1), enumerate(r_nodes))))
     gsp = gossiping.Gossiping(node)
 
@@ -21,7 +25,7 @@ def test_view_selection():
 
 
 def test_peer_selection():
-    r_nodes = get_random_nodes(LOCAL_VIEW_SIZE, first_port=772)
+    r_nodes = get_random_nodes(LOCAL_VIEW_SIZE, first_port=7772)
     view = Counter(dict(map(lambda n: (n[1], n[0] + 1), enumerate(r_nodes))))
     gsp = gossiping.Gossiping(node)
 
@@ -33,7 +37,7 @@ def test_peer_selection():
 
 
 def test_increase_hop_count():
-    r_nodes = get_random_nodes(LOCAL_VIEW_SIZE, first_port=772)
+    r_nodes = get_random_nodes(LOCAL_VIEW_SIZE, first_port=7772)
     view = Counter(dict(map(lambda n: (n[1], n[0] + 1), enumerate(r_nodes))))
     gsp = gossiping.Gossiping(node)
 
@@ -41,7 +45,7 @@ def test_increase_hop_count():
 
 
 def test_merge():
-    r_nodes = get_random_nodes(LOCAL_VIEW_SIZE, first_port=772)
+    r_nodes = get_random_nodes(LOCAL_VIEW_SIZE, first_port=7772)
     view1 = Counter(dict(map(lambda n: (n[1], n[0] + 1), enumerate(r_nodes))))
     gsp = gossiping.Gossiping(node)
 
@@ -50,3 +54,31 @@ def test_merge():
 
     assert view1 != view2
     assert view1 == gsp.merge(view1, view2)
+
+
+@pytest.mark.asyncio
+async def test_gossiping():
+    neighbour_amounts = [1, 2, 5, 10, 30, 100]
+    for amount in neighbour_amounts:
+        await gossip(amount)
+
+
+async def gossip(amount):
+    r_nodes = get_random_nodes(amount, first_port=7772)
+    gsp = gossiping.Gossiping(node)
+    await gsp.start()
+
+    r_gsps = []
+    for r_node in r_nodes:
+        r_gsp = gossiping.Gossiping(r_node, [node])
+        await r_gsp.start()
+        r_gsps.append(r_gsp)
+
+    await asyncio.sleep(GOSSIPING_FREQUENCY * 4)
+
+    for r_gsp in r_gsps:
+        assert min(amount, LOCAL_VIEW_SIZE) <= len(r_gsp.local_view)
+
+    await gsp.stop()
+    for r_gsp in r_gsps:
+        await r_gsp.stop()

@@ -3,8 +3,8 @@ import asyncio
 import pytest
 
 from unsserv.data_structures import Node, Message
-from unsserv.extreme.membership.config import DATA_FIELD_VIEW
-from unsserv.extreme.membership.rpc import GossipRPC
+from unsserv.common.gossip.config import DATA_FIELD_VIEW
+from unsserv.common.gossip.rpc import GossipRPC
 
 flag_destination = asyncio.Event()
 

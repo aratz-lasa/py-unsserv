@@ -1,8 +1,8 @@
 import typing
 
 from unsserv.api import MembershipService, neighbours_callback
+from unsserv.common.gossip.gossiping import Gossiping
 from unsserv.data_structures import Node
-from unsserv.extreme.membership.gossiping import Gossiping
 
 
 class Newscast(MembershipService):
