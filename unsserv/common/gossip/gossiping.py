@@ -3,7 +3,7 @@ import math
 import random
 from collections import Counter
 from enum import Enum, auto
-from typing import Union, List
+from typing import Union, List, Callable, Any, Coroutine
 
 from unsserv.common.gossip.config import (
     DATA_FIELD_VIEW,
@@ -14,6 +14,8 @@ from unsserv.common.gossip.rpc import GossipRPC
 from unsserv.data_structures import Node, Message
 
 View = Counter
+
+LocalViewCallback = Callable[[View], Coroutine[Any, Any, None]]
 
 
 class ViewSelectionPolicy(Enum):
@@ -45,6 +47,7 @@ class Gossiping:
         self,
         my_node: Node,
         local_view_nodes: List[Node] = None,
+        local_view_callback: LocalViewCallback = None,
         view_selection=ViewSelectionPolicy.HEAD,
         peer_selection=PeerSelectionPolicy.RAND,
         view_propagation=ViewPropagationPolicy.PUSHPULL,
@@ -53,6 +56,7 @@ class Gossiping:
     ):
         self.my_node = my_node
         self.local_view = Counter(local_view_nodes or [])
+        self.local_view_callback = local_view_callback
         self.view_selection = view_selection
         self.peer_selection = peer_selection
         self.view_propagation = view_propagation
@@ -110,7 +114,10 @@ class Gossiping:
                 view = Counter(push_message.data[DATA_FIELD_VIEW])
                 view = self.increase_hop_count(view)
                 buffer = self.merge(view, self.local_view)
-                self.local_view = self.select_view(buffer)
+
+                new_view = self.select_view(buffer)
+                self.try_call_callback(new_view)
+                self.local_view = new_view
 
     async def reactive_process(self, message: Message) -> Union[None, Message]:
         view = Counter(message.data[DATA_FIELD_VIEW])
@@ -121,7 +128,10 @@ class Gossiping:
             data = {DATA_FIELD_VIEW: self.merge(my_descriptor, self.local_view)}
             pull_return_message = Message(self.my_node, data)
         buffer = self.merge(view, self.local_view)
-        self.local_view = self.select_view(buffer)
+
+        new_view = self.select_view(buffer)
+        self.try_call_callback(new_view)
+        self.local_view = new_view
         return pull_return_message
 
     def select_peer(self, view: View) -> Node:
@@ -158,3 +168,8 @@ class Gossiping:
                 else view2[node]
             )
         return merged_view
+
+    def try_call_callback(self, new_view):
+        if set(new_view.keys()) != set(self.local_view.keys()):
+            if self.local_view_callback:
+                self.local_view_callback(new_view)

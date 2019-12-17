@@ -2,8 +2,8 @@ import typing
 
 from rpcudp.protocol import RPCProtocol
 
-from unsserv.data_structures import Message, Node
 from unsserv.common.gossip.config import RPC_TIMEOUT
+from unsserv.data_structures import Message, Node
 
 PullCallback = typing.Callable[
     [Message], typing.Coroutine[typing.Any, typing.Any, typing.Union[None, Message]]
