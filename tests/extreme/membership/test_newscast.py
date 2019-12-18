@@ -1,25 +1,24 @@
-import itertools
-import time
-
+import asyncio
+from collections import Counter
 import pytest
 
 from tests.utils import get_random_nodes
 from unsserv.data_structures import Node
 from unsserv.extreme.membership import newscast
+from unsserv.common.gossip.config import GOSSIPING_FREQUENCY, LOCAL_VIEW_SIZE
 
-WAITING_TIME = 0.1  # todo: set a proper waiting time depending on gossiping frequency
 
 node = Node("127.0.0.1", 7771)
 
 
 @pytest.mark.asyncio
-async def test_newcast_join():
+async def test_newscast_join():
     neighbour_amounts = [1, 2, 5, 10, 30, 100]
     for amount in neighbour_amounts:
-        await newcast_join(amount)
+        await newscast_join(amount)
 
 
-async def newcast_join(neighbours_amount):
+async def newscast_join(neighbours_amount):
     newc = newscast.Newscast(node)
     await newc.join_membership()
 
@@ -30,66 +29,95 @@ async def newcast_join(neighbours_amount):
         await r_newc.join_membership([node])
         r_newcs.append(r_newc)
 
-    time.sleep(WAITING_TIME)
+    await asyncio.sleep(GOSSIPING_FREQUENCY * 7)
 
-    all_nodes = set(itertools.chain(map(lambda n: n.get_neighbours(), r_newcs)))
-    assert len(all_nodes) == neighbours_amount + 1  # must count 'node' too
+    all_nodes = set(
+        [
+            item
+            for sublist in map(lambda n: n.get_neighbours(), r_newcs + [newc])
+            for item in sublist
+        ]
+    )
+    assert neighbours_amount * 0.9 < len(all_nodes)
 
     neighbours = newc.get_neighbours()
-    assert 1 < len(neighbours)
+    assert min(neighbours_amount, LOCAL_VIEW_SIZE) <= len(neighbours)
     for neighbour in neighbours:
         assert neighbour in r_nodes
 
     for r_newc in r_newcs:
         r_neighbours = r_newc.get_neighbours()
-        assert 1 < len(r_neighbours)
+        assert min(neighbours_amount, LOCAL_VIEW_SIZE) <= len(r_neighbours)
         for r_neighbour in r_neighbours:
             assert r_neighbour in r_nodes or r_neighbour == node
 
+    await newc.leave_membership()
+    for r_newc in r_newcs:
+        await r_newc.leave_membership()
+
 
 @pytest.mark.asyncio
-async def test_newcast_leave():
-    neighbour_amounts = [1, 2, 5, 10, 30, 100]
+async def test_newscast_leave():
+    neighbour_amounts = [
+        LOCAL_VIEW_SIZE + 1,
+        LOCAL_VIEW_SIZE + 2,
+        LOCAL_VIEW_SIZE + 5,
+        LOCAL_VIEW_SIZE + 10,
+        LOCAL_VIEW_SIZE + 30,
+        LOCAL_VIEW_SIZE + 100,
+    ]
     for amount in neighbour_amounts:
-        await newcast_leave(amount)
+        await newscast_leave(amount)
 
 
-async def newcast_leave(neighbours_amount):
+async def newscast_leave(neighbours_amount):
     newc = newscast.Newscast(node)
     await newc.join_membership()
 
     r_newcs = []
     r_nodes = get_random_nodes(neighbours_amount)
-    for r_node in r_nodes:
+    for i, r_node in enumerate(r_nodes):
         r_newc = newscast.Newscast(r_node)
-        await r_newc.join_membership([node])
+        await r_newc.join_membership(r_nodes[:i] or [node])
         r_newcs.append(r_newc)
 
-    time.sleep(WAITING_TIME)
+    await asyncio.sleep(GOSSIPING_FREQUENCY * 5)
     await newc.leave_membership()
-    time.sleep(WAITING_TIME)
+    await asyncio.sleep(GOSSIPING_FREQUENCY * 25)
 
-    all_nodes = set(itertools.chain(map(lambda n: n.get_neighbours(), r_newcs)))
-    assert len(all_nodes) == neighbours_amount
-    assert node not in all_nodes
+    all_nodes = Counter(
+        [
+            item
+            for sublist in map(lambda n: n.get_neighbours(), r_newcs)
+            for item in sublist
+        ]
+    )
+    nodes_ten_percent = int(neighbours_amount * 0.1)
+    assert node not in all_nodes.keys() or node in set(
+        map(lambda p: p[0], all_nodes.most_common()[-nodes_ten_percent:])
+    )
+
+    await newc.leave_membership()
+    for r_newc in r_newcs:
+        await r_newc.leave_membership()
 
 
 @pytest.mark.asyncio
-async def test_newcast_callback():
+async def test_newscast_callback():
     neighbour_amounts = [1, 2, 5, 10, 30, 100]
     for amount in neighbour_amounts:
-        await newcast_callback(amount)
+        await newscast_callback(amount)
 
 
-async def newcast_callback(neighbours_amount):
+async def newscast_callback(neighbours_amount):
+    callback_event = asyncio.Event()
+
     newc = newscast.Newscast(node)
     await newc.join_membership()
 
-    callback_amount = 0
-
     async def callback(neighbours):
-        global callback_amount
-        callback_amount += 1
+        nonlocal callback_event
+        callback_event.set()
 
     newc.set_neighbours_callback(callback)
 
@@ -100,5 +128,9 @@ async def newcast_callback(neighbours_amount):
         await r_newc.join_membership([node])
         r_newcs.append(r_newc)
 
-    time.sleep(WAITING_TIME)
-    assert neighbours_amount <= callback_amount
+    await asyncio.sleep(GOSSIPING_FREQUENCY * 5)
+    assert callback_event.is_set()
+
+    await newc.leave_membership()
+    for r_newc in r_newcs:
+        await r_newc.leave_membership()

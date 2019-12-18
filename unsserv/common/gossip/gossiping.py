@@ -101,7 +101,10 @@ class Gossiping:
                 try:
                     await self.rpc.call_push(peer, push_message)
                 except ConnectionError:
-                    self.local_view.pop(peer)
+                    try:
+                        self.local_view.pop(peer)
+                    except KeyError:
+                        pass
                     continue
             else:
                 try:
@@ -109,14 +112,17 @@ class Gossiping:
                         peer, push_message
                     )  # rpc.pushpull used for bot PULL and PUSHPULL
                 except ConnectionError:
-                    self.local_view.pop(peer)
+                    try:
+                        self.local_view.pop(peer)
+                    except KeyError:
+                        pass
                     continue
                 view = Counter(push_message.data[DATA_FIELD_VIEW])
                 view = self.increase_hop_count(view)
                 buffer = self.merge(view, self.local_view)
 
                 new_view = self.select_view(buffer)
-                self.try_call_callback(new_view)
+                await self.try_call_callback(new_view)
                 self.local_view = new_view
 
     async def reactive_process(self, message: Message) -> Union[None, Message]:
@@ -130,7 +136,7 @@ class Gossiping:
         buffer = self.merge(view, self.local_view)
 
         new_view = self.select_view(buffer)
-        self.try_call_callback(new_view)
+        await self.try_call_callback(new_view)
         self.local_view = new_view
         return pull_return_message
 
@@ -169,7 +175,7 @@ class Gossiping:
             )
         return merged_view
 
-    def try_call_callback(self, new_view):
+    async def try_call_callback(self, new_view):
         if set(new_view.keys()) != set(self.local_view.keys()):
             if self.local_view_callback:
-                self.local_view_callback(new_view)
+                await self.local_view_callback(new_view)

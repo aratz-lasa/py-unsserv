@@ -74,7 +74,7 @@ async def gossip(amount):
         await r_gsp.start()
         r_gsps.append(r_gsp)
 
-    await asyncio.sleep(GOSSIPING_FREQUENCY * 4)
+    await asyncio.sleep(GOSSIPING_FREQUENCY * 5)
 
     for r_gsp in r_gsps:
         assert min(amount, LOCAL_VIEW_SIZE) <= len(r_gsp.local_view)
