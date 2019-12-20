@@ -2,21 +2,29 @@ from typing import Callable, List, Coroutine, Any, Union
 from abc import ABC, abstractmethod
 
 from unsserv.data_structures import Node
+from collections import Counter
 
-NeighboursCallback = Union[Callable[[List[Node]], Coroutine[Any, Any, None]], None]
+View = Counter
 AggregateCallback = Callable[[Any], Coroutine[Any, Any, None]]
+NeighboursCallback = Union[
+    Callable[[Union[List[Node], View]], Coroutine[Any, Any, None]], None
+]
 
 
 class MembershipService(ABC):
     my_node: Node
+    multiplex: bool
     _callback: NeighboursCallback
 
-    def __init__(self, node: Node):
+    def __init__(self, node: Node, multiplex: bool = True):
         self.my_node = node
+        self.multiplex = multiplex
         self._callback = None
 
     @abstractmethod
-    async def join_membership(self, bootstrap_nodes: List[Node]) -> None:
+    async def join_membership(
+        self, service_id: Any = None, bootstrap_nodes: List[Node] = None
+    ):
         pass
 
     @abstractmethod
@@ -24,21 +32,44 @@ class MembershipService(ABC):
         pass
 
     @abstractmethod
-    def get_neighbours(self) -> List[Node]:
+    def get_neighbours(self, local_view: bool = False) -> Union[List[Node], View]:
         pass
 
     @abstractmethod
-    def set_neighbours_callback(self, callback: NeighboursCallback) -> None:
+    def set_neighbours_callback(
+        self, callback: NeighboursCallback, local_view: bool = False
+    ) -> None:
         pass
 
 
 class ClusteringService(ABC):
+    my_node: Node
+    multiplex: bool
+    _membership: MembershipService
+    _callback: NeighboursCallback
+
+    def __init__(self, membership: MembershipService, multiplex: bool = True):
+        self.my_node = self._membership.my_node
+        self.multiplex = multiplex
+        self._membership = membership
+        self._callback = None
+
     @abstractmethod
-    async def join_cluster(self, cluster_configuration: Any) -> None:
+    async def join_cluster(self, service_id: Any, cluster_configuration: Any) -> None:
         pass
 
     @abstractmethod
     async def leave_cluster(self) -> None:
+        pass
+
+    @abstractmethod
+    def get_neighbours(self, local_view: bool = False) -> Union[List[Node], View]:
+        pass
+
+    @abstractmethod
+    def set_neighbours_callback(
+        self, callback: NeighboursCallback, local_view: bool = False
+    ) -> None:
         pass
 
 

@@ -3,19 +3,20 @@ import math
 import random
 from collections import Counter
 from enum import Enum, auto
-from typing import Union, List, Callable, Any, Coroutine
+from typing import List, Callable, Any, Coroutine, Optional, Union
 
+from unsserv.api import View
 from unsserv.common.gossip.config import (
     DATA_FIELD_VIEW,
     LOCAL_VIEW_SIZE,
     GOSSIPING_FREQUENCY,
 )
-from unsserv.common.gossip.rpc import GossipRPC
+from unsserv.common.gossip.rpc.rpc import RPC
 from unsserv.data_structures import Node, Message
 
-View = Counter
-
 LocalViewCallback = Callable[[View], Coroutine[Any, Any, None]]
+CustomSelectionRanking = Callable[[View], List[Node]]
+ExternalViewSource = Callable
 
 
 class ViewSelectionPolicy(Enum):
@@ -36,7 +37,7 @@ class ViewPropagationPolicy(Enum):
     PUSHPULL = auto()
 
 
-class Gossiping:
+class Gossip:
     my_node: Node
     local_view: View
 
@@ -46,44 +47,51 @@ class Gossiping:
     def __init__(
         self,
         my_node: Node,
+        service_id: Any,
         local_view_nodes: List[Node] = None,
         local_view_callback: LocalViewCallback = None,
+        external_view_source: ExternalViewSource = None,
         view_selection=ViewSelectionPolicy.HEAD,
         peer_selection=PeerSelectionPolicy.RAND,
         view_propagation=ViewPropagationPolicy.PUSHPULL,
+        custom_selection_ranking: CustomSelectionRanking = None,
         local_view_size: int = LOCAL_VIEW_SIZE,
         gossiping_frequency: float = GOSSIPING_FREQUENCY,
+        transport_protocol: str = "udp",
+        multiplex: bool = True,
     ):
         self.my_node = my_node
+        self.service_id = service_id
         self.local_view = Counter(local_view_nodes or [])
         self.local_view_callback = local_view_callback
+        self.get_external_view = external_view_source
         self.view_selection = view_selection
         self.peer_selection = peer_selection
         self.view_propagation = view_propagation
+        self.custom_selection_ranking = custom_selection_ranking
 
         self.local_view_size = local_view_size
         self.gossiping_frequency = gossiping_frequency
-
-        self.rpc = GossipRPC(self.my_node, self.reactive_process)
+        self.rpc = RPC.get_rpc(
+            self.my_node, type=transport_protocol, multiplex=multiplex
+        )
 
     async def start(self):
-        (
-            self._transport,
-            protocol,
-        ) = await asyncio.get_event_loop().create_datagram_endpoint(
-            lambda: self.rpc, self.my_node
-        )
+        await self.rpc.register_service(self.service_id, self.reactive_process)
         self._proactive_task = asyncio.create_task(self.proactive_process())
 
     async def stop(self):
-        if self._transport is not None:
-            self._transport.close()
+        await self.rpc.unregister_service(self.service_id)
+
         if self._proactive_task:
             self._proactive_task.cancel()
             try:
                 await self._proactive_task
             except asyncio.CancelledError:
                 pass
+
+    def is_running(self) -> bool:
+        return self._proactive_task.cancelled()
 
     async def proactive_process(self):
         while True:
@@ -96,7 +104,7 @@ class Gossiping:
                 my_descriptor = Counter({self.my_node: 0})
                 push_view = self.merge(my_descriptor, self.local_view)
             data = {DATA_FIELD_VIEW: push_view}
-            push_message = Message(self.my_node, data)
+            push_message = Message(self.my_node, "id", data)
             if self.view_propagation is ViewPropagationPolicy.PUSH:
                 try:
                     await self.rpc.call_push(peer, push_message)
@@ -117,49 +125,70 @@ class Gossiping:
                     except KeyError:
                         pass
                     continue
-                view = Counter(push_message.data[DATA_FIELD_VIEW])
+                view = _decode_view(push_message.data[DATA_FIELD_VIEW])
                 view = self.increase_hop_count(view)
                 buffer = self.merge(view, self.local_view)
+                if self.get_external_view:
+                    buffer = self.merge(view, self.get_external_view())
 
                 new_view = self.select_view(buffer)
                 await self.try_call_callback(new_view)
                 self.local_view = new_view
 
     async def reactive_process(self, message: Message) -> Union[None, Message]:
-        view = Counter(message.data[DATA_FIELD_VIEW])
+        view = _decode_view(message.data[DATA_FIELD_VIEW])
         view = self.increase_hop_count(view)
         pull_return_message = None
         if self.view_propagation is not ViewPropagationPolicy.PUSH:
             my_descriptor = Counter({self.my_node: 0})
             data = {DATA_FIELD_VIEW: self.merge(my_descriptor, self.local_view)}
-            pull_return_message = Message(self.my_node, data)
+            pull_return_message = Message(self.my_node, "id", data)
         buffer = self.merge(view, self.local_view)
+        if self.get_external_view:
+            buffer = self.merge(view, self.get_external_view())
 
         new_view = self.select_view(buffer)
         await self.try_call_callback(new_view)
         self.local_view = new_view
         return pull_return_message
 
-    def select_peer(self, view: View) -> Node:
+    def select_peer(self, view: View) -> Optional[Node]:
+        if self.custom_selection_ranking:
+            ordered_nodes = self.custom_selection_ranking(view)
+        else:
+            ordered_nodes = list(map(lambda n: n[0], reversed(view.most_common())))
         if self.peer_selection is PeerSelectionPolicy.RAND:
-            return random.choice(list(view.keys())) if view else None
+            return random.choice(ordered_nodes) if view else None
         elif self.peer_selection is PeerSelectionPolicy.HEAD:
-            return view.most_common()[-1][0] if view else None
+            return ordered_nodes[0] if view else None
         elif self.peer_selection is PeerSelectionPolicy.TAIL:
-            return view.most_common(1)[0][0] if view else None
+            return ordered_nodes[-1] if view else None
         raise AttributeError("Invalid Peer Selection policy")
 
     def select_view(self, view: View) -> View:
         if self.my_node in view:
             view.pop(self.my_node)
         remove_amount = max(len(view) - self.local_view_size, 0)
+        if remove_amount < 1:
+            return view
+        if self.custom_selection_ranking:
+            ordered_nodes = self.custom_selection_ranking(view)
+        else:
+            ordered_nodes = list(map(lambda n: n[0], reversed(view.most_common())))
+
+        new_view = view.copy()
         if self.view_selection is ViewSelectionPolicy.RAND:
-            return view - Counter(dict(random.sample(view.items(), remove_amount)))
+            for node in random.sample(ordered_nodes, remove_amount):
+                new_view.pop(node)
         elif self.view_selection is ViewSelectionPolicy.HEAD:
-            return view - Counter(dict(view.most_common(remove_amount)))
+            for node in ordered_nodes[-remove_amount:]:
+                new_view.pop(node)
         elif self.view_selection is ViewSelectionPolicy.TAIL:
-            return view - Counter(dict(view.most_common()[-remove_amount:]))
-        raise AttributeError("Invalid View Selection policy")
+            for node in ordered_nodes[:remove_amount]:
+                new_view.pop(node)
+        else:
+            raise AttributeError("Invalid View Selection policy")
+        return new_view
 
     def increase_hop_count(self, view: View) -> View:
         return view + Counter(view.keys())
@@ -179,3 +208,7 @@ class Gossiping:
         if set(new_view.keys()) != set(self.local_view.keys()):
             if self.local_view_callback:
                 await self.local_view_callback(new_view)
+
+
+def _decode_view(raw_view: dict) -> View:
+    return Counter(dict(map(lambda n: (Node(*n[0]), n[1]), raw_view.items())))
