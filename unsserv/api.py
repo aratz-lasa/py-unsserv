@@ -23,7 +23,7 @@ class MembershipService(ABC):
 
     @abstractmethod
     async def join_membership(
-        self, service_id: Any = None, bootstrap_nodes: List[Node] = None
+        self, service_id: Any, bootstrap_nodes: List[Node] = None
     ):
         pass
 

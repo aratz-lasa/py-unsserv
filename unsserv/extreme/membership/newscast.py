@@ -1,4 +1,4 @@
-from typing import Union, Any, List, Dict
+from typing import Union, Any, List
 
 from unsserv.api import MembershipService, NeighboursCallback
 from unsserv.common.gossip.gossip import Gossip, View
@@ -6,18 +6,15 @@ from unsserv.data_structures import Node
 
 
 class Newscast(MembershipService):
-    _gossip: Gossip
-    _registered_gossips: Dict[Any, Gossip]
-
     def __init__(self, node: Node, multiplex: bool = False):
         super().__init__(node, multiplex)
-        self._registered_gossips = {}
         self._callback_raw_format = False
+        self._gossip: Union[Gossip, None]
 
     async def join_membership(
-        self, service_id: Any = None, bootstrap_nodes: List[Node] = None
+        self, service_id: Any, bootstrap_nodes: List[Node] = None
     ):
-        if self._gossip.is_running():
+        if self._gossip:
             raise RuntimeError("Already joined a membership")
         self._gossip = Gossip(
             my_node=self.my_node,
@@ -29,9 +26,12 @@ class Newscast(MembershipService):
         await self._gossip.start()
 
     async def leave_membership(self) -> None:
-        await self._gossip.stop()
+        if self._gossip:
+            await self._gossip.stop()
 
     def get_neighbours(self, local_view: bool = False) -> Union[List[Node], View]:
+        if not self._gossip:
+            raise RuntimeError("Membership not joined")
         if local_view:
             return self._gossip.local_view
         return list(self._gossip.local_view.keys())

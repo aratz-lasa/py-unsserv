@@ -13,18 +13,16 @@ RankingFunction = Callable[[Node], Any]
 
 
 class TMan(ClusteringService):
-    _gossip: Gossip
-    _callback_raw_format: bool
-
     def __init__(self, membership: MembershipService, multiplex: bool = True):
         super().__init__(membership, multiplex)
         self._callback_raw_format = False
         self._ranking_function: RankingFunction
+        self._gossip = Union[Gossip, None]
 
     async def join_cluster(
         self, service_id: Any, ranking_function: RankingFunction
     ) -> None:
-        if self._gossip.is_running():
+        if self._gossip:
             raise RuntimeError("Already joined a cluster")
         self._ranking_function = ranking_function
         random_view_source = partial(self._membership.get_neighbours, True)
@@ -40,10 +38,14 @@ class TMan(ClusteringService):
         await self._gossip.start()
 
     async def leave_cluster(self) -> None:
-        if self._gossip.is_running():
+        if not self._gossip:
+            raise RuntimeError("Cluster not joined")
+        if self._gossip:
             await self._gossip.stop()
 
     def get_neighbours(self, local_view: bool = False) -> Union[List[Node], View]:
+        if not self._gossip:
+            raise RuntimeError("Cluster not joined")
         if local_view:
             return self._gossip.local_view
         return list(self._gossip.local_view.keys())

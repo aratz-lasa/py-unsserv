@@ -11,7 +11,7 @@ from unsserv.common.gossip.config import (
     LOCAL_VIEW_SIZE,
     GOSSIPING_FREQUENCY,
 )
-from unsserv.common.gossip.rpc.rpc import RPC
+from unsserv.common.rpc.rpc import RPC
 from unsserv.data_structures import Node, Message
 
 LocalViewCallback = Callable[[View], Coroutine[Any, Any, None]]
@@ -40,9 +40,6 @@ class ViewPropagationPolicy(Enum):
 class Gossip:
     my_node: Node
     local_view: View
-
-    _transport: asyncio.BaseTransport
-    _proactive_task: asyncio.Task
 
     def __init__(
         self,
@@ -90,9 +87,6 @@ class Gossip:
             except asyncio.CancelledError:
                 pass
 
-    def is_running(self) -> bool:
-        return self._proactive_task.cancelled()
-
     async def proactive_process(self):
         while True:
             await asyncio.sleep(self.gossiping_frequency)
@@ -104,7 +98,7 @@ class Gossip:
                 my_descriptor = Counter({self.my_node: 0})
                 push_view = self.merge(my_descriptor, self.local_view)
             data = {DATA_FIELD_VIEW: push_view}
-            push_message = Message(self.my_node, "id", data)
+            push_message = Message(self.my_node, self.service_id, data)
             if self.view_propagation is ViewPropagationPolicy.PUSH:
                 try:
                     await self.rpc.call_push(peer, push_message)
@@ -142,7 +136,7 @@ class Gossip:
         if self.view_propagation is not ViewPropagationPolicy.PUSH:
             my_descriptor = Counter({self.my_node: 0})
             data = {DATA_FIELD_VIEW: self.merge(my_descriptor, self.local_view)}
-            pull_return_message = Message(self.my_node, "id", data)
+            pull_return_message = Message(self.my_node, self.service_id, data)
         buffer = self.merge(view, self.local_view)
         if self.get_external_view:
             buffer = self.merge(view, self.get_external_view())

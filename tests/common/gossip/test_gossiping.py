@@ -11,12 +11,13 @@ from unsserv.common.gossip.gossip import LOCAL_VIEW_SIZE, View
 from unsserv.data_structures import Node
 
 node = Node(("127.0.0.1", 7771))
+SERVICE_ID = "gossip"
 
 
 def test_view_selection():
     r_nodes = get_random_nodes(LOCAL_VIEW_SIZE * 2, first_port=7772)
     view = Counter(dict(map(lambda n: (n[1], n[0] + 1), enumerate(r_nodes))))
-    gsp = gossip.Gossip(node)
+    gsp = gossip.Gossip(node, SERVICE_ID)
 
     gsp.view_selection = gossip.ViewSelectionPolicy.HEAD
     assert set(r_nodes[:LOCAL_VIEW_SIZE]) == set(gsp.select_view(view).keys())
@@ -40,7 +41,7 @@ def test_view_selection():
 def test_peer_selection():
     r_nodes = get_random_nodes(LOCAL_VIEW_SIZE, first_port=7772)
     view = Counter(dict(map(lambda n: (n[1], n[0] + 1), enumerate(r_nodes))))
-    gsp = gossip.Gossip(node)
+    gsp = gossip.Gossip(node, SERVICE_ID)
 
     gsp.peer_selection = gossip.PeerSelectionPolicy.HEAD
     assert r_nodes[0] == gsp.select_peer(view)
@@ -52,7 +53,7 @@ def test_peer_selection():
 def test_increase_hop_count():
     r_nodes = get_random_nodes(LOCAL_VIEW_SIZE, first_port=7772)
     view = Counter(dict(map(lambda n: (n[1], n[0] + 1), enumerate(r_nodes))))
-    gsp = gossip.Gossip(node)
+    gsp = gossip.Gossip(node, SERVICE_ID)
 
     assert view + Counter(view.keys()) == gsp.increase_hop_count(view)
 
@@ -60,7 +61,7 @@ def test_increase_hop_count():
 def test_merge():
     r_nodes = get_random_nodes(LOCAL_VIEW_SIZE, first_port=7772)
     view1 = Counter(dict(map(lambda n: (n[1], n[0] + 1), enumerate(r_nodes))))
-    gsp = gossip.Gossip(node)
+    gsp = gossip.Gossip(node, SERVICE_ID)
 
     view2 = view1.copy()
     view2[r_nodes[0]] = 99
@@ -78,12 +79,12 @@ async def test_gossiping():
 
 async def gossiping(amount):
     r_nodes = get_random_nodes(amount, first_port=7772)
-    gsp = gossip.Gossip(node)
+    gsp = gossip.Gossip(node, SERVICE_ID)
     await gsp.start()
 
     r_gsps = []
     for r_node in r_nodes:
-        r_gsp = gossip.Gossip(r_node, [node])
+        r_gsp = gossip.Gossip(r_node, SERVICE_ID, [node])
         await r_gsp.start()
         r_gsps.append(r_gsp)
 

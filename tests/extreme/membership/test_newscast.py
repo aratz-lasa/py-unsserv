@@ -9,6 +9,7 @@ from unsserv.common.gossip.config import GOSSIPING_FREQUENCY, LOCAL_VIEW_SIZE
 
 
 node = Node(("127.0.0.1", 7771))
+SERVICE_ID = "newscast"
 
 
 @pytest.mark.asyncio
@@ -20,13 +21,13 @@ async def test_newscast_join():
 
 async def newscast_join(neighbours_amount):
     newc = newscast.Newscast(node)
-    await newc.join_membership()
+    await newc.join_membership(SERVICE_ID)
 
     r_newcs = []
     r_nodes = get_random_nodes(neighbours_amount)
     for r_node in r_nodes:
         r_newc = newscast.Newscast(r_node)
-        await r_newc.join_membership([node])
+        await r_newc.join_membership(SERVICE_ID, [node])
         r_newcs.append(r_newc)
 
     await asyncio.sleep(GOSSIPING_FREQUENCY * 7)
@@ -72,13 +73,13 @@ async def test_newscast_leave():
 
 async def newscast_leave(neighbours_amount):
     newc = newscast.Newscast(node)
-    await newc.join_membership()
+    await newc.join_membership(SERVICE_ID)
 
     r_newcs = []
     r_nodes = get_random_nodes(neighbours_amount)
     for i, r_node in enumerate(r_nodes):
         r_newc = newscast.Newscast(r_node)
-        await r_newc.join_membership(r_nodes[:i] or [node])
+        await r_newc.join_membership(SERVICE_ID, r_nodes[:i] or [node])
         r_newcs.append(r_newc)
 
     await asyncio.sleep(GOSSIPING_FREQUENCY * 5)
@@ -113,7 +114,7 @@ async def newscast_callback(neighbours_amount):
     callback_event = asyncio.Event()
 
     newc = newscast.Newscast(node)
-    await newc.join_membership()
+    await newc.join_membership(SERVICE_ID)
 
     async def callback(neighbours):
         nonlocal callback_event
@@ -125,7 +126,7 @@ async def newscast_callback(neighbours_amount):
     r_nodes = get_random_nodes(neighbours_amount)
     for r_node in r_nodes:
         r_newc = newscast.Newscast(r_node)
-        await r_newc.join_membership([node])
+        await r_newc.join_membership(SERVICE_ID, [node])
         r_newcs.append(r_newc)
 
     await asyncio.sleep(GOSSIPING_FREQUENCY * 5)

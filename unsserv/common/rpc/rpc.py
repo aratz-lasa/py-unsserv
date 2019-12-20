@@ -5,7 +5,7 @@ from aiorpc import register, serve, RPCClient
 from rpcudp.protocol import RPCProtocol
 
 from unsserv.common.gossip.config import RPC_TIMEOUT
-from unsserv.common.gossip.rpc.abc import IRPC
+from unsserv.common.rpc.abc import IRPC
 from unsserv.data_structures import Message, Node
 
 
@@ -45,8 +45,9 @@ class RpcUdp(RPCProtocol, IRPC):
         )
 
     async def _stop(self):
-        self._transport.close()
-        self._transport = None
+        if self._transport:
+            self._transport.close()
+            self._transport = None
 
     async def call_push(self, destination: Node, message: Message) -> None:
         rpc_result = await self.push(destination.address_info, message)
@@ -81,8 +82,6 @@ class RpcUdp(RPCProtocol, IRPC):
 
 
 class RpcTcp(IRPC):
-    _server: asyncio.AbstractServer
-
     def __init__(self, node: Node):
         IRPC.__init__(self, node)
 
