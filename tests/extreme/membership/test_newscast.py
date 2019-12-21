@@ -98,6 +98,7 @@ async def newscast_leave(neighbours_amount):
         map(lambda p: p[0], all_nodes.most_common()[-nodes_ten_percent:])
     )
 
+    # clean up
     await newc.leave_membership()
     for r_newc in r_newcs:
         await r_newc.leave_membership()
@@ -132,6 +133,7 @@ async def newscast_callback(neighbours_amount):
     await asyncio.sleep(GOSSIPING_FREQUENCY * 5)
     assert callback_event.is_set()
 
+    # clean up
     await newc.leave_membership()
     for r_newc in r_newcs:
         await r_newc.leave_membership()

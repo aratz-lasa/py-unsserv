@@ -49,9 +49,9 @@ class ClusteringService(ABC):
     _callback: NeighboursCallback
 
     def __init__(self, membership: MembershipService, multiplex: bool = True):
+        self._membership = membership
         self.my_node = self._membership.my_node
         self.multiplex = multiplex
-        self._membership = membership
         self._callback = None
 
     @abstractmethod

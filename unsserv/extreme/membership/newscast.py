@@ -9,7 +9,7 @@ class Newscast(MembershipService):
     def __init__(self, node: Node, multiplex: bool = False):
         super().__init__(node, multiplex)
         self._callback_raw_format = False
-        self._gossip: Union[Gossip, None]
+        self._gossip: Union[Gossip, None] = None
 
     async def join_membership(
         self, service_id: Any, bootstrap_nodes: List[Node] = None
@@ -28,6 +28,7 @@ class Newscast(MembershipService):
     async def leave_membership(self) -> None:
         if self._gossip:
             await self._gossip.stop()
+            self._gossip = None
 
     def get_neighbours(self, local_view: bool = False) -> Union[List[Node], View]:
         if not self._gossip:

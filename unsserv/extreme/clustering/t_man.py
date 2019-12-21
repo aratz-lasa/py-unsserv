@@ -17,7 +17,7 @@ class TMan(ClusteringService):
         super().__init__(membership, multiplex)
         self._callback_raw_format = False
         self._ranking_function: RankingFunction
-        self._gossip = Union[Gossip, None]
+        self._gossip: Union[Gossip, None] = None
 
     async def join_cluster(
         self, service_id: Any, ranking_function: RankingFunction
@@ -26,9 +26,12 @@ class TMan(ClusteringService):
             raise RuntimeError("Already joined a cluster")
         self._ranking_function = ranking_function
         random_view_source = partial(self._membership.get_neighbours, True)
+        local_view_nodes = self._membership.get_neighbours()
+        assert isinstance(local_view_nodes, list)
         self._gossip = Gossip(
             self._membership.my_node,
-            self._membership.get_neighbours(),
+            service_id=service_id,
+            local_view_nodes=local_view_nodes,
             peer_selection=PeerSelectionPolicy.HEAD,
             view_selection=ViewSelectionPolicy.HEAD,
             custom_selection_ranking=self._selection_ranking,
@@ -38,10 +41,9 @@ class TMan(ClusteringService):
         await self._gossip.start()
 
     async def leave_cluster(self) -> None:
-        if not self._gossip:
-            raise RuntimeError("Cluster not joined")
         if self._gossip:
             await self._gossip.stop()
+            self._gossip = None
 
     def get_neighbours(self, local_view: bool = False) -> Union[List[Node], View]:
         if not self._gossip:
