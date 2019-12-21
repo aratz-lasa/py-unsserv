@@ -27,7 +27,7 @@ class TMan(ClusteringService):
         self._ranking_function = ranking_function
         random_view_source = partial(self._membership.get_neighbours, True)
         local_view_nodes = self._membership.get_neighbours()
-        assert isinstance(local_view_nodes, list)
+        assert isinstance(local_view_nodes, list)  # for mypy validation
         self._gossip = Gossip(
             self._membership.my_node,
             service_id=service_id,
