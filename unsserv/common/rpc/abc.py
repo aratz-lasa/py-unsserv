@@ -41,6 +41,8 @@ class IRPC(ABC):
     async def _stop(self):
         pass
 
+
+class IGossipRPC(ABC):
     @abstractmethod
     async def call_push(self, destination: Node, message: Message):
         pass

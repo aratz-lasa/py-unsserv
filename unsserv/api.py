@@ -13,13 +13,6 @@ NeighboursCallback = Union[
 
 class MembershipService(ABC):
     my_node: Node
-    multiplex: bool
-    _callback: NeighboursCallback
-
-    def __init__(self, node: Node, multiplex: bool = True):
-        self.my_node = node
-        self.multiplex = multiplex
-        self._callback = None
 
     @abstractmethod
     async def join_membership(
@@ -43,17 +36,6 @@ class MembershipService(ABC):
 
 
 class ClusteringService(ABC):
-    my_node: Node
-    multiplex: bool
-    _membership: MembershipService
-    _callback: NeighboursCallback
-
-    def __init__(self, membership: MembershipService, multiplex: bool = True):
-        self._membership = membership
-        self.my_node = self._membership.my_node
-        self.multiplex = multiplex
-        self._callback = None
-
     @abstractmethod
     async def join_cluster(self, service_id: Any, cluster_configuration: Any) -> None:
         pass

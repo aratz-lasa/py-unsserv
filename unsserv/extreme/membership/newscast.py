@@ -6,8 +6,14 @@ from unsserv.data_structures import Node
 
 
 class Newscast(MembershipService):
-    def __init__(self, node: Node, multiplex: bool = False):
-        super().__init__(node, multiplex)
+    my_node: Node
+    _multiplex: bool
+    _callback: NeighboursCallback
+
+    def __init__(self, node: Node, multiplex: bool = True):
+        self.my_node = node
+        self._multiplex = multiplex
+        self._callback = None
         self._callback_raw_format = False
         self._gossip: Union[Gossip, None] = None
 
@@ -21,7 +27,7 @@ class Newscast(MembershipService):
             service_id=service_id,
             local_view_nodes=bootstrap_nodes,
             local_view_callback=self._local_view_callback,
-            multiplex=self.multiplex,
+            multiplex=self._multiplex,
         )
         await self._gossip.start()
 

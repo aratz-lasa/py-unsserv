@@ -20,10 +20,10 @@ def test_view_selection():
     gsp = gossip.Gossip(node, SERVICE_ID)
 
     gsp.view_selection = gossip.ViewSelectionPolicy.HEAD
-    assert set(r_nodes[:LOCAL_VIEW_SIZE]) == set(gsp.select_view(view).keys())
+    assert set(r_nodes[:LOCAL_VIEW_SIZE]) == set(gsp._select_view(view).keys())
 
     gsp.view_selection = gossip.ViewSelectionPolicy.TAIL
-    assert set(r_nodes[LOCAL_VIEW_SIZE:]) == set(gsp.select_view(view).keys())
+    assert set(r_nodes[LOCAL_VIEW_SIZE:]) == set(gsp._select_view(view).keys())
 
     def ranking(node: Node):
         return node.address_info[1] % 2
@@ -34,7 +34,7 @@ def test_view_selection():
     gsp.view_selection = gossip.ViewSelectionPolicy.HEAD
     gsp.custom_selection_ranking = selection_ranking
     assert set(sorted(r_nodes, key=ranking)[:LOCAL_VIEW_SIZE]) == set(
-        gsp.select_view(view).keys()
+        gsp._select_view(view).keys()
     )
 
 
@@ -44,10 +44,10 @@ def test_peer_selection():
     gsp = gossip.Gossip(node, SERVICE_ID)
 
     gsp.peer_selection = gossip.PeerSelectionPolicy.HEAD
-    assert r_nodes[0] == gsp.select_peer(view)
+    assert r_nodes[0] == gsp._select_peer(view)
 
     gsp.peer_selection = gossip.PeerSelectionPolicy.TAIL
-    assert r_nodes[-1] == gsp.select_peer(view)
+    assert r_nodes[-1] == gsp._select_peer(view)
 
 
 def test_increase_hop_count():
@@ -55,7 +55,7 @@ def test_increase_hop_count():
     view = Counter(dict(map(lambda n: (n[1], n[0] + 1), enumerate(r_nodes))))
     gsp = gossip.Gossip(node, SERVICE_ID)
 
-    assert view + Counter(view.keys()) == gsp.increase_hop_count(view)
+    assert view + Counter(view.keys()) == gsp._increase_hop_count(view)
 
 
 def test_merge():
@@ -67,7 +67,7 @@ def test_merge():
     view2[r_nodes[0]] = 99
 
     assert view1 != view2
-    assert view1 == gsp.merge(view1, view2)
+    assert view1 == gsp._merge(view1, view2)
 
 
 @pytest.mark.asyncio

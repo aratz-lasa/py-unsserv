@@ -13,8 +13,16 @@ RankingFunction = Callable[[Node], Any]
 
 
 class TMan(ClusteringService):
+    my_node: Node
+    multiplex: bool
+    _membership: MembershipService
+    _callback: NeighboursCallback
+
     def __init__(self, membership: MembershipService, multiplex: bool = True):
-        super().__init__(membership, multiplex)
+        self._membership = membership
+        self.my_node = self._membership.my_node
+        self.multiplex = multiplex
+        self._callback = None
         self._callback_raw_format = False
         self._ranking_function: RankingFunction
         self._gossip: Union[Gossip, None] = None

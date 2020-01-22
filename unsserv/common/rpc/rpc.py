@@ -5,7 +5,7 @@ from aiorpc import register, serve, RPCClient
 from rpcudp.protocol import RPCProtocol
 
 from unsserv.common.gossip.config import RPC_TIMEOUT
-from unsserv.common.rpc.abc import IRPC
+from unsserv.common.rpc.abc import IRPC, IGossipRPC
 from unsserv.data_structures import Message, Node
 
 
@@ -31,7 +31,7 @@ class RPC:
         raise ValueError(f"Not a valid RPC type: {RPC.rpc_types}")
 
 
-class RpcUdp(RPCProtocol, IRPC):
+class RpcUdp(RPCProtocol, IRPC, IGossipRPC):
     def __init__(self, node: Node):
         RPCProtocol.__init__(self, RPC_TIMEOUT)
         IRPC.__init__(self, node)
@@ -81,7 +81,7 @@ class RpcUdp(RPCProtocol, IRPC):
         return result[1]
 
 
-class RpcTcp(IRPC):
+class RpcTcp(IRPC, IGossipRPC):
     def __init__(self, node: Node):
         IRPC.__init__(self, node)
 

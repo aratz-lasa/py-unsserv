@@ -1,9 +1,10 @@
 import asyncio
 import math
 import random
+from unsserv.common.gossip.subcriber import IGossipSubscriber
 from collections import Counter
 from enum import Enum, auto
-from typing import List, Callable, Any, Coroutine, Optional, Union
+from typing import List, Callable, Any, Coroutine, Optional, Union, Dict
 
 from unsserv.api import View
 from unsserv.common.gossip.config import (
@@ -12,7 +13,8 @@ from unsserv.common.gossip.config import (
     GOSSIPING_FREQUENCY,
 )
 from unsserv.common.rpc.rpc import RPC
-from unsserv.data_structures import Node, Message
+from unsserv.data_structures import Message
+from unsserv.data_structures import Node
 
 LocalViewCallback = Callable[[View], Coroutine[Any, Any, None]]
 CustomSelectionRanking = Callable[[View], List[Node]]
@@ -73,9 +75,11 @@ class Gossip:
             self.my_node, type=transport_protocol, multiplex=multiplex
         )
 
+        self.subscribers: List[IGossipSubscriber] = []
+
     async def start(self):
-        await self.rpc.register_service(self.service_id, self.reactive_process)
-        self._proactive_task = asyncio.create_task(self.proactive_process())
+        await self.rpc.register_service(self.service_id, self._reactive_process)
+        self._proactive_task = asyncio.create_task(self._proactive_process())
 
     async def stop(self):
         await self.rpc.unregister_service(self.service_id)
@@ -87,17 +91,24 @@ class Gossip:
             except asyncio.CancelledError:
                 pass
 
-    async def proactive_process(self):
+    def subscribe(self, subscriber: IGossipSubscriber):
+        self.subscribers.append(subscriber)
+
+    def unsubscribe(self, subscriber: IGossipSubscriber):
+        self.subscribers.remove(subscriber)
+
+    async def _proactive_process(self):
         while True:
             await asyncio.sleep(self.gossiping_frequency)
-            peer = self.select_peer(self.local_view)
+            peer = self._select_peer(self.local_view)
             if not peer:  # Empty Local view
                 continue
             push_view = Counter()  # if PULL, empty view
             if self.view_propagation is not ViewPropagationPolicy.PULL:
                 my_descriptor = Counter({self.my_node: 0})
-                push_view = self.merge(my_descriptor, self.local_view)
-            data = {DATA_FIELD_VIEW: push_view}
+                push_view = self._merge(my_descriptor, self.local_view)
+            subscribers_data = await self._retrieve_from_subscribers()
+            data = {DATA_FIELD_VIEW: push_view, **subscribers_data}
             push_message = Message(self.my_node, self.service_id, data)
             if self.view_propagation is ViewPropagationPolicy.PUSH:
                 try:
@@ -120,33 +131,39 @@ class Gossip:
                         pass
                     continue
                 view = _decode_view(push_message.data[DATA_FIELD_VIEW])
-                view = self.increase_hop_count(view)
-                buffer = self.merge(view, self.local_view)
+                view = self._increase_hop_count(view)
+                buffer = self._merge(view, self.local_view)
                 if self.get_external_view:
-                    buffer = self.merge(view, self.get_external_view())
+                    buffer = self._merge(view, self.get_external_view())
 
-                new_view = self.select_view(buffer)
-                await self.try_call_callback(new_view)
+                new_view = self._select_view(buffer)
+                await self._try_call_callback(new_view)
                 self.local_view = new_view
 
-    async def reactive_process(self, message: Message) -> Union[None, Message]:
+    async def _reactive_process(self, message: Message) -> Union[None, Message]:
         view = _decode_view(message.data[DATA_FIELD_VIEW])
-        view = self.increase_hop_count(view)
+        view = self._increase_hop_count(view)
         pull_return_message = None
         if self.view_propagation is not ViewPropagationPolicy.PUSH:
             my_descriptor = Counter({self.my_node: 0})
-            data = {DATA_FIELD_VIEW: self.merge(my_descriptor, self.local_view)}
+            subscribers_data = await self._retrieve_from_subscribers()
+            data = {
+                DATA_FIELD_VIEW: self._merge(my_descriptor, self.local_view),
+                **subscribers_data,
+            }
             pull_return_message = Message(self.my_node, self.service_id, data)
-        buffer = self.merge(view, self.local_view)
+        buffer = self._merge(view, self.local_view)
         if self.get_external_view:
-            buffer = self.merge(view, self.get_external_view())
+            buffer = self._merge(view, self.get_external_view())
 
-        new_view = self.select_view(buffer)
-        await self.try_call_callback(new_view)
+        new_view = self._select_view(buffer)
+        await self._try_call_callback(new_view)
         self.local_view = new_view
+
+        await self._deliver_to_subscribers(message)
         return pull_return_message
 
-    def select_peer(self, view: View) -> Optional[Node]:
+    def _select_peer(self, view: View) -> Optional[Node]:
         if self.custom_selection_ranking:
             ordered_nodes = self.custom_selection_ranking(view)
         else:
@@ -159,7 +176,7 @@ class Gossip:
             return ordered_nodes[-1] if view else None
         raise AttributeError("Invalid Peer Selection policy")
 
-    def select_view(self, view: View) -> View:
+    def _select_view(self, view: View) -> View:
         if self.my_node in view:
             view.pop(self.my_node)
         remove_amount = max(len(view) - self.local_view_size, 0)
@@ -184,10 +201,10 @@ class Gossip:
             raise AttributeError("Invalid View Selection policy")
         return new_view
 
-    def increase_hop_count(self, view: View) -> View:
+    def _increase_hop_count(self, view: View) -> View:
         return view + Counter(view.keys())
 
-    def merge(self, view1: View, view2: View) -> View:
+    def _merge(self, view1: View, view2: View) -> View:
         all_nodes = set(list(view1.keys()) + list(set(view2.keys())))
         merged_view: Counter = Counter()
         for node in all_nodes:
@@ -198,7 +215,18 @@ class Gossip:
             )
         return merged_view
 
-    async def try_call_callback(self, new_view):
+    async def _retrieve_from_subscribers(self):
+        data: Dict = {}
+        for subscriber in self.subscribers:
+            key, value = await subscriber.get_data()
+            data[key] = value
+        return data
+
+    async def _deliver_to_subscribers(self, message: Message):
+        for subscriber in self.subscribers:
+            await subscriber.new_message(message)
+
+    async def _try_call_callback(self, new_view):
         if set(new_view.keys()) != set(self.local_view.keys()):
             if self.local_view_callback:
                 await self.local_view_callback(new_view)
