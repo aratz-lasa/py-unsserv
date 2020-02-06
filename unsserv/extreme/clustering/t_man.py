@@ -19,17 +19,15 @@ class TMan(ClusteringService):
     _callback: NeighboursCallback
 
     def __init__(self, membership: MembershipService, multiplex: bool = True):
-        self._membership = membership
-        self.my_node = self._membership.my_node
+        self.my_node = membership.my_node
         self.multiplex = multiplex
+        self._membership = membership
         self._callback = None
         self._callback_raw_format = False
         self._ranking_function: RankingFunction
         self._gossip: Union[Gossip, None] = None
 
-    async def join_cluster(
-        self, service_id: Any, ranking_function: RankingFunction
-    ) -> None:
+    async def join(self, service_id: Any, ranking_function: RankingFunction) -> None:
         if self._gossip:
             raise RuntimeError("Already joined a cluster")
         self._ranking_function = ranking_function
@@ -48,7 +46,7 @@ class TMan(ClusteringService):
         )
         await self._gossip.start()
 
-    async def leave_cluster(self) -> None:
+    async def leave(self) -> None:
         if self._gossip:
             await self._gossip.stop()
             self._gossip = None

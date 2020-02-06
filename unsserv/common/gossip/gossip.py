@@ -12,7 +12,7 @@ from unsserv.common.gossip.config import (
     LOCAL_VIEW_SIZE,
     GOSSIPING_FREQUENCY,
 )
-from unsserv.common.rpc.rpc import RPC
+from unsserv.common.rpc.rpc import RPC, RpcBase
 from unsserv.data_structures import Message
 from unsserv.data_structures import Node
 
@@ -39,6 +39,28 @@ class ViewPropagationPolicy(Enum):
     PUSHPULL = auto()
 
 
+class GossipProtocol(RpcBase):
+    async def call_push(self, destination: Node, message: Message) -> None:
+        rpc_result = await self.push(destination.address_info, message)
+        self._handle_call_response(rpc_result)
+
+    async def call_pushpull(self, destination: Node, message: Message) -> Message:
+        rpc_result = await self.pushpull(destination.address_info, message)
+        return self.decode_message(self._handle_call_response(rpc_result))
+
+    async def rpc_push(self, node: Node, raw_message: List) -> None:
+        message = self.decode_message(raw_message)
+        await self.registered_services[message.service_id](message)
+
+    async def rpc_pushpull(self, node: Node, raw_message: List) -> Message:
+        message = self.decode_message(raw_message)
+        pull_return_message = await self.registered_services[message.service_id](
+            message
+        )
+        assert pull_return_message
+        return pull_return_message
+
+
 class Gossip:
     my_node: Node
     local_view: View
@@ -56,7 +78,6 @@ class Gossip:
         custom_selection_ranking: CustomSelectionRanking = None,
         local_view_size: int = LOCAL_VIEW_SIZE,
         gossiping_frequency: float = GOSSIPING_FREQUENCY,
-        transport_protocol: str = "udp",
         multiplex: bool = True,
     ):
         self.my_node = my_node
@@ -72,7 +93,7 @@ class Gossip:
         self.local_view_size = local_view_size
         self.gossiping_frequency = gossiping_frequency
         self.rpc = RPC.get_rpc(
-            self.my_node, type=transport_protocol, multiplex=multiplex
+            self.my_node, ProtocolClass=GossipProtocol, multiplex=multiplex
         )
 
         self.subscribers: List[IGossipSubscriber] = []

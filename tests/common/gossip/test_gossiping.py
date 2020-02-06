@@ -1,14 +1,14 @@
 import asyncio
 from collections import Counter
+from typing import List, Tuple, Any
 
 import pytest
-from typing import List
 
 from tests.utils import get_random_nodes
-from unsserv.common.gossip import gossip
+from unsserv.common.gossip import gossip, subcriber
 from unsserv.common.gossip.config import GOSSIPING_FREQUENCY
 from unsserv.common.gossip.gossip import LOCAL_VIEW_SIZE, View
-from unsserv.data_structures import Node
+from unsserv.data_structures import Node, Message
 
 node = Node(("127.0.0.1", 7771))
 SERVICE_ID = "gossip"
@@ -96,3 +96,36 @@ async def gossiping(amount):
     await gsp.stop()
     for r_gsp in r_gsps:
         await r_gsp.stop()
+
+
+@pytest.mark.asyncio
+async def test_subscriber():
+    class Subscriber(subcriber.IGossipSubscriber):
+        service_id = "sub"
+
+        def __init__(self, my_node, expected_node):
+            self.my_node = my_node
+            self.expected_node = expected_node
+
+        async def new_message(self, message: Message):
+            node = Node(*message.data[Subscriber.service_id])
+            assert node == self.expected_node
+
+        async def get_data(self) -> Tuple[Any, Any]:
+            return Subscriber.service_id, self.my_node
+
+    r_node = get_random_nodes(1, first_port=7772)[0]
+    gsp = gossip.Gossip(node, SERVICE_ID)
+    sub = Subscriber(node, r_node)
+    gsp.subscribe(sub)
+    await gsp.start()
+
+    r_gsp = gossip.Gossip(r_node, SERVICE_ID, [node])
+    sub = Subscriber(r_node, node)
+    gsp.subscribe(sub)
+    await r_gsp.start()
+
+    await asyncio.sleep(GOSSIPING_FREQUENCY * 3)
+
+    await gsp.stop()
+    await r_gsp.stop()

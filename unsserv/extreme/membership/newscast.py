@@ -17,9 +17,7 @@ class Newscast(MembershipService):
         self._callback_raw_format = False
         self._gossip: Union[Gossip, None] = None
 
-    async def join_membership(
-        self, service_id: Any, bootstrap_nodes: List[Node] = None
-    ):
+    async def join(self, service_id: Any, bootstrap_nodes: List[Node] = None):
         if self._gossip:
             raise RuntimeError("Already joined a membership")
         self._gossip = Gossip(
@@ -31,7 +29,7 @@ class Newscast(MembershipService):
         )
         await self._gossip.start()
 
-    async def leave_membership(self) -> None:
+    async def leave(self) -> None:
         if self._gossip:
             await self._gossip.stop()
             self._gossip = None

@@ -12,7 +12,10 @@ UnsServ implemented in Python.
 ## UnsServ
 UnsServ is a modular unstructured peer-to-peer solution composed 
 of independent services that aim to provide basicfunctionalities,
- designed for using them as underlying technology.
+designed for using them as underlying technology.
+
+## Paper
+[Original UnsServ academic paper](https://aratz.lasa.eus/file/unsserv.pdf)
 
 ### What is unstructured peer-to-peer?
 Peer-to-peer overlays canbe classified into two categories:
@@ -104,6 +107,3 @@ structured deterministic queries are carried out.
 ## Usage
 ```python
 ```
-
-## References
-[Original UnsServ academic paper](https://aratz.lasa.eus/file/unsserv.pdf)

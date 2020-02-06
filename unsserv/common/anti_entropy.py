@@ -1,9 +1,15 @@
 from typing import Any
 
-from unsserv.api import AggregationService, AggregateCallback
+from unsserv.api import AggregationService, AggregateCallback, MembershipService
 
 
 class AntiEntropyAggregation(AggregationService):
+    def __init__(self, membership: MembershipService, multiplex: bool = True):
+        # todo
+        self.my_node = membership.my_node
+        self.multiplex = multiplex
+        self._membership = membership
+
     async def join_aggregation(self, aggregation_configuration: Any) -> None:
         pass  # todo
 

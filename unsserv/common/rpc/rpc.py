@@ -1,40 +1,43 @@
 import asyncio
-from typing import Dict, Set, Tuple, Any, List
+from typing import Callable, Any, Coroutine, Union, Dict
+from typing import Tuple, List
 
-from aiorpc import register, serve, RPCClient
 from rpcudp.protocol import RPCProtocol
-
 from unsserv.common.gossip.config import RPC_TIMEOUT
-from unsserv.common.rpc.abc import IRPC, IGossipRPC
-from unsserv.data_structures import Message, Node
+from unsserv.data_structures import Message
+from unsserv.data_structures import Node
+
+RpcCallback = Callable[[Message], Coroutine[Any, Any, Union[None, Message]]]
 
 
 class RPC:
     rpc_register: Dict = {}
-    rpc_types: Set = {"udp", "tcp"}
 
     @staticmethod
-    def get_rpc(node, type: str = "udp", multiplex: bool = False):
+    def get_rpc(node, ProtocolClass: type = None, multiplex: bool = False):
         if not multiplex and node in RPC.rpc_register:
             raise ConnectionError("RPC address already in use")
-        type = type.lower()
-        if type not in RPC.rpc_types:
-            raise ValueError(f"Not a valid RPC type: {RPC.rpc_types}")
-        return RPC.rpc_register.get(node, RPC._new_rpc(node, type))
+        rpc = RPC.rpc_register.get(node, RpcBase(node))
+        if ProtocolClass:
+            assert isinstance(ProtocolClass, type)
 
-    @staticmethod
-    def _new_rpc(node: Node, type: str) -> IRPC:
-        if type == "udp":
-            return RpcUdp(node)
-        elif type == "tcp":
-            return RpcTcp(node)
-        raise ValueError(f"Not a valid RPC type: {RPC.rpc_types}")
+            class NewRPC(ProtocolClass, rpc.__class__):  # type: ignore
+                pass
+
+            rpc.__class__ = NewRPC
+
+        return rpc
 
 
-class RpcUdp(RPCProtocol, IRPC, IGossipRPC):
+class RpcBase(RPCProtocol):
+    my_node: Node
+    registered_services: Dict[Node, RpcCallback]
+
     def __init__(self, node: Node):
         RPCProtocol.__init__(self, RPC_TIMEOUT)
-        IRPC.__init__(self, node)
+
+        self.my_node = node
+        self.registered_services = {}
 
     async def _start(self):
         (
@@ -49,25 +52,24 @@ class RpcUdp(RPCProtocol, IRPC, IGossipRPC):
             self._transport.close()
             self._transport = None
 
-    async def call_push(self, destination: Node, message: Message) -> None:
-        rpc_result = await self.push(destination.address_info, message)
-        self._handle_call_response(rpc_result)
+    async def register_service(self, service_id: Any, callback: RpcCallback):
+        if service_id in self.registered_services:
+            raise ValueError("Service ID already registered")
+        self.registered_services[service_id] = callback
 
-    async def call_pushpull(self, destination: Node, message: Message) -> Message:
-        rpc_result = await self.pushpull(destination.address_info, message)
-        return decode_message(self._handle_call_response(rpc_result))
+        if (
+            len(self.registered_services) == 1
+        ):  # activate when first service is registered
+            await self._start()
 
-    async def rpc_push(self, node: Node, raw_message: List) -> None:
-        message = decode_message(raw_message)
-        await self.registered_services[message.service_id](message)
+    async def unregister_service(self, service_id: Any):
+        if service_id in self.registered_services:
+            del self.registered_services[service_id]
 
-    async def rpc_pushpull(self, node: Node, raw_message: List) -> Message:
-        message = decode_message(raw_message)
-        pull_return_message = await self.registered_services[message.service_id](
-            message
-        )
-        assert pull_return_message
-        return pull_return_message
+        if (
+            len(self.registered_services) == 0
+        ):  # deactivate when last service is unregistered
+            await self._stop()
 
     def _handle_call_response(self, result: Tuple[int, Any]) -> Any:
         """
@@ -80,47 +82,10 @@ class RpcUdp(RPCProtocol, IRPC, IGossipRPC):
             )
         return result[1]
 
-
-class RpcTcp(IRPC, IGossipRPC):
-    def __init__(self, node: Node):
-        IRPC.__init__(self, node)
-
-    async def _start(self):
-        register("push", self.rpc_push)
-        register("pushpull", self.rpc_pushpull)
-        self._server = await asyncio.start_server(serve, *self.my_node.address_info)
-
-    async def _stop(self):
-        self._server.close()
-        await self._server.wait_closed()
-        self._server = None
-
-    async def call_push(self, destination: Node, message: Message):
-        async with RPCClient(*destination.address_info) as client:
-            await client.call("push", message)
-
-    async def call_pushpull(self, destination: Node, message: Message):
-        async with RPCClient(*destination.address_info) as client:
-            pull_message = await client.call("pushpull", message)
-        return pull_message
-
-    async def rpc_push(self, raw_message: List):
-        message = decode_message(raw_message)
-        await self.registered_services[message.service_id](message)
-
-    async def rpc_pushpull(self, raw_message: List) -> Message:
-        message = decode_message(raw_message)
-        pull_return_message = await self.registered_services[message.service_id](
-            message
-        )
-        assert pull_return_message
-        return pull_return_message
-
-
-def decode_message(raw_message: List) -> Message:
-    node = tuple(raw_message[0])
-    node = Node(tuple(node[0]), tuple(node[1]))
-    return Message(node, raw_message[1], raw_message[2])
+    def decode_message(self, raw_message: List) -> Message:
+        node = tuple(raw_message[0])
+        node = Node(tuple(node[0]), tuple(node[1]))
+        return Message(node, raw_message[1], raw_message[2])
 
 
 # todo: improve encoding decoding

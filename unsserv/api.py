@@ -1,8 +1,8 @@
-from typing import Callable, List, Coroutine, Any, Union
 from abc import ABC, abstractmethod
+from collections import Counter
+from typing import Callable, List, Coroutine, Any, Union
 
 from unsserv.data_structures import Node
-from collections import Counter
 
 View = Counter
 AggregateCallback = Callable[[Any], Coroutine[Any, Any, None]]
@@ -15,13 +15,11 @@ class MembershipService(ABC):
     my_node: Node
 
     @abstractmethod
-    async def join_membership(
-        self, service_id: Any, bootstrap_nodes: List[Node] = None
-    ):
+    async def join(self, service_id: Any, configuration: Any):
         pass
 
     @abstractmethod
-    async def leave_membership(self) -> None:
+    async def leave(self) -> None:
         pass
 
     @abstractmethod
@@ -35,24 +33,8 @@ class MembershipService(ABC):
         pass
 
 
-class ClusteringService(ABC):
-    @abstractmethod
-    async def join_cluster(self, service_id: Any, cluster_configuration: Any) -> None:
-        pass
-
-    @abstractmethod
-    async def leave_cluster(self) -> None:
-        pass
-
-    @abstractmethod
-    def get_neighbours(self, local_view: bool = False) -> Union[List[Node], View]:
-        pass
-
-    @abstractmethod
-    def set_neighbours_callback(
-        self, callback: NeighboursCallback, local_view: bool = False
-    ) -> None:
-        pass
+class ClusteringService(MembershipService):
+    pass
 
 
 class AggregationService(ABC):

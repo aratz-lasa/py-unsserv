@@ -27,13 +27,13 @@ async def test_join_tman():
 
 async def init_membership(amount):
     newc = newscast.Newscast(node)
-    await newc.join_membership(M_SERVICE_ID)
+    await newc.join(M_SERVICE_ID)
 
     r_newcs = []
     r_nodes = get_random_nodes(amount)
     for r_node in r_nodes:
         r_newc = newscast.Newscast(r_node)
-        await r_newc.join_membership(M_SERVICE_ID, [node])
+        await r_newc.join(M_SERVICE_ID, [node])
         r_newcs.append(r_newc)
     await asyncio.sleep(GOSSIPING_FREQUENCY * 7)
     return newc, r_newcs
@@ -43,11 +43,11 @@ async def join_tman(amount):
     newc, r_newcs = await init_membership(amount)
 
     tman = TMan(newc)
-    await tman.join_cluster(C_SERVICE_ID, port_distance)
+    await tman.join(C_SERVICE_ID, port_distance)
     r_tmans = []
     for r_newc in r_newcs:
         r_tman = TMan(r_newc)
-        await r_tman.join_cluster(C_SERVICE_ID, port_distance)
+        await r_tman.join(C_SERVICE_ID, port_distance)
         r_tmans.append(r_tman)
 
     await asyncio.sleep(GOSSIPING_FREQUENCY * 25)
@@ -61,13 +61,13 @@ async def join_tman(amount):
     )
 
     # clean up
-    await tman.leave_cluster()
+    await tman.leave()
     for r_tman in r_tmans:
-        await r_tman.leave_cluster()
+        await r_tman.leave()
 
-    await newc.leave_membership()
+    await newc.leave()
     for r_newc in r_newcs:
-        await r_newc.leave_membership()
+        await r_newc.leave()
 
 
 @pytest.mark.asyncio
@@ -81,15 +81,15 @@ async def leave_tman(amount):
     newc, r_newcs = await init_membership(amount)
 
     tman = TMan(newc)
-    await tman.join_cluster(C_SERVICE_ID, port_distance)
+    await tman.join(C_SERVICE_ID, port_distance)
     r_tmans = []
     for r_newc in r_newcs:
         r_tman = TMan(r_newc)
-        await r_tman.join_cluster(C_SERVICE_ID, port_distance)
+        await r_tman.join(C_SERVICE_ID, port_distance)
         r_tmans.append(r_tman)
 
     await asyncio.sleep(GOSSIPING_FREQUENCY * 7)
-    await tman.leave_cluster()
+    await tman.leave()
     await asyncio.sleep(GOSSIPING_FREQUENCY * 25)
 
     all_nodes = Counter(
@@ -105,13 +105,13 @@ async def leave_tman(amount):
     )
 
     # clean up
-    await tman.leave_cluster()
+    await tman.leave()
     for r_tman in r_tmans:
-        await r_tman.leave_cluster()
+        await r_tman.leave()
 
-    await newc.leave_membership()
+    await newc.leave()
     for r_newc in r_newcs:
-        await r_newc.leave_membership()
+        await r_newc.leave()
 
 
 async def newscast_callback(neighbours_amount):
@@ -125,22 +125,22 @@ async def newscast_callback(neighbours_amount):
     newc, r_newcs = await init_membership(neighbours_amount)
 
     tman = TMan(newc)
-    await tman.join_cluster(C_SERVICE_ID, port_distance)
+    await tman.join(C_SERVICE_ID, port_distance)
     tman.set_neighbours_callback(callback, local_view=True)
     r_tmans = []
     for r_newc in r_newcs:
         r_tman = TMan(r_newc)
-        await r_tman.join_cluster(C_SERVICE_ID, port_distance)
+        await r_tman.join(C_SERVICE_ID, port_distance)
         r_tmans.append(r_tman)
 
     await asyncio.sleep(GOSSIPING_FREQUENCY * 5)
     assert callback_event.is_set()
 
     # clean up
-    await tman.leave_cluster()
+    await tman.leave()
     for r_tman in r_tmans:
-        await r_tman.leave_cluster()
+        await r_tman.leave()
 
-    await newc.leave_membership()
+    await newc.leave()
     for r_newc in r_newcs:
-        await r_newc.leave_membership()
+        await r_newc.leave()
