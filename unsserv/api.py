@@ -39,7 +39,9 @@ class ClusteringService(MembershipService):
 
 class AggregationService(ABC):
     @abstractmethod
-    async def join_aggregation(self, aggregation_configuration: Any) -> None:
+    async def join_aggregation(
+        self, service_id: str, aggregation_configuration: Any
+    ) -> None:
         pass
 
     @abstractmethod

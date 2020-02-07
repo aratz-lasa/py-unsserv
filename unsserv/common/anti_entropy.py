@@ -1,23 +1,70 @@
-from typing import Any
+from enum import Enum, auto
+from statistics import mean
+from typing import Any, Tuple, Callable, Union, Dict
 
 from unsserv.api import AggregationService, AggregateCallback, MembershipService
+from unsserv.common.gossip.gossip import Gossip
+from unsserv.common.gossip.subcriber import IGossipSubscriber
+from unsserv.data_structures import Message
 
 
-class AntiEntropyAggregation(AggregationService):
+class AggregateType(Enum):
+    MEAN = auto()
+    MAX = auto()
+    MIN = auto()
+
+
+aggregate_functions: Dict[AggregateType, Callable] = {
+    AggregateType.MEAN: mean,
+    AggregateType.MAX: max,
+    AggregateType.MIN: min,
+}
+
+
+class AntiEntropy(AggregationService, IGossipSubscriber):
     def __init__(self, membership: MembershipService, multiplex: bool = True):
-        # todo
         self.my_node = membership.my_node
         self.multiplex = multiplex
-        self._membership = membership
+        if not hasattr(membership, "_gossip"):
+            raise ValueError(
+                "Invalid membership service. "
+                "Membership must contain a '_gossip' attribute"
+            )
+        self._gossip: Gossip = getattr(membership, "_gossip")
+        self.service_id: str
+        self._aggregate_value: Any = None
+        self._aggregate_type: Union[AggregateType, None] = None
+        self._aggregate_func: Union[Callable, None] = None
+        self._callback: Union[AggregateCallback, None] = None
 
-    async def join_aggregation(self, aggregation_configuration: Any) -> None:
-        pass  # todo
+    async def join_aggregation(
+        self, service_id: str, aggregation_configuration: Tuple
+    ) -> None:
+        if self._aggregate_type:
+            raise RuntimeError("Already started aggregating")
+        self.service_id = service_id
+        self._aggregate_type, self._aggregate_value = aggregation_configuration
+        self._aggregate_func = aggregate_functions[self._aggregate_type]
+        self._gossip.subscribe(self)
 
     async def leave_aggregation(self) -> None:
-        pass  # todo
+        self._aggregate_type = None
+        self._aggregate_value = None
+        self._gossip.unsubscribe(self)
 
     async def get_aggregate(self) -> Any:
-        pass  # todo
+        return self._aggregate_value
 
     def set_aggregate_callback(self, callback: AggregateCallback) -> None:
-        pass  # todo
+        self._callback = callback
+
+    async def new_message(self, message: Message):
+        assert callable(self._aggregate_func)
+        neighbor_aggregate = message.data.get(self.service_id, None)
+        self._aggregate_value = self._aggregate_func(
+            self._aggregate_value, neighbor_aggregate
+        )
+        await self._callback(self._aggregate_value)
+
+    async def get_data(self) -> Tuple[Any, Any]:
+        return self.service_id, self._aggregate_value
