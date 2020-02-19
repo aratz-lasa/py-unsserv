@@ -53,6 +53,14 @@ class AggregationService(ABC):
 
 class SamplingService(ABC):
     @abstractmethod
+    async def join_sampling(self, service_id: str) -> None:
+        pass
+
+    @abstractmethod
+    async def leave_sampling(self) -> None:
+        pass
+
+    @abstractmethod
     async def get_sample(self) -> Node:
         pass
 
