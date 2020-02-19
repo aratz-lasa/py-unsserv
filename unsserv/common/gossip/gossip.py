@@ -1,20 +1,20 @@
 import asyncio
 import math
 import random
-from unsserv.common.gossip.subcriber import IGossipSubscriber
+from unsserv.common.gossip.gossip_subcriber_interface import IGossipSubscriber
 from collections import Counter
 from enum import Enum, auto
 from typing import List, Callable, Any, Coroutine, Optional, Union, Dict
 
-from unsserv.api import View
+from unsserv.common.utils.api import View
 from unsserv.common.gossip.config import (
     DATA_FIELD_VIEW,
     LOCAL_VIEW_SIZE,
     GOSSIPING_FREQUENCY,
 )
 from unsserv.common.rpc.rpc import RPC, RpcBase
-from unsserv.data_structures import Message
-from unsserv.data_structures import Node
+from unsserv.common.utils.data_structures import Message
+from unsserv.common.utils.data_structures import Node
 
 LocalViewCallback = Callable[[View], Coroutine[Any, Any, None]]
 CustomSelectionRanking = Callable[[View], List[Node]]

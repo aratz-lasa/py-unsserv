@@ -1,8 +1,8 @@
 from typing import Union, Any, List
 
-from unsserv.api import MembershipService, NeighboursCallback
+from unsserv.common.utils.api import MembershipService, NeighboursCallback
 from unsserv.common.gossip.gossip import Gossip, View
-from unsserv.data_structures import Node
+from unsserv.common.utils.data_structures import Node
 
 
 class Newscast(MembershipService):

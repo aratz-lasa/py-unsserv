@@ -1,13 +1,13 @@
 from typing import List, Callable, Any, Union
 from functools import partial
-from unsserv.api import ClusteringService, MembershipService, NeighboursCallback
+from unsserv.common.utils.api import ClusteringService, MembershipService, NeighboursCallback
 from unsserv.common.gossip.gossip import (
     View,
     Gossip,
     PeerSelectionPolicy,
     ViewSelectionPolicy,
 )
-from unsserv.data_structures import Node
+from unsserv.common.utils.data_structures import Node
 
 RankingFunction = Callable[[Node], Any]
 

@@ -1,14 +1,8 @@
 from abc import ABC, abstractmethod
-from collections import Counter
-from typing import Callable, List, Coroutine, Any, Union
+from typing import List, Any, Union
 
-from unsserv.data_structures import Node
-
-View = Counter
-AggregateCallback = Callable[[Any], Coroutine[Any, Any, None]]
-NeighboursCallback = Union[
-    Callable[[Union[List[Node], View]], Coroutine[Any, Any, None]], None
-]
+from unsserv.common.utils.data_structures import Node
+from unsserv.common.utils.typing import NeighboursCallback, View, AggregateCallback
 
 
 class MembershipService(ABC):
@@ -28,7 +22,7 @@ class MembershipService(ABC):
 
     @abstractmethod
     def set_neighbours_callback(
-        self, callback: NeighboursCallback, local_view: bool = False
+            self, callback: NeighboursCallback, local_view: bool = False
     ) -> None:
         pass
 
@@ -40,7 +34,7 @@ class ClusteringService(MembershipService):
 class AggregationService(ABC):
     @abstractmethod
     async def join_aggregation(
-        self, service_id: str, aggregation_configuration: Any
+            self, service_id: str, aggregation_configuration: Any
     ) -> None:
         pass
 

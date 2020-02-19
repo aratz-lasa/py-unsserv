@@ -5,7 +5,7 @@ import pytest
 from tests.utils import get_random_nodes
 from unsserv.common.anti_entropy import AntiEntropy, AggregateType
 from unsserv.common.gossip.config import GOSSIPING_FREQUENCY
-from unsserv.data_structures import Node
+from unsserv.common.utils.data_structures import Node
 from unsserv.extreme.membership import newscast
 
 node = Node(("127.0.0.1", 7771))

@@ -5,10 +5,10 @@ from typing import List, Tuple, Any
 import pytest
 
 from tests.utils import get_random_nodes
-from unsserv.common.gossip import gossip, subcriber
+from unsserv.common.gossip import gossip, gossip_subcriber_interface
 from unsserv.common.gossip.config import GOSSIPING_FREQUENCY
 from unsserv.common.gossip.gossip import LOCAL_VIEW_SIZE, View
-from unsserv.data_structures import Node, Message
+from unsserv.common.utils.data_structures import Node, Message
 
 node = Node(("127.0.0.1", 7771))
 SERVICE_ID = "gossip"
@@ -100,7 +100,7 @@ async def gossiping(amount):
 
 @pytest.mark.asyncio
 async def test_subscriber():
-    class Subscriber(subcriber.IGossipSubscriber):
+    class Subscriber(gossip_subcriber_interface.IGossipSubscriber):
         service_id = "sub"
 
         def __init__(self, my_node, expected_node):
