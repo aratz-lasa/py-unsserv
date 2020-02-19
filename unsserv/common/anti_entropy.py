@@ -62,7 +62,9 @@ class AntiEntropy(AggregationService, IGossipSubscriber):
         assert callable(self._aggregate_func)
         neighbor_aggregate = message.data.get(self.service_id, None)
         self._aggregate_value = self._aggregate_func(
-            self._aggregate_value, neighbor_aggregate
+            [
+                self._aggregate_value, neighbor_aggregate
+            ]
         )
         await self._callback(self._aggregate_value)
 
