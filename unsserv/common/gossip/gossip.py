@@ -6,7 +6,7 @@ from collections import Counter
 from enum import Enum, auto
 from typing import List, Callable, Any, Coroutine, Optional, Union, Dict
 
-from unsserv.common.utils.api import View
+from unsserv.common.api import View
 from unsserv.common.gossip.config import (
     DATA_FIELD_VIEW,
     LOCAL_VIEW_SIZE,
@@ -64,6 +64,7 @@ class GossipProtocol(RpcBase):
 class Gossip:
     my_node: Node
     local_view: View
+    running: bool
 
     def __init__(
         self,
@@ -99,8 +100,11 @@ class Gossip:
         self.subscribers: List[IGossipSubscriber] = []
 
     async def start(self):
+        if self.running:
+            raise RuntimeError("Already running membership")
         await self.rpc.register_service(self.service_id, self._reactive_process)
         self._proactive_task = asyncio.create_task(self._proactive_process())
+        self.running = True
 
     async def stop(self):
         await self.rpc.unregister_service(self.service_id)
@@ -111,6 +115,7 @@ class Gossip:
                 await self._proactive_task
             except asyncio.CancelledError:
                 pass
+        self.running = False
 
     def subscribe(self, subscriber: IGossipSubscriber):
         self.subscribers.append(subscriber)

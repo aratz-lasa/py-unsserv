@@ -46,7 +46,7 @@ async def start_stop(amount):
         await r_sampl.join_sampling(AGGR_SERVICE_ID)
         r_sampls.append(r_sampl)
 
-    await asyncio.sleep(GOSSIPING_FREQUENCY * 25)
+    await asyncio.sleep(GOSSIPING_FREQUENCY * 10)
 
     await sampl.leave_sampling()
     for r_sampl in r_sampls:
@@ -71,7 +71,7 @@ async def sampling(amount):
         await r_sampl.join_sampling(AGGR_SERVICE_ID)
         r_sampls.append(r_sampl)
 
-    await asyncio.sleep(GOSSIPING_FREQUENCY * 25)
+    await asyncio.sleep(GOSSIPING_FREQUENCY * 10)
 
-    samples = {await sampl.get_sample() for _ in range(amount*2)}
+    samples = {await sampl.get_sample() for _ in range(amount * 2)}
     assert len({r_newc.my_node for r_newc in r_newcs} - samples) / len(r_newcs) < 0.4

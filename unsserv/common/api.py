@@ -7,6 +7,8 @@ from unsserv.common.utils.typing import NeighboursCallback, View, AggregateCallb
 
 class MembershipService(ABC):
     my_node: Node
+    service_id: Any
+    running: bool = False
 
     @abstractmethod
     async def join(self, service_id: Any, configuration: Any):
@@ -22,7 +24,7 @@ class MembershipService(ABC):
 
     @abstractmethod
     def set_neighbours_callback(
-            self, callback: NeighboursCallback, local_view: bool = False
+        self, callback: NeighboursCallback, local_view: bool = False
     ) -> None:
         pass
 
@@ -32,9 +34,13 @@ class ClusteringService(MembershipService):
 
 
 class AggregationService(ABC):
+    my_node: Node
+    service_id: Any
+    running: bool = False
+
     @abstractmethod
     async def join_aggregation(
-            self, service_id: str, aggregation_configuration: Any
+        self, service_id: str, aggregation_configuration: Any
     ) -> None:
         pass
 
@@ -52,6 +58,10 @@ class AggregationService(ABC):
 
 
 class SamplingService(ABC):
+    my_node: Node
+    service_id: Any
+    running: bool = False
+
     @abstractmethod
     async def join_sampling(self, service_id: str) -> None:
         pass
@@ -66,6 +76,10 @@ class SamplingService(ABC):
 
 
 class DisseminationService(ABC):
+    my_node: Node
+    service_id: Any
+    running: bool = False
+
     @abstractmethod
     async def join_broadcast(self, broadcast_configuration: Any) -> None:
         pass
@@ -80,6 +94,10 @@ class DisseminationService(ABC):
 
 
 class SearchingService(ABC):
+    my_node: Node
+    service_id: Any
+    running: bool = False
+
     @abstractmethod
     async def publish(self, data: Any) -> None:
         pass

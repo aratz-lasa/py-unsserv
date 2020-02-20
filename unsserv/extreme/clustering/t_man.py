@@ -1,6 +1,6 @@
 from typing import List, Callable, Any, Union
 from functools import partial
-from unsserv.common.utils.api import ClusteringService, MembershipService, NeighboursCallback
+from unsserv.common.api import ClusteringService, MembershipService, NeighboursCallback
 from unsserv.common.gossip.gossip import (
     View,
     Gossip,
@@ -28,8 +28,9 @@ class TMan(ClusteringService):
         self._gossip: Union[Gossip, None] = None
 
     async def join(self, service_id: Any, ranking_function: RankingFunction) -> None:
-        if self._gossip:
-            raise RuntimeError("Already joined a cluster")
+        if self.running:
+            raise RuntimeError("Already running Clustering")
+        self.service_id = service_id
         self._ranking_function = ranking_function
         random_view_source = partial(self._membership.get_neighbours, True)
         local_view_nodes = self._membership.get_neighbours()
@@ -45,11 +46,12 @@ class TMan(ClusteringService):
             multiplex=True,
         )
         await self._gossip.start()
+        self.running = True
 
     async def leave(self) -> None:
-        if self._gossip:
-            await self._gossip.stop()
-            self._gossip = None
+        await self._gossip.stop()
+        self._gossip = None
+        self.running = False
 
     def get_neighbours(self, local_view: bool = False) -> Union[List[Node], View]:
         if not self._gossip:

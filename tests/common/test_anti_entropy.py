@@ -51,7 +51,7 @@ async def start_stop(amount):
         )
         r_antis.append(r_anti)
 
-    await asyncio.sleep(GOSSIPING_FREQUENCY * 25)
+    await asyncio.sleep(GOSSIPING_FREQUENCY * 15)
 
     await anti.leave_aggregation()
     for r_anti in r_antis:
@@ -70,9 +70,7 @@ async def aggregate(amount, aggregate_type):
     newc, r_newcs = await init_membership(amount)
 
     anti = AntiEntropy(newc)
-    await anti.join_aggregation(
-        AGGR_SERVICE_ID, (aggregate_type, node.address_info[1])
-    )
+    await anti.join_aggregation(AGGR_SERVICE_ID, (aggregate_type, node.address_info[1]))
     r_antis = []
     for r_newc in r_newcs:
         r_anti = AntiEntropy(r_newc)
@@ -81,13 +79,29 @@ async def aggregate(amount, aggregate_type):
         )
         r_antis.append(r_anti)
 
-    await asyncio.sleep(GOSSIPING_FREQUENCY * 25)
+    await asyncio.sleep(GOSSIPING_FREQUENCY * 15)
 
-    assert abs(await anti.get_aggregate() - aggregate_functions[aggregate_type](
-        [number + first_port for number in range(amount + 1)])) / await anti.get_aggregate() < 0.1
+    assert (
+        abs(
+            await anti.get_aggregate()
+            - aggregate_functions[aggregate_type](
+                [number + first_port for number in range(amount + 1)]
+            )
+        )
+        / await anti.get_aggregate()
+        < 0.1
+    )
     for r_anti in r_antis:
-        assert abs(await r_anti.get_aggregate() - aggregate_functions[aggregate_type](
-            [number + first_port for number in range(amount + 1)])) / await r_anti.get_aggregate() < 0.1
+        assert (
+            abs(
+                await r_anti.get_aggregate()
+                - aggregate_functions[aggregate_type](
+                    [number + first_port for number in range(amount + 1)]
+                )
+            )
+            / await r_anti.get_aggregate()
+            < 0.1
+        )
 
     await anti.leave_aggregation()
     for r_anti in r_antis:
