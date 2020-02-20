@@ -5,7 +5,7 @@ import pytest
 from tests.utils import get_random_nodes
 from unsserv.common.anti_entropy import AntiEntropy, AggregateType, aggregate_functions
 from unsserv.common.gossip.config import GOSSIPING_FREQUENCY
-from unsserv.common.utils.data_structures import Node
+from unsserv.common.data_structures import Node
 from unsserv.extreme.membership import newscast
 
 first_port = 7771
@@ -56,6 +56,9 @@ async def start_stop(amount):
     await anti.leave_aggregation()
     for r_anti in r_antis:
         await r_anti.leave_aggregation()
+    await newc.leave()
+    for r_newc in r_newcs:
+        await r_newc.leave()
 
 
 @pytest.mark.asyncio
@@ -106,3 +109,6 @@ async def aggregate(amount, aggregate_type):
     await anti.leave_aggregation()
     for r_anti in r_antis:
         await r_anti.leave_aggregation()
+    await newc.leave()
+    for r_newc in r_newcs:
+        await r_newc.leave()

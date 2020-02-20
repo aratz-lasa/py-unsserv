@@ -3,7 +3,7 @@ from collections import Counter
 import pytest
 
 from tests.utils import get_random_nodes
-from unsserv.common.utils.data_structures import Node
+from unsserv.common.data_structures import Node
 from unsserv.extreme.membership import newscast
 from unsserv.common.gossip.config import GOSSIPING_FREQUENCY, LOCAL_VIEW_SIZE
 

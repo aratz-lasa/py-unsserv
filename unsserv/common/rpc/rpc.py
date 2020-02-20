@@ -4,10 +4,10 @@ from typing import Tuple, List
 
 from rpcudp.protocol import RPCProtocol
 from unsserv.common.gossip.config import RPC_TIMEOUT
-from unsserv.common.utils.data_structures import Message
-from unsserv.common.utils.data_structures import Node
+from unsserv.common.data_structures import Message
+from unsserv.common.data_structures import Node
 
-RpcCallback = Callable[[Message], Coroutine[Any, Any, Union[None, Message]]]
+RpcCallback = Callable[[Message], Coroutine[Any, Any, Union[None, Any]]]
 
 
 class RPC:

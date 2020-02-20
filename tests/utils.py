@@ -1,4 +1,4 @@
-from unsserv.common.utils.data_structures import Node
+from unsserv.common.data_structures import Node
 
 
 def get_random_nodes(amount, first_port=7772, host="127.0.0.1"):

@@ -1,0 +1,2 @@
+class SamplingError(Exception):
+    pass

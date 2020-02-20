@@ -7,7 +7,7 @@ from unsserv.common.gossip.gossip import (
     PeerSelectionPolicy,
     ViewSelectionPolicy,
 )
-from unsserv.common.utils.data_structures import Node
+from unsserv.common.data_structures import Node
 
 RankingFunction = Callable[[Node], Any]
 

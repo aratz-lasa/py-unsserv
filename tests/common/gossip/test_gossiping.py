@@ -8,7 +8,7 @@ from tests.utils import get_random_nodes
 from unsserv.common.gossip import gossip, gossip_subcriber_interface
 from unsserv.common.gossip.config import GOSSIPING_FREQUENCY
 from unsserv.common.gossip.gossip import LOCAL_VIEW_SIZE, View
-from unsserv.common.utils.data_structures import Node, Message
+from unsserv.common.data_structures import Node, Message
 
 node = Node(("127.0.0.1", 7771))
 SERVICE_ID = "gossip"

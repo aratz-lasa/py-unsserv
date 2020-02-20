@@ -2,7 +2,7 @@ from typing import Union, Any, List
 
 from unsserv.common.api import MembershipService, NeighboursCallback
 from unsserv.common.gossip.gossip import Gossip, View
-from unsserv.common.utils.data_structures import Node
+from unsserv.common.data_structures import Node
 
 
 class Newscast(MembershipService):

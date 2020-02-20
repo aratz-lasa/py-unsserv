@@ -13,8 +13,8 @@ from unsserv.common.gossip.config import (
     GOSSIPING_FREQUENCY,
 )
 from unsserv.common.rpc.rpc import RPC, RpcBase
-from unsserv.common.utils.data_structures import Message
-from unsserv.common.utils.data_structures import Node
+from unsserv.common.data_structures import Message
+from unsserv.common.data_structures import Node
 
 LocalViewCallback = Callable[[View], Coroutine[Any, Any, None]]
 CustomSelectionRanking = Callable[[View], List[Node]]
@@ -64,7 +64,7 @@ class GossipProtocol(RpcBase):
 class Gossip:
     my_node: Node
     local_view: View
-    running: bool
+    running: bool = False
 
     def __init__(
         self,

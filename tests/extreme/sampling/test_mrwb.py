@@ -4,7 +4,7 @@ import pytest
 from tests.utils import get_random_nodes
 from unsserv.extreme.sampling.mrwb import MRWB
 from unsserv.common.gossip.config import GOSSIPING_FREQUENCY
-from unsserv.common.utils.data_structures import Node
+from unsserv.common.data_structures import Node
 from unsserv.extreme.membership import newscast
 
 first_port = 7771
@@ -51,6 +51,9 @@ async def start_stop(amount):
     await sampl.leave_sampling()
     for r_sampl in r_sampls:
         await r_sampl.leave_sampling()
+    await newc.leave()
+    for r_newc in r_newcs:
+        await r_newc.leave()
 
 
 @pytest.mark.asyncio
@@ -75,3 +78,10 @@ async def sampling(amount):
 
     samples = {await sampl.get_sample() for _ in range(amount * 2)}
     assert len({r_newc.my_node for r_newc in r_newcs} - samples) / len(r_newcs) < 0.4
+
+    await sampl.leave_sampling()
+    for r_sampl in r_sampls:
+        await r_sampl.leave_sampling()
+    await newc.leave()
+    for r_newc in r_newcs:
+        await r_newc.leave()

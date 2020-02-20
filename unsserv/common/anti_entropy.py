@@ -5,7 +5,7 @@ from typing import Any, Tuple, Callable, Union, Dict
 from unsserv.common.api import AggregationService, AggregateCallback, MembershipService
 from unsserv.common.gossip.gossip import Gossip
 from unsserv.common.gossip.gossip_subcriber_interface import IGossipSubscriber
-from unsserv.common.utils.data_structures import Message
+from unsserv.common.data_structures import Message
 
 
 class AggregateType(Enum):
