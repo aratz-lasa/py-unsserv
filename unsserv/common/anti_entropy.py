@@ -40,7 +40,7 @@ class AntiEntropy(AggregationService, IGossipSubscriber):
         self, service_id: str, aggregation_configuration: Tuple
     ) -> None:
         if self.running:
-            raise RuntimeError("Already running membership")
+            raise RuntimeError("Already running Aggregation")
         self.service_id = service_id
         self._aggregate_type, self._aggregate_value = aggregation_configuration
         self._aggregate_func = aggregate_functions[self._aggregate_type]

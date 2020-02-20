@@ -19,7 +19,7 @@ class Newscast(MembershipService):
 
     async def join(self, service_id: Any, bootstrap_nodes: List[Node] = None):
         if self.running:
-            raise RuntimeError("Already running membership")
+            raise RuntimeError("Already running Membership")
         self.service_id = service_id
         self._gossip = Gossip(
             my_node=self.my_node,

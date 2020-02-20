@@ -101,7 +101,7 @@ class Gossip:
 
     async def start(self):
         if self.running:
-            raise RuntimeError("Already running membership")
+            raise RuntimeError("Already running Gossip")
         await self.rpc.register_service(self.service_id, self._reactive_process)
         self._proactive_task = asyncio.create_task(self._proactive_process())
         self.running = True
