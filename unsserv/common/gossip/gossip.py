@@ -46,14 +46,14 @@ class GossipProtocol(RpcBase):
 
     async def call_pushpull(self, destination: Node, message: Message) -> Message:
         rpc_result = await self.pushpull(destination.address_info, message)
-        return self.decode_message(self._handle_call_response(rpc_result))
+        return self._decode_message(self._handle_call_response(rpc_result))
 
     async def rpc_push(self, node: Node, raw_message: List) -> None:
-        message = self.decode_message(raw_message)
+        message = self._decode_message(raw_message)
         await self.registered_services[message.service_id](message)
 
     async def rpc_pushpull(self, node: Node, raw_message: List) -> Message:
-        message = self.decode_message(raw_message)
+        message = self._decode_message(raw_message)
         pull_return_message = await self.registered_services[message.service_id](
             message
         )

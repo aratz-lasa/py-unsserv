@@ -1,1 +1,3 @@
-from unsserv.common.anti_entropy import AntiEntropy
+from unsserv.common.aggregation.anti_entropy import AntiEntropy
+
+AntiEntropy = AntiEntropy

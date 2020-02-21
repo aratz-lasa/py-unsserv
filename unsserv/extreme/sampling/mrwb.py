@@ -5,22 +5,22 @@ import string
 from enum import IntEnum, auto
 from typing import List, Dict, Optional
 
-from unsserv.common.utils import parse_node
 from unsserv.common.api import SamplingService, MembershipService
 from unsserv.common.data_structures import Node, Message
 from unsserv.common.errors import SamplingError
 from unsserv.common.rpc.rpc import RpcBase, RPC
-
-# config
-SAMPLING_TIMEOUT = 2
-TTL = 10
-ID_LENGTH = 10
-MRWB_DEGREE_REFRESH_FREQUENCY = 0.5
-DATA_FIELD_COMMAND = "mrwb-command"
-DATA_FIELD_TTL = "mrwb-ttl"
-DATA_FIELD_ORIGIN_NODE = "mrwb-origin-node"
-DATA_FIELD_SAMPLE_RESULT = "mrwb-sample-result"
-DATA_FIELD_SAMPLE_ID = "mrwb-sample-id"
+from unsserv.common.utils import parse_node
+from unsserv.extreme.sampling.config import (
+    SAMPLING_TIMEOUT,
+    DATA_FIELD_SAMPLE_RESULT,
+    DATA_FIELD_ORIGIN_NODE,
+    DATA_FIELD_SAMPLE_ID,
+    DATA_FIELD_COMMAND,
+    DATA_FIELD_TTL,
+    ID_LENGTH,
+    MRWB_DEGREE_REFRESH_FREQUENCY,
+    TTL,
+)
 
 
 class CommandMRWB(IntEnum):
@@ -43,17 +43,17 @@ class MRWBRPC(RpcBase):
         self._handle_call_response(rpc_result)
 
     async def rpc_get_degree(self, node: Node, raw_message: List) -> int:
-        message = self.decode_message(raw_message)
+        message = self._decode_message(raw_message)
         degree = await self.registered_services[message.service_id](message)
         assert isinstance(degree, int)
         return degree
 
     async def rpc_sample(self, node: Node, raw_message: List):
-        message = self.decode_message(raw_message)
+        message = self._decode_message(raw_message)
         await self.registered_services[message.service_id](message)
 
     async def rpc_sample_result(self, node: Node, raw_message: List):
-        message = self.decode_message(raw_message)
+        message = self._decode_message(raw_message)
         await self.registered_services[message.service_id](message)
 
 

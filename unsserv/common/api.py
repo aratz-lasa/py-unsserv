@@ -81,7 +81,9 @@ class DisseminationService(ABC):
     running: bool = False
 
     @abstractmethod
-    async def join_broadcast(self, broadcast_configuration: Any) -> None:
+    async def join_broadcast(
+        self, service_id: str, broadcast_configuration: Any
+    ) -> None:
         pass
 
     @abstractmethod

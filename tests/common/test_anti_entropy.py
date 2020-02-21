@@ -3,7 +3,11 @@ import asyncio
 import pytest
 
 from tests.utils import get_random_nodes
-from unsserv.common.anti_entropy import AntiEntropy, AggregateType, aggregate_functions
+from unsserv.common.aggregation.anti_entropy import (
+    AntiEntropy,
+    AggregateType,
+    aggregate_functions,
+)
 from unsserv.common.gossip.config import GOSSIPING_FREQUENCY
 from unsserv.common.data_structures import Node
 from unsserv.extreme.membership import newscast

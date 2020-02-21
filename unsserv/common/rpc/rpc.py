@@ -3,9 +3,10 @@ from typing import Callable, Any, Coroutine, Union, Dict
 from typing import Tuple, List
 
 from rpcudp.protocol import RPCProtocol
-from unsserv.common.gossip.config import RPC_TIMEOUT
+
 from unsserv.common.data_structures import Message
 from unsserv.common.data_structures import Node
+from unsserv.common.gossip.config import RPC_TIMEOUT
 
 RpcCallback = Callable[[Message], Coroutine[Any, Any, Union[None, Any]]]
 
@@ -39,19 +40,6 @@ class RpcBase(RPCProtocol):
         self.my_node = node
         self.registered_services = {}
 
-    async def _start(self):
-        (
-            self._transport,
-            protocol,
-        ) = await asyncio.get_event_loop().create_datagram_endpoint(
-            lambda: self, self.my_node.address_info
-        )
-
-    async def _stop(self):
-        if self._transport:
-            self._transport.close()
-            self._transport = None
-
     async def register_service(self, service_id: Any, callback: RpcCallback):
         if service_id in self.registered_services:
             raise ValueError("Service ID already registered")
@@ -71,6 +59,19 @@ class RpcBase(RPCProtocol):
         ):  # deactivate when last service is unregistered
             await self._stop()
 
+    async def _start(self):
+        (
+            self._transport,
+            protocol,
+        ) = await asyncio.get_event_loop().create_datagram_endpoint(
+            lambda: self, self.my_node.address_info
+        )
+
+    async def _stop(self):
+        if self._transport:
+            self._transport.close()
+            self._transport = None
+
     def _handle_call_response(self, result: Tuple[int, Any]) -> Any:
         """
         If we get a response, returns it.
@@ -82,7 +83,7 @@ class RpcBase(RPCProtocol):
             )
         return result[1]
 
-    def decode_message(self, raw_message: List) -> Message:
+    def _decode_message(self, raw_message: List) -> Message:
         node = tuple(raw_message[0])
         node = Node(tuple(node[0]), tuple(node[1]))
         return Message(node, raw_message[1], raw_message[2])
