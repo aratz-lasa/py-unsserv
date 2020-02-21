@@ -3,7 +3,7 @@ import pytest
 
 from tests.utils import get_random_nodes
 from unsserv.extreme.sampling.mrwb import MRWB
-from unsserv.common.gossip.config import GOSSIPING_FREQUENCY
+from unsserv.common.gossip.gossip_config import GOSSIPING_FREQUENCY
 from unsserv.common.data_structures import Node
 from unsserv.extreme.membership import newscast
 

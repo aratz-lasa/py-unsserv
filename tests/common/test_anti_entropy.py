@@ -8,7 +8,7 @@ from unsserv.common.aggregation.anti_entropy import (
     AggregateType,
     aggregate_functions,
 )
-from unsserv.common.gossip.config import GOSSIPING_FREQUENCY
+from unsserv.common.gossip.gossip_config import GOSSIPING_FREQUENCY
 from unsserv.common.data_structures import Node
 from unsserv.extreme.membership import newscast
 

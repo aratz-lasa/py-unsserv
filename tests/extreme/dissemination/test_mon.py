@@ -6,7 +6,7 @@ import pytest
 from functools import partial
 from tests.utils import get_random_nodes
 from unsserv.common.data_structures import Node
-from unsserv.common.gossip.config import GOSSIPING_FREQUENCY
+from unsserv.common.gossip.gossip_config import GOSSIPING_FREQUENCY
 from unsserv.extreme.dissemination.mon import Mon
 from unsserv.extreme.membership import newscast
 

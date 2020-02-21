@@ -7,7 +7,7 @@ from enum import Enum, auto
 from typing import List, Callable, Any, Coroutine, Optional, Union, Dict
 
 from unsserv.common.api import View
-from unsserv.common.gossip.config import (
+from unsserv.common.gossip.gossip_config import (
     DATA_FIELD_VIEW,
     LOCAL_VIEW_SIZE,
     GOSSIPING_FREQUENCY,

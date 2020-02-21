@@ -10,7 +10,7 @@ from unsserv.common.data_structures import Node, Message
 from unsserv.common.errors import SamplingError
 from unsserv.common.rpc.rpc import RpcBase, RPC
 from unsserv.common.utils import parse_node
-from unsserv.extreme.sampling.config import (
+from unsserv.extreme.sampling.mrwb_config import (
     SAMPLING_TIMEOUT,
     DATA_FIELD_SAMPLE_RESULT,
     DATA_FIELD_ORIGIN_NODE,
@@ -90,7 +90,7 @@ class MRWB(SamplingService):
         assert isinstance(neighbours, list)
         self._neighbours = neighbours
         self._degrees_update_task = asyncio.create_task(
-            self._degree_update_task()
+            self._degrees_update_process()
         )  # stop degrees updater task
         self.running = True
 
@@ -130,7 +130,7 @@ class MRWB(SamplingService):
         del self._sampling_queue[sample_id]
         return sample
 
-    async def _degree_update_task(self):
+    async def _degrees_update_process(self):
         # maybe is not needed if degrees are updated whenever
         # membership changes neighbours?
         while True:

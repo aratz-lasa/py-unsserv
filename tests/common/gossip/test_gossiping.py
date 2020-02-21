@@ -6,7 +6,7 @@ import pytest
 
 from tests.utils import get_random_nodes
 from unsserv.common.gossip import gossip, gossip_subcriber_interface
-from unsserv.common.gossip.config import GOSSIPING_FREQUENCY
+from unsserv.common.gossip.gossip_config import GOSSIPING_FREQUENCY
 from unsserv.common.gossip.gossip import LOCAL_VIEW_SIZE, View
 from unsserv.common.data_structures import Node, Message
 

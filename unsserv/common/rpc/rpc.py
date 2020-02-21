@@ -6,7 +6,7 @@ from rpcudp.protocol import RPCProtocol
 
 from unsserv.common.data_structures import Message
 from unsserv.common.data_structures import Node
-from unsserv.common.gossip.config import RPC_TIMEOUT
+from unsserv.common.gossip.gossip_config import RPC_TIMEOUT
 
 RpcCallback = Callable[[Message], Coroutine[Any, Any, Union[None, Any]]]
 
