@@ -1,10 +1,10 @@
-import inspect
 import asyncio
-from typing import Callable, Coroutine, Any, Optional
+import inspect
+from typing import Any, Callable, Coroutine, Optional
 
 from unsserv.common.api import DisseminationService, MembershipService
-from unsserv.common.rpc.rpc import RpcBase, RPC
 from unsserv.common.data_structures import Message
+from unsserv.common.rpc.rpc import RPC, RpcBase
 from unsserv.extreme.dissemination.mon_config import MON_TIMEOUT
 
 BroadcastHandler = Optional[Callable[[Any], Coroutine[Any, Any, None]]]
@@ -15,6 +15,7 @@ class MonRPC(RpcBase):
 
 
 class Mon(DisseminationService):
+    _im_root: bool = False
     _rpc: MonRPC
     _broadcast_handler: BroadcastHandler
     _dissemination_task: asyncio.Task
@@ -27,20 +28,23 @@ class Mon(DisseminationService):
     async def join_broadcast(
         self, service_id: str, *broadcast_configuration: Any
     ) -> None:
+        if self.running:
+            raise RuntimeError("Already running Dissemination")
         # unpack arguments
         broadcast_handler = broadcast_configuration[0]
         assert inspect.iscoroutinefunction(broadcast_handler)
+        root = broadcast_configuration[1]
+        assert isinstance(root, bool)
         timeout = MON_TIMEOUT
-        if len(broadcast_handler) == 2:
-            timeout = broadcast_configuration[1]
+        if len(broadcast_handler) == 3:
+            timeout = broadcast_configuration[2]
             assert isinstance(timeout, int)
         # initialize dissemination
-        if self.running:
-            raise RuntimeError("Already running Dissemination")
         self.service_id = service_id
         self._broadcast_handler = broadcast_handler
+        self._im_root = root
         await self._rpc.register_service(service_id, self._rpc_handler)
-        self._dissemination_task = asyncio.create_task(self._dissemination_process())
+        self._dissemination_task = asyncio.create_task(self._maintain_dissemination())
         asyncio.create_task(self._dissemination_timeout_process(timeout))
         self.running = True
 
@@ -61,7 +65,7 @@ class Mon(DisseminationService):
     async def _rpc_handler(self, message: Message):
         pass  # todo
 
-    async def _dissemination_process(self):
+    async def _maintain_dissemination(self):
         pass  # todo
 
     async def _dissemination_timeout_process(self, timeout: int):

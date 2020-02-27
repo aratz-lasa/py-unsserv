@@ -3,22 +3,22 @@ import math
 import random
 import string
 from enum import IntEnum, auto
-from typing import List, Dict, Optional
+from typing import Dict, List, Optional
 
-from unsserv.common.api import SamplingService, MembershipService
-from unsserv.common.data_structures import Node, Message
+from unsserv.common.api import MembershipService, SamplingService
+from unsserv.common.data_structures import Message, Node
 from unsserv.common.errors import SamplingError
-from unsserv.common.rpc.rpc import RpcBase, RPC
+from unsserv.common.rpc.rpc import RPC, RpcBase
 from unsserv.common.utils import parse_node
 from unsserv.extreme.sampling.mrwb_config import (
-    SAMPLING_TIMEOUT,
-    DATA_FIELD_SAMPLE_RESULT,
+    DATA_FIELD_COMMAND,
     DATA_FIELD_ORIGIN_NODE,
     DATA_FIELD_SAMPLE_ID,
-    DATA_FIELD_COMMAND,
+    DATA_FIELD_SAMPLE_RESULT,
     DATA_FIELD_TTL,
     ID_LENGTH,
     MRWB_DEGREE_REFRESH_FREQUENCY,
+    SAMPLING_TIMEOUT,
     TTL,
 )
 

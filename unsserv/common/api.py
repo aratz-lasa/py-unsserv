@@ -1,8 +1,8 @@
 from abc import ABC, abstractmethod
-from typing import List, Any, Union
+from typing import Any, List, Union
 
 from unsserv.common.data_structures import Node
-from unsserv.common.typing import NeighboursCallback, View, AggregateCallback
+from unsserv.common.typing import AggregateCallback, NeighboursCallback, View
 
 
 class MembershipService(ABC):

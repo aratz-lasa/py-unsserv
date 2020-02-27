@@ -1,11 +1,9 @@
 import asyncio
-from typing import Callable, Any, Coroutine, Union, Dict
-from typing import Tuple, List
+from typing import Any, Callable, Coroutine, Dict, List, Tuple, Union
 
 from rpcudp.protocol import RPCProtocol
 
-from unsserv.common.data_structures import Message
-from unsserv.common.data_structures import Node
+from unsserv.common.data_structures import Message, Node
 from unsserv.common.gossip.gossip_config import RPC_TIMEOUT
 
 RpcCallback = Callable[[Message], Coroutine[Any, Any, Union[None, Any]]]
@@ -75,7 +73,8 @@ class RpcBase(RPCProtocol):
     def _handle_call_response(self, result: Tuple[int, Any]) -> Any:
         """
         If we get a response, returns it.
-         Otherwise raise error and remove the node from ILinkStore.
+
+        Otherwise raise error and remove the node from ILinkStore.
         """
         if not result[0]:
             raise ConnectionError(

@@ -1,5 +1,6 @@
 from collections import Counter
-from typing import Callable, List, Coroutine, Any, Union, Optional
+from typing import Any, Callable, Coroutine, List, Optional, Union
+
 from unsserv.common.data_structures import Node
 
 View = Counter

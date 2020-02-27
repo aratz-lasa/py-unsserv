@@ -1,12 +1,12 @@
 import asyncio
 from collections import Counter
+
 import pytest
 
 from tests.utils import get_random_nodes
 from unsserv.common.data_structures import Node
-from unsserv.extreme.membership import newscast
 from unsserv.common.gossip.gossip_config import GOSSIPING_FREQUENCY, LOCAL_VIEW_SIZE
-
+from unsserv.extreme.membership import newscast
 
 node = Node(("127.0.0.1", 7771))
 SERVICE_ID = "newscast"

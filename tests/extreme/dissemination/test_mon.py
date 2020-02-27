@@ -1,9 +1,9 @@
 import asyncio
-from typing import Dict, Any
+from functools import partial
+from typing import Any, Dict
 
 import pytest
 
-from functools import partial
 from tests.utils import get_random_nodes
 from unsserv.common.data_structures import Node
 from unsserv.common.gossip.gossip_config import GOSSIPING_FREQUENCY
