@@ -68,7 +68,8 @@ class RpcBase(RPCProtocol):
             self._transport = None
 
     def _handle_call_response(self, result: Tuple[int, Any]) -> Any:
-        """If we get a response, returns it.
+        """
+        If we get a response, returns it.
 
         Otherwise raise error and remove the node from ILinkStore.
         """

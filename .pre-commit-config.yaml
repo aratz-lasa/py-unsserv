@@ -15,7 +15,7 @@ repos:
       name: docformatter
       description: 'Formats docstrings to follow PEP 257.'
       entry: docformatter
-      args: [-i]
+      args: [-i, --pre-summary-newline, --recursive]
       language: python
       types: [python]
 
