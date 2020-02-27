@@ -1,3 +1,4 @@
+import asyncio
 import inspect
 from enum import IntEnum, auto
 from typing import Any, List, Dict, Optional
@@ -73,6 +74,10 @@ class Mon(DisseminationService):
     _levels: Dict[BroadcastID, int]
     _children: Dict[BroadcastID, List[Node]]
     _parents: Dict[BroadcastID, List[Node]]
+    _received_data: Dict[
+        BroadcastID, Any
+    ]  # stores the data received from each broadcast (for avoiding duplicates)
+    _children_made_events: Dict[BroadcastID, asyncio.Event]
 
     def __init__(self, membership: MembershipService, multiplex: bool = True):
         self.my_node = membership.my_node
@@ -83,6 +88,9 @@ class Mon(DisseminationService):
         self._children = {}
         self._parents = {}
         self._levels = {}
+        self._received_data = {}
+
+        self._children_made_events = {}
 
     async def join_broadcast(
         self, service_id: str, *broadcast_configuration: Any
@@ -117,20 +125,53 @@ class Mon(DisseminationService):
         broadcast_id = await self._build_random_tree()
         await self._disseminate(broadcast_id, data)
 
-    async def _rpc_handler(self, message: Message):
+    async def _rpc_handler(self, message: Message) -> Any:
         command = message.data[DATA_FIELD_COMMAND]
+        broadcast_id = message.data[BroadcastID]
         if command == MonCommand.SESSION:
-            pass  # todo
+            first_time = broadcast_id in self._levels
+            if first_time:
+                self._parents[broadcast_id] = [message.node]
+                self._levels[broadcast_id] = message.data[DATA_FIELD_LEVEL] + 1
+                candidate_children = list(
+                    set(self.membership.get_neighbours()) - {message.node}
+                )
+                asyncio.create_task(
+                    self._make_children(broadcast_id, candidate_children)
+                )
+                self._children_made_events[broadcast_id] = asyncio.Event()
+            else:
+                if message.data[DATA_FIELD_LEVEL] < self._levels[broadcast_id]:
+                    return False
+                if (
+                    message.node not in self._parents[broadcast_id]
+                ):  # just in case it is a duplicate
+                    self._parents[broadcast_id].append(message.node)
+            return True
         elif command == MonCommand.PUSH:
-            pass  # todo
+            broadcast_data = message.data[DATA_FIELD_BROADCAST_DATA]
+            if (
+                broadcast_id not in self._received_data
+            ):  # if already received data, ignores it
+                self._received_data[broadcast_id] = broadcast_data
+                asyncio.create_task(self._broadcast_handler(broadcast_data))
+                asyncio.create_task(self._disseminate(broadcast_id, broadcast_data))
         else:
             raise ValueError("Invalid MON protocol value")
 
     async def _build_random_tree(self) -> str:
         broadcast_id = get_random_id()
         self._levels[broadcast_id] = 0
-        neighbours = set(self.membership.get_neighbours())
-        assert isinstance(neighbours, list)
+        candidate_children = self.membership.get_neighbours()
+        assert isinstance(candidate_children, list)
+        await self._make_children(
+            broadcast_id, candidate_children, broadcast_origin=True
+        )
+        return broadcast_id
+
+    async def _make_children(
+        self, broadcast_id: str, neighbours: list, broadcast_origin=False
+    ):
         children: List[Node] = []
         fanout = min(len(neighbours), FANOUT)
         message = self._protocol.make_session_message(
@@ -140,21 +181,18 @@ class Mon(DisseminationService):
             child = random.choice(neighbours)
             neighbours.remove(child)
             session_ok = await self._rpc.call_session(child, message)
-            if not session_ok:
-                pass  # todo: what to do
-            else:
+            if session_ok:
                 children.append(child)
-        if len(children) == 0:
+        if broadcast_origin and len(children) == 0:
             raise ServiceError("Unable to peer with neighbours for disseminating")
         self._children[broadcast_id] = children
-        return broadcast_id
 
     async def _disseminate(self, broadcast_id: str, data: Any):
+        await self._children_made_events[
+            broadcast_id
+        ].wait()  # wait children to initialize
         message = self._protocol.make_push_message(
             data
         )  # only generate once, bc it is the same every time
         for child in self._children[broadcast_id]:
             await self._rpc.call_push(child, message)
-
-    def _make_message(self, protocol: MonCommand) -> Message:
-        pass  # todo

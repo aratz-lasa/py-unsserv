@@ -78,6 +78,7 @@ class DisseminationService(ISubService):
     async def join_broadcast(
         self, service_id: str, *broadcast_configuration: Any
     ) -> None:
+        """Duplicates must handle the user."""
         pass
 
     @abstractmethod
