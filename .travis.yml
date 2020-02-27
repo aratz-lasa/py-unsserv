@@ -1,13 +1,22 @@
 language: python
-python:
-  - "3.7"
-# command to install dependencies
+
+# execute lint and py37 as separate CI processes
+matrix:
+  include:
+    - python: 3.7
+      dist: xenial
+      env: TOXENV=py37-test
+    - python: 3.7
+      dist: xenial
+      env: TOXENV=lint
+
+# install tox
 install:
-  - pip install -r requirements.txt
-  - pip install -r dev_requirements.txt
+  - pip install --upgrade pip
+  - pip install tox
 # command to run tests
 script:
-  - pytest --cov-report term --cov=unsserv tests/
+  - tox
 # Upload coverage report to 'Codecov'
 after_script:
   - codecov --token=e2776e79-fc57-44b2-9246-6421a9355853
