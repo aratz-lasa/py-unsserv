@@ -156,6 +156,7 @@ class Mon(DisseminationService):
                 self._received_data[broadcast_id] = broadcast_data
                 asyncio.create_task(self._broadcast_handler(broadcast_data))
                 asyncio.create_task(self._disseminate(broadcast_id, broadcast_data))
+                # todo: decide how to cleanup all the data from already ended broadcast
         else:
             raise ValueError("Invalid MON protocol value")
 

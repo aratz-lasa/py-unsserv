@@ -2,7 +2,7 @@ import asyncio
 import math
 import random
 from enum import IntEnum, auto
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any
 
 from unsserv.common.service_interfaces import MembershipService, SamplingService
 from unsserv.common.data_structures import Message, Node
@@ -22,10 +22,41 @@ from unsserv.extreme.sampling.mrwb_config import (
 )
 
 
-class MRWBProtocol(IntEnum):
+class MRWBCommand(IntEnum):
     GET_DEGREE = auto()
     SAMPLE = auto()
     SAMPLE_RESULT = auto()
+
+
+class MRWBProtocol:
+    def __init__(self, my_node: Node, service_id: Any):
+        self.my_node = my_node
+        self.service_id = service_id
+
+    def make_sample_message(
+        self, sample_id: str, origin_node: Node, ttl: int
+    ) -> Message:
+        data = {
+            DATA_FIELD_COMMAND: MRWBCommand.SAMPLE,
+            DATA_FIELD_SAMPLE_ID: sample_id,
+            DATA_FIELD_ORIGIN_NODE: origin_node,
+            DATA_FIELD_TTL: ttl,
+        }
+        return Message(self.my_node, self.service_id, data)
+
+    def make_sample_result_message(
+        self, sample_id: str, sample_result: Node
+    ) -> Message:
+        data = {
+            DATA_FIELD_COMMAND: MRWBCommand.SAMPLE_RESULT,
+            DATA_FIELD_SAMPLE_ID: sample_id,
+            DATA_FIELD_SAMPLE_RESULT: sample_result,
+        }
+        return Message(self.my_node, self.service_id, data)
+
+    def make_get_degree_message(self) -> Message:
+        data = {DATA_FIELD_COMMAND: MRWBCommand.GET_DEGREE}
+        return Message(self.my_node, self.service_id, data)
 
 
 class MRWBRPC(RpcBase):
@@ -62,6 +93,7 @@ class MRWB(SamplingService):
     _rpc: MRWBRPC
     _sampling_queue: Dict[str, Node]
     _sampling_events: Dict[str, asyncio.Event]
+    _protocol: Optional[MRWBProtocol]
 
     def __init__(self, membership: MembershipService, multiplex: bool = True):
         self.my_node = membership.my_node
@@ -91,11 +123,13 @@ class MRWB(SamplingService):
         self._degrees_update_task = asyncio.create_task(
             self._degrees_update_process()
         )  # stop degrees updater task
+        self._protocol = MRWBProtocol(self.my_node, service_id)
         self.running = True
 
     async def leave_sampling(self) -> None:
         self.membership.set_neighbours_callback(None)
         self._neighbours = []
+        self._protocol = None
         await self._rpc.unregister_service(self.service_id)
         if self._degrees_update_task:  # stop degrees updater task
             self._degrees_update_task.cancel()
@@ -112,13 +146,7 @@ class MRWB(SamplingService):
         if not self._neighbours:
             raise ServiceError("Unable to peer with neighbours for sampling.")
         node = random.choice(self._neighbours)  # random neighbour
-        data = {
-            DATA_FIELD_COMMAND: MRWBProtocol.SAMPLE,
-            DATA_FIELD_SAMPLE_ID: sample_id,
-            DATA_FIELD_ORIGIN_NODE: self.my_node,
-            DATA_FIELD_TTL: TTL,
-        }
-        message = Message(self.my_node, self.service_id, data)
+        message = self._protocol.make_sample_message(sample_id, self.my_node, TTL)
         await self._rpc.call_sample(node, message)
         event = asyncio.Event()
         self._sampling_events[sample_id] = event
@@ -141,36 +169,31 @@ class MRWB(SamplingService):
 
     async def _handle_rpc(self, message: Message) -> Optional[int]:
         command = message.data[DATA_FIELD_COMMAND]
-        if command == MRWBProtocol.GET_DEGREE:
+        if command == MRWBCommand.GET_DEGREE:
             return len(self._neighbours)
-        elif command == MRWBProtocol.SAMPLE_RESULT:
+        elif command == MRWBCommand.SAMPLE_RESULT:
             sample_result = parse_node(message.data[DATA_FIELD_SAMPLE_RESULT])
             sample_id = message.data[DATA_FIELD_SAMPLE_ID]
             self._sampling_queue[sample_id] = sample_result
             self._sampling_events[sample_id].set()
             del self._sampling_events[sample_id]
-        elif command == MRWBProtocol.SAMPLE:
+        elif command == MRWBCommand.SAMPLE:
             ttl = message.data[DATA_FIELD_TTL]
             while ttl > 0:
                 next_hop = self._choose_neighbour()
                 if next_hop != self.my_node:
-                    data = {
-                        DATA_FIELD_COMMAND: MRWBProtocol.SAMPLE,
-                        DATA_FIELD_SAMPLE_ID: message.data[DATA_FIELD_SAMPLE_ID],
-                        DATA_FIELD_ORIGIN_NODE: message.data[DATA_FIELD_ORIGIN_NODE],
-                        DATA_FIELD_TTL: ttl - 1,
-                    }
-                    message = Message(self.my_node, self.service_id, data)
+                    message = self._protocol.make_sample_message(
+                        message.data[DATA_FIELD_SAMPLE_ID],
+                        message.data[DATA_FIELD_ORIGIN_NODE],
+                        ttl - 1,
+                    )
                     asyncio.create_task(self._rpc.call_sample(next_hop, message))
                     return None
                 ttl -= 1
             origin_node = parse_node(message.data[DATA_FIELD_ORIGIN_NODE])
-            data = {
-                DATA_FIELD_COMMAND: MRWBProtocol.SAMPLE_RESULT,
-                DATA_FIELD_SAMPLE_ID: message.data[DATA_FIELD_SAMPLE_ID],
-                DATA_FIELD_SAMPLE_RESULT: self.my_node,
-            }
-            message = Message(self.my_node, self.service_id, data)
+            message = self._protocol.make_sample_result_message(
+                message.data[DATA_FIELD_SAMPLE_ID], self.my_node
+            )
             asyncio.create_task(self._rpc.call_sample_result(origin_node, message))
         else:
             raise ValueError("Invalid MON protocol value")
@@ -194,8 +217,7 @@ class MRWB(SamplingService):
         return self.my_node
 
     async def _update_degree(self, node: Node):
-        data = {DATA_FIELD_COMMAND: MRWBProtocol.GET_DEGREE}
-        message = Message(self.my_node, self.service_id, data)
+        message = self._protocol.make_get_degree_message()
         try:
             degree = await self._rpc.call_get_degree(node, message)
             self._neighbour_degrees[node] = degree
