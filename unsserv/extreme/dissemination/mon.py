@@ -33,15 +33,15 @@ class MonProtocol:
     def make_session_message(self, broadcast_id: str, level: int) -> Message:
         data = {
             DATA_FIELD_COMMAND: MonCommand.SESSION,
-            DATA_FIELD_BROADCAST_ID: BroadcastID,
+            DATA_FIELD_BROADCAST_ID: broadcast_id,
             DATA_FIELD_LEVEL: level,
         }
         return Message(self.my_node, self.service_id, data)
 
-    def make_push_message(self, data: Any) -> Message:
+    def make_push_message(self, broadcast_id: str, data: Any) -> Message:
         data = {
             DATA_FIELD_COMMAND: MonCommand.PUSH,
-            DATA_FIELD_BROADCAST_ID: BroadcastID,
+            DATA_FIELD_BROADCAST_ID: broadcast_id,
             DATA_FIELD_BROADCAST_DATA: data,
         }
         return Message(self.my_node, self.service_id, data)
@@ -192,7 +192,7 @@ class Mon(DisseminationService):
             broadcast_id
         ].wait()  # wait children to initialize
         message = self._protocol.make_push_message(
-            data
+            broadcast_id, data
         )  # only generate once, bc it is the same every time
         for child in self._children[broadcast_id]:
             await self._rpc.call_push(child, message)
