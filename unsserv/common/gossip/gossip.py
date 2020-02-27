@@ -5,7 +5,7 @@ from collections import Counter
 from enum import Enum, auto
 from typing import Any, Callable, Coroutine, Dict, List, Optional, Union
 
-from unsserv.common.api import View
+from unsserv.common.service_interfaces import View
 from unsserv.common.data_structures import Message, Node
 from unsserv.common.gossip.gossip_config import (
     DATA_FIELD_VIEW,

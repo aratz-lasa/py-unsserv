@@ -1,6 +1,6 @@
 from typing import Any, List, Union
 
-from unsserv.common.api import MembershipService, NeighboursCallback
+from unsserv.common.service_interfaces import MembershipService, NeighboursCallback
 from unsserv.common.data_structures import Node
 from unsserv.common.gossip.gossip import Gossip, View
 
@@ -37,8 +37,8 @@ class Newscast(MembershipService):
         self.running = False
 
     def get_neighbours(self, local_view: bool = False) -> Union[List[Node], View]:
-        if not self._gossip:
-            raise RuntimeError("Membership not joined")
+        if not self.running:
+            raise RuntimeError("Membership service not running")
         if local_view:
             return self._gossip.local_view
         return list(self._gossip.local_view.keys())
@@ -46,6 +46,8 @@ class Newscast(MembershipService):
     def set_neighbours_callback(
         self, callback: NeighboursCallback, local_view: bool = False
     ) -> None:
+        if not self.running:
+            raise RuntimeError("Membership service not running")
         self._callback = callback
         self._callback_raw_format = local_view
 

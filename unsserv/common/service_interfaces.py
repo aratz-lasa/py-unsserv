@@ -5,11 +5,17 @@ from unsserv.common.data_structures import Node
 from unsserv.common.typing import AggregateCallback, NeighboursCallback, View
 
 
-class MembershipService(ABC):
+class IService(ABC):
     my_node: Node
     service_id: Any
     running: bool = False
 
+
+class ISubService(IService):
+    membership: "MembershipService"
+
+
+class MembershipService(IService):
     @abstractmethod
     async def join(self, service_id: Any, configuration: Any):
         pass
@@ -33,11 +39,7 @@ class ClusteringService(MembershipService):
     pass
 
 
-class AggregationService(ABC):
-    my_node: Node
-    service_id: Any
-    running: bool = False
-
+class AggregationService(ISubService):
     @abstractmethod
     async def join_aggregation(
         self, service_id: str, aggregation_configuration: Any
@@ -57,11 +59,7 @@ class AggregationService(ABC):
         pass
 
 
-class SamplingService(ABC):
-    my_node: Node
-    service_id: Any
-    running: bool = False
-
+class SamplingService(ISubService):
     @abstractmethod
     async def join_sampling(self, service_id: str) -> None:
         pass
@@ -75,11 +73,7 @@ class SamplingService(ABC):
         pass
 
 
-class DisseminationService(ABC):
-    my_node: Node
-    service_id: Any
-    running: bool = False
-
+class DisseminationService(ISubService):
     @abstractmethod
     async def join_broadcast(
         self, service_id: str, *broadcast_configuration: Any
@@ -95,11 +89,7 @@ class DisseminationService(ABC):
         pass
 
 
-class SearchingService(ABC):
-    my_node: Node
-    service_id: Any
-    running: bool = False
-
+class SearchingService(ISubService):
     @abstractmethod
     async def publish(self, data: Any) -> None:
         pass

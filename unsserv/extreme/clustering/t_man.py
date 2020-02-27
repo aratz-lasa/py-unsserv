@@ -1,7 +1,11 @@
 from functools import partial
 from typing import Any, Callable, List, Union
 
-from unsserv.common.api import ClusteringService, MembershipService, NeighboursCallback
+from unsserv.common.service_interfaces import (
+    ClusteringService,
+    MembershipService,
+    NeighboursCallback,
+)
 from unsserv.common.data_structures import Node
 from unsserv.common.gossip.gossip import (
     Gossip,
@@ -55,8 +59,8 @@ class TMan(ClusteringService):
         self.running = False
 
     def get_neighbours(self, local_view: bool = False) -> Union[List[Node], View]:
-        if not self._gossip:
-            raise RuntimeError("Cluster not joined")
+        if not self.running:
+            raise RuntimeError("Clustering service not running")
         if local_view:
             return self._gossip.local_view
         return list(self._gossip.local_view.keys())
@@ -64,6 +68,8 @@ class TMan(ClusteringService):
     def set_neighbours_callback(
         self, callback: NeighboursCallback, local_view: bool = False
     ) -> None:
+        if not self.running:
+            raise RuntimeError("Clustering service not running")
         self._callback = callback
         self._callback_raw_format = local_view
 

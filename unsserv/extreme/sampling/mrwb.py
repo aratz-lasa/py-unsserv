@@ -1,15 +1,14 @@
 import asyncio
 import math
 import random
-import string
 from enum import IntEnum, auto
 from typing import Dict, List, Optional
 
-from unsserv.common.api import MembershipService, SamplingService
+from unsserv.common.service_interfaces import MembershipService, SamplingService
 from unsserv.common.data_structures import Message, Node
-from unsserv.common.errors import SamplingError
+from unsserv.common.errors import ServiceError
 from unsserv.common.rpc.rpc import RPC, RpcBase
-from unsserv.common.utils import parse_node
+from unsserv.common.utils import parse_node, get_random_id
 from unsserv.extreme.sampling.mrwb_config import (
     DATA_FIELD_COMMAND,
     DATA_FIELD_ORIGIN_NODE,
@@ -23,7 +22,7 @@ from unsserv.extreme.sampling.mrwb_config import (
 )
 
 
-class CommandMRWB(IntEnum):
+class MRWBProtocol(IntEnum):
     GET_DEGREE = auto()
     SAMPLE = auto()
     SAMPLE_RESULT = auto()
@@ -66,7 +65,7 @@ class MRWB(SamplingService):
 
     def __init__(self, membership: MembershipService, multiplex: bool = True):
         self.my_node = membership.my_node
-        self._membership = membership
+        self.membership = membership
         self._neighbours = []
         self._neighbour_degrees = {}
         self._rpc = RPC.get_rpc(
@@ -80,13 +79,13 @@ class MRWB(SamplingService):
         if self.running:
             raise RuntimeError("Already running Sampling")
         self.service_id = service_id
-        self._membership.set_neighbours_callback(
+        self.membership.set_neighbours_callback(
             self._neighbours_change_callback  # type: ignore
         )
         # initialize RPC
         await self._rpc.register_service(self.service_id, self._handle_rpc)
         # initialize neighbours
-        neighbours = self._membership.get_neighbours()
+        neighbours = self.membership.get_neighbours()
         assert isinstance(neighbours, list)
         self._neighbours = neighbours
         self._degrees_update_task = asyncio.create_task(
@@ -95,7 +94,7 @@ class MRWB(SamplingService):
         self.running = True
 
     async def leave_sampling(self) -> None:
-        self._membership.set_neighbours_callback(None)
+        self.membership.set_neighbours_callback(None)
         self._neighbours = []
         await self._rpc.unregister_service(self.service_id)
         if self._degrees_update_task:  # stop degrees updater task
@@ -107,12 +106,14 @@ class MRWB(SamplingService):
         self.running = False
 
     async def get_sample(self) -> Node:
-        sample_id = self._get_random_sample_id()
+        if not self.running:
+            raise RuntimeError("Sampling service not running")
+        sample_id = get_random_id(ID_LENGTH)
         if not self._neighbours:
-            raise SamplingError("Unable to sample. Not connected Neighbours")
+            raise ServiceError("Unable to peer with neighbours for sampling.")
         node = random.choice(self._neighbours)  # random neighbour
         data = {
-            DATA_FIELD_COMMAND: CommandMRWB.SAMPLE,
+            DATA_FIELD_COMMAND: MRWBProtocol.SAMPLE,
             DATA_FIELD_SAMPLE_ID: sample_id,
             DATA_FIELD_ORIGIN_NODE: self.my_node,
             DATA_FIELD_TTL: TTL,
@@ -125,7 +126,7 @@ class MRWB(SamplingService):
             await asyncio.wait_for(event.wait(), timeout=SAMPLING_TIMEOUT)
         except asyncio.TimeoutError:
             del self._sampling_events[sample_id]
-            raise SamplingError("Sampling service timeouted")
+            raise ServiceError("Sampling service timeouted")
         sample = self._sampling_queue[sample_id]
         del self._sampling_queue[sample_id]
         return sample
@@ -140,21 +141,21 @@ class MRWB(SamplingService):
 
     async def _handle_rpc(self, message: Message) -> Optional[int]:
         command = message.data[DATA_FIELD_COMMAND]
-        if command == CommandMRWB.GET_DEGREE:
+        if command == MRWBProtocol.GET_DEGREE:
             return len(self._neighbours)
-        elif command == CommandMRWB.SAMPLE_RESULT:
+        elif command == MRWBProtocol.SAMPLE_RESULT:
             sample_result = parse_node(message.data[DATA_FIELD_SAMPLE_RESULT])
             sample_id = message.data[DATA_FIELD_SAMPLE_ID]
             self._sampling_queue[sample_id] = sample_result
             self._sampling_events[sample_id].set()
             del self._sampling_events[sample_id]
-        elif command == CommandMRWB.SAMPLE:
+        elif command == MRWBProtocol.SAMPLE:
             ttl = message.data[DATA_FIELD_TTL]
             while ttl > 0:
                 next_hop = self._choose_neighbour()
                 if next_hop != self.my_node:
                     data = {
-                        DATA_FIELD_COMMAND: CommandMRWB.SAMPLE,
+                        DATA_FIELD_COMMAND: MRWBProtocol.SAMPLE,
                         DATA_FIELD_SAMPLE_ID: message.data[DATA_FIELD_SAMPLE_ID],
                         DATA_FIELD_ORIGIN_NODE: message.data[DATA_FIELD_ORIGIN_NODE],
                         DATA_FIELD_TTL: ttl - 1,
@@ -165,12 +166,14 @@ class MRWB(SamplingService):
                 ttl -= 1
             origin_node = parse_node(message.data[DATA_FIELD_ORIGIN_NODE])
             data = {
-                DATA_FIELD_COMMAND: CommandMRWB.SAMPLE_RESULT,
+                DATA_FIELD_COMMAND: MRWBProtocol.SAMPLE_RESULT,
                 DATA_FIELD_SAMPLE_ID: message.data[DATA_FIELD_SAMPLE_ID],
                 DATA_FIELD_SAMPLE_RESULT: self.my_node,
             }
             message = Message(self.my_node, self.service_id, data)
             asyncio.create_task(self._rpc.call_sample_result(origin_node, message))
+        else:
+            raise ValueError("Invalid MON protocol value")
         return None
 
     async def _neighbours_change_callback(self, new_neighbours: List[Node]) -> None:
@@ -191,14 +194,10 @@ class MRWB(SamplingService):
         return self.my_node
 
     async def _update_degree(self, node: Node):
-        data = {DATA_FIELD_COMMAND: CommandMRWB.GET_DEGREE}
+        data = {DATA_FIELD_COMMAND: MRWBProtocol.GET_DEGREE}
         message = Message(self.my_node, self.service_id, data)
         try:
             degree = await self._rpc.call_get_degree(node, message)
             self._neighbour_degrees[node] = degree
         except ConnectionError:
             pass  # let membership to decide whether to remove the node or not
-
-    def _get_random_sample_id(self, size: int = ID_LENGTH):
-        id_characters = string.ascii_letters + string.digits + string.punctuation
-        return "".join(random.choice(id_characters) for _ in range(size))
