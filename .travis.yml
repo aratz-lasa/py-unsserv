@@ -5,7 +5,7 @@ matrix:
   include:
     - python: 3.7
       dist: xenial
-      env: TOXENV=py37-test
+      env: TOXENV=py37
     - python: 3.7
       dist: xenial
       env: TOXENV=lint
