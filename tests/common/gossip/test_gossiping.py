@@ -6,7 +6,7 @@ import pytest
 
 from tests.utils import get_random_nodes
 from unsserv.common.data_structures import Message, Node
-from unsserv.common.gossip import gossip, gossip_subcriber_interface
+from unsserv.common.gossip import gossip, gossip_subcriber_abc
 from unsserv.common.gossip.gossip import LOCAL_VIEW_SIZE, View
 from unsserv.common.gossip.gossip_config import GOSSIPING_FREQUENCY
 
@@ -100,7 +100,7 @@ async def gossiping(amount):
 
 @pytest.mark.asyncio
 async def test_subscriber():
-    class Subscriber(gossip_subcriber_interface.IGossipSubscriber):
+    class Subscriber(gossip_subcriber_abc.IGossipSubscriber):
         service_id = "sub"
 
         def __init__(self, my_node, expected_node):

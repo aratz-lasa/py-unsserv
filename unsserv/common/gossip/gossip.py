@@ -3,21 +3,22 @@ import math
 import random
 from collections import Counter
 from enum import Enum, auto
-from typing import Any, Callable, Coroutine, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
-from unsserv.common.service_interfaces import View
 from unsserv.common.data_structures import Message, Node
 from unsserv.common.gossip.gossip_config import (
     DATA_FIELD_VIEW,
     GOSSIPING_FREQUENCY,
     LOCAL_VIEW_SIZE,
 )
-from unsserv.common.gossip.gossip_subcriber_interface import IGossipSubscriber
+from unsserv.common.gossip.gossip_subcriber_abc import IGossipSubscriber
+from unsserv.common.gossip.gossip_typing import (
+    ExternalViewSource,
+    CustomSelectionRanking,
+    LocalViewCallback,
+)
 from unsserv.common.rpc.rpc import RPC, RpcBase
-
-LocalViewCallback = Callable[[View], Coroutine[Any, Any, None]]
-CustomSelectionRanking = Callable[[View], List[Node]]
-ExternalViewSource = Callable
+from unsserv.common.services_abc import View
 
 
 class ViewSelectionPolicy(Enum):

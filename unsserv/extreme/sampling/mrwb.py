@@ -4,7 +4,7 @@ import random
 from enum import IntEnum, auto
 from typing import Dict, List, Optional, Any
 
-from unsserv.common.service_interfaces import MembershipService, SamplingService
+from unsserv.common.services_abc import MembershipService, SamplingService
 from unsserv.common.data_structures import Message, Node
 from unsserv.common.errors import ServiceError
 from unsserv.common.rpc.rpc import RPC, RpcBase

@@ -2,14 +2,14 @@ from enum import Enum, auto
 from statistics import mean
 from typing import Any, Callable, Dict, Tuple, Union
 
-from unsserv.common.service_interfaces import (
+from unsserv.common.services_abc import (
     AggregateCallback,
     AggregationService,
     MembershipService,
 )
 from unsserv.common.data_structures import Message
 from unsserv.common.gossip.gossip import Gossip
-from unsserv.common.gossip.gossip_subcriber_interface import IGossipSubscriber
+from unsserv.common.gossip.gossip_subcriber_abc import IGossipSubscriber
 
 
 class AggregateType(Enum):

@@ -7,7 +7,7 @@ import random
 from unsserv.common.errors import ServiceError
 from unsserv.common.data_structures import Message, Node
 from unsserv.common.rpc.rpc import RPC, RpcBase
-from unsserv.common.service_interfaces import DisseminationService, MembershipService
+from unsserv.common.services_abc import DisseminationService, MembershipService
 from unsserv.common.utils import get_random_id
 from unsserv.extreme.dissemination.mon_config import (
     MON_TIMEOUT,
@@ -77,7 +77,7 @@ class Mon(DisseminationService):
     _received_data: Dict[
         BroadcastID, Any
     ]  # stores the data received from each broadcast (for avoiding duplicates)
-    _children_made_events: Dict[BroadcastID, asyncio.Event]
+    _children_ready_events: Dict[BroadcastID, asyncio.Event]
 
     def __init__(self, membership: MembershipService, multiplex: bool = True):
         self.my_node = membership.my_node
@@ -90,7 +90,7 @@ class Mon(DisseminationService):
         self._levels = {}
         self._received_data = {}
 
-        self._children_made_events = {}
+        self._children_ready_events = {}
 
     async def join_broadcast(
         self, service_id: str, *broadcast_configuration: Any
@@ -127,7 +127,7 @@ class Mon(DisseminationService):
 
     async def _rpc_handler(self, message: Message) -> Any:
         command = message.data[DATA_FIELD_COMMAND]
-        broadcast_id = message.data[BroadcastID]
+        broadcast_id = message.data[DATA_FIELD_BROADCAST_ID]
         if command == MonCommand.SESSION:
             first_time = broadcast_id in self._levels
             if first_time:
@@ -139,7 +139,7 @@ class Mon(DisseminationService):
                 asyncio.create_task(
                     self._make_children(broadcast_id, candidate_children)
                 )
-                self._children_made_events[broadcast_id] = asyncio.Event()
+                self._children_ready_events[broadcast_id] = asyncio.Event()
             else:
                 if message.data[DATA_FIELD_LEVEL] < self._levels[broadcast_id]:
                     return False
@@ -189,7 +189,7 @@ class Mon(DisseminationService):
         self._children[broadcast_id] = children
 
     async def _disseminate(self, broadcast_id: str, data: Any):
-        await self._children_made_events[
+        await self._children_ready_events[
             broadcast_id
         ].wait()  # wait children to initialize
         message = self._protocol.make_push_message(

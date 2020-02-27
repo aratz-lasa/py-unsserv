@@ -1,7 +1,7 @@
 from functools import partial
 from typing import Any, Callable, List, Union
 
-from unsserv.common.service_interfaces import (
+from unsserv.common.services_abc import (
     ClusteringService,
     MembershipService,
     NeighboursCallback,

@@ -1,6 +1,6 @@
 from typing import Any, List, Union
 
-from unsserv.common.service_interfaces import MembershipService, NeighboursCallback
+from unsserv.common.services_abc import MembershipService, NeighboursCallback
 from unsserv.common.data_structures import Node
 from unsserv.common.gossip.gossip import Gossip, View
 
