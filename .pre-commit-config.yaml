@@ -7,6 +7,18 @@ repos:
     - id: black
       language_version: python3.7
 
+  - repo: https://github.com/myint/docformatter
+    rev: v1.3
+
+    hooks:
+    - id: docformatter
+      name: docformatter
+      description: 'Formats docstrings to follow PEP 257.'
+      entry: docformatter
+      args: [-i]
+      language: python
+      types: [python]
+
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v2.3.0
     hooks:

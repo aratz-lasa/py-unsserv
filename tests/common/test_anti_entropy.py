@@ -1,7 +1,6 @@
 import asyncio
 
 import pytest
-
 from tests.utils import get_random_nodes
 from unsserv.common.aggregation.anti_entropy import (
     AggregateType,
