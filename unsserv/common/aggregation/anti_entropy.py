@@ -1,15 +1,15 @@
 from enum import Enum, auto
 from statistics import mean
-from typing import Any, Callable, Dict, Tuple, Union
+from typing import Any, Callable, Dict, Tuple, Optional
 
+from unsserv.common.data_structures import Message
+from unsserv.common.gossip.gossip import Gossip
+from unsserv.common.gossip.gossip_subcriber_abc import IGossipSubscriber
 from unsserv.common.services_abc import (
     AggregateCallback,
     AggregationService,
     MembershipService,
 )
-from unsserv.common.data_structures import Message
-from unsserv.common.gossip.gossip import Gossip
-from unsserv.common.gossip.gossip_subcriber_abc import IGossipSubscriber
 
 
 class AggregateType(Enum):
@@ -26,6 +26,12 @@ aggregate_functions: Dict[AggregateType, Callable] = {
 
 
 class AntiEntropy(AggregationService, IGossipSubscriber):
+    _gossip: Gossip
+    _aggregate_value: Any
+    _aggregate_type: Optional[AggregateType]
+    _aggregate_func: Optional[Callable]
+    _callback: Optional[AggregateCallback]
+
     def __init__(self, membership: MembershipService, multiplex: bool = True):
         self.my_node = membership.my_node
         self.multiplex = multiplex
@@ -35,11 +41,11 @@ class AntiEntropy(AggregationService, IGossipSubscriber):
                 "Membership must contain a '_gossip' attribute"
             )
         self.membership = membership
-        self._gossip: Gossip = getattr(membership, "_gossip")
-        self._aggregate_value: Any = None
-        self._aggregate_type: Union[AggregateType, None] = None
-        self._aggregate_func: Union[Callable, None] = None
-        self._callback: Union[AggregateCallback, None] = None
+        self._gossip = getattr(membership, "_gossip")
+        self._aggregate_value = None
+        self._aggregate_type = None
+        self._aggregate_func = None
+        self._callback = None
 
     async def join_aggregation(
         self, service_id: str, aggregation_configuration: Tuple
@@ -69,6 +75,7 @@ class AntiEntropy(AggregationService, IGossipSubscriber):
         self._callback = callback
 
     async def new_message(self, message: Message):
+        """IGossipSubscriber implementation."""
         assert callable(self._aggregate_func)
         neighbor_aggregate = message.data.get(self.service_id, None)
         self._aggregate_value = self._aggregate_func(
@@ -77,4 +84,5 @@ class AntiEntropy(AggregationService, IGossipSubscriber):
         await self._callback(self._aggregate_value)
 
     async def get_data(self) -> Tuple[Any, Any]:
+        """IGossipSubscriber implementation."""
         return self.service_id, self._aggregate_value

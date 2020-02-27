@@ -1,4 +1,4 @@
-from typing import Any, List, Union
+from typing import Any, List, Union, Optional
 
 from unsserv.common.services_abc import MembershipService, NeighboursCallback
 from unsserv.common.data_structures import Node
@@ -6,16 +6,16 @@ from unsserv.common.gossip.gossip import Gossip, View
 
 
 class Newscast(MembershipService):
-    my_node: Node
     _multiplex: bool
     _callback: NeighboursCallback
+    _gossip: Optional[Gossip]
 
     def __init__(self, node: Node, multiplex: bool = True):
         self.my_node = node
         self._multiplex = multiplex
         self._callback = None
         self._callback_raw_format = False
-        self._gossip: Union[Gossip, None] = None
+        self._gossip = None
 
     async def join(self, service_id: Any, bootstrap_nodes: List[Node] = None):
         if self.running:

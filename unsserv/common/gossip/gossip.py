@@ -2,9 +2,13 @@ import asyncio
 import math
 import random
 from collections import Counter
-from enum import Enum, auto
 from typing import Any, Dict, List, Optional, Union
 
+from unsserv.common.gossip.gossip_policies import (
+    ViewSelectionPolicy,
+    PeerSelectionPolicy,
+    ViewPropagationPolicy,
+)
 from unsserv.common.data_structures import Message, Node
 from unsserv.common.gossip.gossip_config import (
     DATA_FIELD_VIEW,
@@ -19,24 +23,6 @@ from unsserv.common.gossip.gossip_typing import (
 )
 from unsserv.common.rpc.rpc import RPC, RpcBase
 from unsserv.common.services_abc import View
-
-
-class ViewSelectionPolicy(Enum):
-    RAND = auto()
-    HEAD = auto()
-    TAIL = auto()
-
-
-class PeerSelectionPolicy(Enum):
-    RAND = auto()
-    HEAD = auto()
-    TAIL = auto()
-
-
-class ViewPropagationPolicy(Enum):
-    PUSH = auto()
-    PULL = auto()
-    PUSHPULL = auto()
 
 
 class GossipProtocol(RpcBase):
@@ -132,8 +118,8 @@ class Gossip:
             push_view = Counter()  # if PULL, empty view
             if self.view_propagation is not ViewPropagationPolicy.PULL:
                 my_descriptor = Counter({self.my_node: 0})
-                push_view = self._merge(my_descriptor, self.local_view)
-            subscribers_data = await self._retrieve_from_subscribers()
+                push_view = self._merge_views(my_descriptor, self.local_view)
+            subscribers_data = await self._get_data_from_subscribers()
             data = {DATA_FIELD_VIEW: push_view, **subscribers_data}
             push_message = Message(self.my_node, self.service_id, data)
             if self.view_propagation is ViewPropagationPolicy.PUSH:
@@ -158,9 +144,9 @@ class Gossip:
                     continue
                 view = _decode_view(push_message.data[DATA_FIELD_VIEW])
                 view = self._increase_hop_count(view)
-                buffer = self._merge(view, self.local_view)
+                buffer = self._merge_views(view, self.local_view)
                 if self.get_external_view:
-                    buffer = self._merge(view, self.get_external_view())
+                    buffer = self._merge_views(view, self.get_external_view())
 
                 new_view = self._select_view(buffer)
                 await self._try_call_callback(new_view)
@@ -172,21 +158,21 @@ class Gossip:
         pull_return_message = None
         if self.view_propagation is not ViewPropagationPolicy.PUSH:
             my_descriptor = Counter({self.my_node: 0})
-            subscribers_data = await self._retrieve_from_subscribers()
+            subscribers_data = await self._get_data_from_subscribers()
             data = {
-                DATA_FIELD_VIEW: self._merge(my_descriptor, self.local_view),
+                DATA_FIELD_VIEW: self._merge_views(my_descriptor, self.local_view),
                 **subscribers_data,
             }
             pull_return_message = Message(self.my_node, self.service_id, data)
-        buffer = self._merge(view, self.local_view)
+        buffer = self._merge_views(view, self.local_view)
         if self.get_external_view:
-            buffer = self._merge(view, self.get_external_view())
+            buffer = self._merge_views(view, self.get_external_view())
 
         new_view = self._select_view(buffer)
         await self._try_call_callback(new_view)
         self.local_view = new_view
 
-        await self._deliver_to_subscribers(message)
+        await self._deliver_message_to_subscribers(message)
         return pull_return_message
 
     def _select_peer(self, view: View) -> Optional[Node]:
@@ -230,7 +216,7 @@ class Gossip:
     def _increase_hop_count(self, view: View) -> View:
         return view + Counter(view.keys())
 
-    def _merge(self, view1: View, view2: View) -> View:
+    def _merge_views(self, view1: View, view2: View) -> View:
         all_nodes = set(list(view1.keys()) + list(set(view2.keys())))
         merged_view: Counter = Counter()
         for node in all_nodes:
@@ -241,14 +227,14 @@ class Gossip:
             )
         return merged_view
 
-    async def _retrieve_from_subscribers(self):
+    async def _get_data_from_subscribers(self):
         data: Dict = {}
         for subscriber in self.subscribers:
             key, value = await subscriber.get_data()
             data[key] = value
         return data
 
-    async def _deliver_to_subscribers(self, message: Message):
+    async def _deliver_message_to_subscribers(self, message: Message):
         for subscriber in self.subscribers:
             await subscriber.new_message(message)
 

@@ -1,12 +1,11 @@
 import asyncio
-from typing import Any, Callable, Coroutine, Dict, List, Tuple, Union
+from typing import Any, Dict, List, Tuple
 
 from rpcudp.protocol import RPCProtocol
 
 from unsserv.common.data_structures import Message, Node
 from unsserv.common.gossip.gossip_config import RPC_TIMEOUT
-
-RpcCallback = Callable[[Message], Coroutine[Any, Any, Union[None, Any]]]
+from unsserv.common.rpc.rpc_typing import RpcCallback
 
 
 class RPC:
@@ -24,7 +23,6 @@ class RPC:
                 pass
 
             rpc.__class__ = NewRPC
-
         return rpc
 
 
@@ -34,7 +32,6 @@ class RpcBase(RPCProtocol):
 
     def __init__(self, node: Node):
         RPCProtocol.__init__(self, RPC_TIMEOUT)
-
         self.my_node = node
         self.registered_services = {}
 
@@ -71,8 +68,7 @@ class RpcBase(RPCProtocol):
             self._transport = None
 
     def _handle_call_response(self, result: Tuple[int, Any]) -> Any:
-        """
-        If we get a response, returns it.
+        """If we get a response, returns it.
 
         Otherwise raise error and remove the node from ILinkStore.
         """

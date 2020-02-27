@@ -8,3 +8,4 @@ NeighboursCallback = Optional[
     Callable[[Union[List[Node], View]], Coroutine[Any, Any, None]]
 ]
 AggregateCallback = Callable[[Any], Coroutine[Any, Any, None]]
+BroadcastHandler = Optional[Callable[[Any], Coroutine[Any, Any, None]]]

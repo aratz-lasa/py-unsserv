@@ -67,7 +67,7 @@ def test_merge():
     view2[r_nodes[0]] = 99
 
     assert view1 != view2
-    assert view1 == gsp._merge(view1, view2)
+    assert view1 == gsp._merge_views(view1, view2)
 
 
 @pytest.mark.asyncio

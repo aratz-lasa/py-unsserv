@@ -2,7 +2,12 @@ from abc import ABC, abstractmethod
 from typing import Any, List, Union
 
 from unsserv.common.data_structures import Node
-from unsserv.common.typing import AggregateCallback, NeighboursCallback, View
+from unsserv.common.typing import (
+    AggregateCallback,
+    NeighboursCallback,
+    View,
+    BroadcastHandler,
+)
 
 
 class IService(ABC):
@@ -35,7 +40,7 @@ class MembershipService(IService):
         pass
 
 
-class ClusteringService(MembershipService):
+class ClusteringService(ISubService, MembershipService):
     pass
 
 
@@ -76,7 +81,7 @@ class SamplingService(ISubService):
 class DisseminationService(ISubService):
     @abstractmethod
     async def join_broadcast(
-        self, service_id: str, *broadcast_configuration: Any
+        self, service_id: str, broadcast_handler: BroadcastHandler
     ) -> None:
         """Duplicates must handle the user."""
         pass

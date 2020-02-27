@@ -112,7 +112,7 @@ class MRWB(SamplingService):
             raise RuntimeError("Already running Sampling")
         self.service_id = service_id
         self.membership.set_neighbours_callback(
-            self._neighbours_change_callback  # type: ignore
+            self._membership_neighbours_callback  # type: ignore
         )
         # initialize RPC
         await self._rpc.register_service(self.service_id, self._handle_rpc)
@@ -121,7 +121,7 @@ class MRWB(SamplingService):
         assert isinstance(neighbours, list)
         self._neighbours = neighbours
         self._degrees_update_task = asyncio.create_task(
-            self._degrees_update_process()
+            self._neighbours_degrees_maintenance()
         )  # stop degrees updater task
         self._protocol = MRWBProtocol(self.my_node, service_id)
         self.running = True
@@ -159,7 +159,7 @@ class MRWB(SamplingService):
         del self._sampling_queue[sample_id]
         return sample
 
-    async def _degrees_update_process(self):
+    async def _neighbours_degrees_maintenance(self):
         # maybe is not needed if degrees are updated whenever
         # membership changes neighbours?
         while True:
@@ -199,15 +199,6 @@ class MRWB(SamplingService):
             raise ValueError("Invalid MON protocol value")
         return None
 
-    async def _neighbours_change_callback(self, new_neighbours: List[Node]) -> None:
-        old_neighbours = set(self._neighbours)
-        self._neighbours = new_neighbours
-        new_neighbours_set = set(new_neighbours)
-        for neighbour in old_neighbours - new_neighbours_set:
-            del self._neighbour_degrees[neighbour]
-        for neighbour in new_neighbours_set - old_neighbours:
-            await self._update_degree(neighbour)
-
     def _choose_neighbour(self) -> Node:
         random_neighbour = random.choice(self._neighbours)
         neighbour_degree = self._neighbour_degrees.get(random_neighbour, math.inf)
@@ -223,3 +214,12 @@ class MRWB(SamplingService):
             self._neighbour_degrees[node] = degree
         except ConnectionError:
             pass  # let membership to decide whether to remove the node or not
+
+    async def _membership_neighbours_callback(self, new_neighbours: List[Node]) -> None:
+        old_neighbours = set(self._neighbours)
+        self._neighbours = new_neighbours
+        new_neighbours_set = set(new_neighbours)
+        for neighbour in old_neighbours - new_neighbours_set:
+            del self._neighbour_degrees[neighbour]
+        for neighbour in new_neighbours_set - old_neighbours:
+            await self._update_degree(neighbour)

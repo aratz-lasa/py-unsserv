@@ -18,15 +18,13 @@ RankingFunction = Callable[[Node], Any]
 
 
 class TMan(ClusteringService):
-    my_node: Node
-    multiplex: bool
-    _membership: MembershipService
+    _multiplex: bool
     _callback: NeighboursCallback
 
     def __init__(self, membership: MembershipService, multiplex: bool = True):
         self.my_node = membership.my_node
-        self.multiplex = multiplex
-        self._membership = membership
+        self._multiplex = multiplex
+        self.membership = membership
         self._callback = None
         self._callback_raw_format = False
         self._ranking_function: RankingFunction
@@ -37,13 +35,14 @@ class TMan(ClusteringService):
             raise RuntimeError("Already running Clustering")
         self.service_id = service_id
         self._ranking_function = ranking_function
-        random_view_source = partial(self._membership.get_neighbours, True)
-        local_view_nodes = self._membership.get_neighbours()
+        random_view_source = partial(self.membership.get_neighbours, True)
+        local_view_nodes = self.membership.get_neighbours()
         assert isinstance(local_view_nodes, list)  # for mypy validation
         self._gossip = Gossip(
-            self._membership.my_node,
+            self.membership.my_node,
             service_id=service_id,
             local_view_nodes=local_view_nodes,
+            local_view_callback=self._local_view_callback,
             peer_selection=PeerSelectionPolicy.HEAD,
             view_selection=ViewSelectionPolicy.HEAD,
             custom_selection_ranking=self._selection_ranking,

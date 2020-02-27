@@ -1,23 +1,22 @@
 import asyncio
-import inspect
+import random
 from enum import IntEnum, auto
 from typing import Any, List, Dict, Optional
-import random
 
-from unsserv.common.errors import ServiceError
 from unsserv.common.data_structures import Message, Node
+from unsserv.common.errors import ServiceError
 from unsserv.common.rpc.rpc import RPC, RpcBase
 from unsserv.common.services_abc import DisseminationService, MembershipService
+from unsserv.common.typing import BroadcastHandler
 from unsserv.common.utils import get_random_id
 from unsserv.extreme.dissemination.mon_config import (
-    MON_TIMEOUT,
     DATA_FIELD_COMMAND,
     DATA_FIELD_BROADCAST_ID,
     DATA_FIELD_LEVEL,
     FANOUT,
     DATA_FIELD_BROADCAST_DATA,
 )
-from unsserv.extreme.dissemination.mon_typing import BroadcastHandler, BroadcastID
+from unsserv.extreme.dissemination.mon_typing import BroadcastID
 
 
 class MonCommand(IntEnum):
@@ -93,20 +92,10 @@ class Mon(DisseminationService):
         self._children_ready_events = {}
 
     async def join_broadcast(
-        self, service_id: str, *broadcast_configuration: Any
+        self, service_id: str, broadcast_handler: BroadcastHandler
     ) -> None:
         if self.running:
             raise RuntimeError("Already running Dissemination")
-        # unpack arguments
-        broadcast_handler = broadcast_configuration[0]
-        assert inspect.iscoroutinefunction(broadcast_handler)
-        root = broadcast_configuration[1]
-        assert isinstance(root, bool)
-        timeout = MON_TIMEOUT
-        if len(broadcast_handler) == 3:
-            timeout = broadcast_configuration[2]
-            assert isinstance(timeout, int)
-        # initialize dissemination
         self.service_id = service_id
         self._broadcast_handler = broadcast_handler
         await self._rpc.register_service(service_id, self._rpc_handler)
@@ -122,7 +111,7 @@ class Mon(DisseminationService):
     async def broadcast(self, data: Any) -> None:
         if not self.running:
             raise RuntimeError("Dissemination service not running")
-        broadcast_id = await self._build_random_tree()
+        broadcast_id = await self._build_dag()
         await self._disseminate(broadcast_id, data)
 
     async def _rpc_handler(self, message: Message) -> Any:
@@ -137,7 +126,7 @@ class Mon(DisseminationService):
                     set(self.membership.get_neighbours()) - {message.node}
                 )
                 asyncio.create_task(
-                    self._make_children(broadcast_id, candidate_children)
+                    self._initialize_children(broadcast_id, candidate_children)
                 )
                 self._children_ready_events[broadcast_id] = asyncio.Event()
             else:
@@ -160,17 +149,17 @@ class Mon(DisseminationService):
         else:
             raise ValueError("Invalid MON protocol value")
 
-    async def _build_random_tree(self) -> str:
+    async def _build_dag(self) -> str:
         broadcast_id = get_random_id()
         self._levels[broadcast_id] = 0
         candidate_children = self.membership.get_neighbours()
         assert isinstance(candidate_children, list)
-        await self._make_children(
+        await self._initialize_children(
             broadcast_id, candidate_children, broadcast_origin=True
         )
         return broadcast_id
 
-    async def _make_children(
+    async def _initialize_children(
         self, broadcast_id: str, neighbours: list, broadcast_origin=False
     ):
         children: List[Node] = []
