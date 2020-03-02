@@ -9,14 +9,14 @@ from unsserv.common.rpc.rpc import RPC, RpcBase
 from unsserv.common.services_abc import DisseminationService, MembershipService
 from unsserv.common.typing import BroadcastHandler
 from unsserv.common.utils import get_random_id
-from unsserv.extreme.dissemination.mon_config import (
+from unsserv.extreme.dissemination.mon.mon_config import (
     DATA_FIELD_COMMAND,
     DATA_FIELD_BROADCAST_ID,
     DATA_FIELD_LEVEL,
     FANOUT,
     DATA_FIELD_BROADCAST_DATA,
 )
-from unsserv.extreme.dissemination.mon_typing import BroadcastID
+from unsserv.extreme.dissemination.mon.mon_typing import BroadcastID
 
 
 class MonCommand(IntEnum):
@@ -101,6 +101,7 @@ class Mon(DisseminationService):
         await self._rpc.register_service(service_id, self._rpc_handler)
         self._protocol = MonProtocol(self.my_node, self.service_id)
         self.running = True
+        print("Hello")
 
     async def leave_broadcast(self) -> None:
         await self._rpc.unregister_service(self.service_id)

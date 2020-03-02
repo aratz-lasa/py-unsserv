@@ -111,11 +111,7 @@ class MRWB(SamplingService):
         if self.running:
             raise RuntimeError("Already running Sampling")
         self.service_id = service_id
-        self.membership.set_neighbours_callback(
-            self._membership_neighbours_callback  # type: ignore
-        )
-        # initialize RPC
-        await self._rpc.register_service(self.service_id, self._handle_rpc)
+        self._protocol = MRWBProtocol(self.my_node, service_id)
         # initialize neighbours
         neighbours = self.membership.get_neighbours()
         assert isinstance(neighbours, list)
@@ -123,7 +119,11 @@ class MRWB(SamplingService):
         self._degrees_update_task = asyncio.create_task(
             self._neighbours_degrees_maintenance()
         )  # stop degrees updater task
-        self._protocol = MRWBProtocol(self.my_node, service_id)
+        # initialize RPC
+        await self._rpc.register_service(self.service_id, self._handle_rpc)
+        self.membership.set_neighbours_callback(
+            self._membership_neighbours_callback  # type: ignore
+        )
         self.running = True
 
     async def leave_sampling(self) -> None:
@@ -217,9 +217,12 @@ class MRWB(SamplingService):
 
     async def _membership_neighbours_callback(self, new_neighbours: List[Node]) -> None:
         old_neighbours = set(self._neighbours)
-        self._neighbours = new_neighbours
         new_neighbours_set = set(new_neighbours)
         for neighbour in old_neighbours - new_neighbours_set:
-            del self._neighbour_degrees[neighbour]
+            if (
+                neighbour in self._neighbour_degrees
+            ):  # due to concurrency there may be errors
+                del self._neighbour_degrees[neighbour]
         for neighbour in new_neighbours_set - old_neighbours:
             await self._update_degree(neighbour)
+        self._neighbours = new_neighbours

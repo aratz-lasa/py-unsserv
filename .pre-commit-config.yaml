@@ -15,7 +15,7 @@ repos:
       name: docformatter
       description: 'Formats docstrings to follow PEP 257.'
       entry: docformatter
-      args: [-i, --pre-summary-newline, --recursive]
+      args: [-i, --pre-summary-newline, --recursive, unsserv]
       language: python
       types: [python]
 
@@ -23,7 +23,7 @@ repos:
     rev: v2.3.0
     hooks:
       - id: flake8
-        args: ["--max-line-length", "88"]
+        args: ["--max-line-length", "88", "unsserv", "tests"]
 
   - repo: local
     hooks:

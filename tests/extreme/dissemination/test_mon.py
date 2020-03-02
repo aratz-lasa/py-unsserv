@@ -7,14 +7,14 @@ import pytest
 from tests.utils import get_random_nodes
 from unsserv.common.data_structures import Node
 from unsserv.common.gossip.gossip_config import GOSSIPING_FREQUENCY
-from unsserv.extreme.dissemination.mon import Mon
+from unsserv.extreme.dissemination.mon.mon import Mon
 from unsserv.extreme.membership import newscast
 
 first_port = 7771
 node = Node(("127.0.0.1", first_port))
 
 MEMB_SERVICE_ID = "newscast"
-DISS_SERVICE_ID = "mon/test/1.0"
+DISS_SERVICE_ID = "mon"
 
 mon_events: Dict[Node, asyncio.Event] = {}
 
@@ -94,7 +94,6 @@ async def broadcast(amount):
         r_mons.append(r_mon)
 
     await asyncio.sleep(GOSSIPING_FREQUENCY * 15)
-
     data = ""
     await mon.broadcast(data)
     for r_mon in r_mons:

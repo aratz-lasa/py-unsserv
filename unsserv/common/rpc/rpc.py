@@ -1,3 +1,4 @@
+from abc import ABC
 import asyncio
 from typing import Any, Dict, List, Tuple
 
@@ -12,21 +13,23 @@ class RPC:
     rpc_register: Dict = {}
 
     @staticmethod
-    def get_rpc(node, ProtocolClass: type = None, multiplex: bool = False):
+    def get_rpc(node, ProtocolClass: type, multiplex: bool = False):
         if not multiplex and node in RPC.rpc_register:
             raise ConnectionError("RPC address already in use")
         rpc = RPC.rpc_register.get(node, RpcBase(node))
-        if ProtocolClass:
-            assert isinstance(ProtocolClass, type)
+
+        if not isinstance(rpc, ProtocolClass):
 
             class NewRPC(ProtocolClass, rpc.__class__):  # type: ignore
                 pass
 
             rpc.__class__ = NewRPC
+
+        RPC.rpc_register[node] = rpc
         return rpc
 
 
-class RpcBase(RPCProtocol):
+class RpcBase(RPCProtocol, ABC):
     my_node: Node
     registered_services: Dict[Node, RpcCallback]
 
