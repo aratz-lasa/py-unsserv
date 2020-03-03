@@ -7,22 +7,22 @@ import pytest
 from tests.utils import get_random_nodes
 from unsserv.common.data_structures import Node
 from unsserv.common.gossip.gossip_config import GOSSIPING_FREQUENCY
-from unsserv.extreme.dissemination.mon.mon import Mon
+from unsserv.extreme.dissemination.lpbcast.lpbcast import Lpbcast
 from unsserv.extreme.membership import newscast
 
 first_port = 7771
 node = Node(("127.0.0.1", first_port))
 
 MEMB_SERVICE_ID = "newscast"
-DISS_SERVICE_ID = "mon"
+DISS_SERVICE_ID = "lpbcast"
 
-mon_events: Dict[Node, asyncio.Event] = {}
+lpbcast_events: Dict[Node, asyncio.Event] = {}
 
 
 async def init_membership(amount):
     newc = newscast.Newscast(node)
     await newc.join(MEMB_SERVICE_ID)
-    mon_events[newc.my_node] = asyncio.Event()
+    lpbcast_events[newc.my_node] = asyncio.Event()
 
     r_newcs = []
     r_nodes = get_random_nodes(amount, first_port=first_port + 1)
@@ -30,13 +30,13 @@ async def init_membership(amount):
         r_newc = newscast.Newscast(r_node)
         await r_newc.join(MEMB_SERVICE_ID, [node])
         r_newcs.append(r_newc)
-        mon_events[r_node] = asyncio.Event()
+        lpbcast_events[r_node] = asyncio.Event()
     await asyncio.sleep(GOSSIPING_FREQUENCY * 7)
     return newc, r_newcs
 
 
 async def dissemination_handler(node: Node, data: Any):
-    mon_events[node].set()
+    lpbcast_events[node].set()
 
 
 @pytest.mark.asyncio
@@ -49,23 +49,23 @@ async def test_start_stop():
 async def start_stop(amount):
     newc, r_newcs = await init_membership(amount)
 
-    mon = Mon(newc)
-    await mon.join_broadcast(
-        DISS_SERVICE_ID, partial(dissemination_handler, mon.my_node)
+    lpbcast = Lpbcast(newc)
+    await lpbcast.join_broadcast(
+        DISS_SERVICE_ID, partial(dissemination_handler, lpbcast.my_node)
     )
-    r_mons = []
+    r_lpbcasts = []
     for r_newc in r_newcs:
-        r_mon = Mon(r_newc)
-        await r_mon.join_broadcast(
-            DISS_SERVICE_ID, partial(dissemination_handler, r_mon.my_node)
+        r_lpbcast = Lpbcast(r_newc)
+        await r_lpbcast.join_broadcast(
+            DISS_SERVICE_ID, partial(dissemination_handler, r_lpbcast.my_node)
         )
-        r_mons.append(r_mon)
+        r_lpbcasts.append(r_lpbcast)
 
     await asyncio.sleep(GOSSIPING_FREQUENCY * 15)
 
-    await mon.leave_broadcast()
-    for r_mon in r_mons:
-        await r_mon.leave_broadcast()
+    await lpbcast.leave_broadcast()
+    for r_lpbcast in r_lpbcasts:
+        await r_lpbcast.leave_broadcast()
     await newc.leave()
     for r_newc in r_newcs:
         await r_newc.leave()
@@ -81,29 +81,31 @@ async def test_broadcast():
 async def broadcast(amount):
     newc, r_newcs = await init_membership(amount)
 
-    mon = Mon(newc)
-    await mon.join_broadcast(
-        DISS_SERVICE_ID, partial(dissemination_handler, mon.my_node)
+    lpbcast = Lpbcast(newc)
+    await lpbcast.join_broadcast(
+        DISS_SERVICE_ID, partial(dissemination_handler, lpbcast.my_node)
     )
-    r_mons = []
+    r_lpbcasts = []
     for r_newc in r_newcs:
-        r_mon = Mon(r_newc)
-        await r_mon.join_broadcast(
-            DISS_SERVICE_ID, partial(dissemination_handler, r_mon.my_node)
+        r_lpbcast = Lpbcast(r_newc)
+        await r_lpbcast.join_broadcast(
+            DISS_SERVICE_ID, partial(dissemination_handler, r_lpbcast.my_node)
         )
-        r_mons.append(r_mon)
+        r_lpbcasts.append(r_lpbcast)
 
     await asyncio.sleep(GOSSIPING_FREQUENCY * 15)
     data = "data"
-    await mon.broadcast(data)
+    await lpbcast.broadcast(data)
     await asyncio.sleep(GOSSIPING_FREQUENCY * 15)
 
-    mon_events_received = [mon_events[r_mon.my_node].is_set() for r_mon in r_mons]
-    assert amount * 0.8 < sum(mon_events_received)
+    lpbcast_events_received = [
+        lpbcast_events[r_lpbcast.my_node].is_set() for r_lpbcast in r_lpbcasts
+    ]
+    assert amount * 0.8 < sum(lpbcast_events_received)
 
-    await mon.leave_broadcast()
-    for r_mon in r_mons:
-        await r_mon.leave_broadcast()
+    await lpbcast.leave_broadcast()
+    for r_lpbcast in r_lpbcasts:
+        await r_lpbcast.leave_broadcast()
     await newc.leave()
     for r_newc in r_newcs:
         await r_newc.leave()
