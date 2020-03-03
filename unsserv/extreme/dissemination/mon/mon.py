@@ -97,11 +97,10 @@ class Mon(DisseminationService):
         if self.running:
             raise RuntimeError("Already running Dissemination")
         self.service_id = service_id
+        self._protocol = MonProtocol(self.my_node, self.service_id)
         self._broadcast_handler = broadcast_handler
         await self._rpc.register_service(service_id, self._rpc_handler)
-        self._protocol = MonProtocol(self.my_node, self.service_id)
         self.running = True
-        print("Hello")
 
     async def leave_broadcast(self) -> None:
         await self._rpc.unregister_service(self.service_id)
@@ -119,19 +118,19 @@ class Mon(DisseminationService):
         command = message.data[DATA_FIELD_COMMAND]
         broadcast_id = message.data[DATA_FIELD_BROADCAST_ID]
         if command == MonCommand.SESSION:
-            first_time = broadcast_id in self._levels
+            first_time = broadcast_id not in self._levels
             if first_time:
                 self._parents[broadcast_id] = [message.node]
                 self._levels[broadcast_id] = message.data[DATA_FIELD_LEVEL] + 1
                 candidate_children = list(
                     set(self.membership.get_neighbours()) - {message.node}
                 )
+                self._children_ready_events[broadcast_id] = asyncio.Event()
                 asyncio.create_task(
                     self._initialize_children(broadcast_id, candidate_children)
                 )
-                self._children_ready_events[broadcast_id] = asyncio.Event()
             else:
-                if message.data[DATA_FIELD_LEVEL] < self._levels[broadcast_id]:
+                if self._levels[broadcast_id] <= message.data[DATA_FIELD_LEVEL]:
                     return False
                 if (
                     message.node not in self._parents[broadcast_id]
@@ -153,10 +152,13 @@ class Mon(DisseminationService):
     async def _build_dag(self) -> str:
         broadcast_id = get_random_id()
         self._levels[broadcast_id] = 0
+        self._children_ready_events[broadcast_id] = asyncio.Event()
         candidate_children = self.membership.get_neighbours()
         assert isinstance(candidate_children, list)
-        await self._initialize_children(
-            broadcast_id, candidate_children, broadcast_origin=True
+        asyncio.create_task(
+            self._initialize_children(
+                broadcast_id, candidate_children, broadcast_origin=True
+            )
         )
         return broadcast_id
 
@@ -168,7 +170,7 @@ class Mon(DisseminationService):
         message = self._protocol.make_session_message(
             broadcast_id, 0
         )  # only generate once, bc it is the same every time
-        while neighbours and len(children) < fanout:
+        while neighbours and len(children) <= fanout:
             child = random.choice(neighbours)
             neighbours.remove(child)
             session_ok = await self._rpc.call_session(child, message)
@@ -177,6 +179,7 @@ class Mon(DisseminationService):
         if broadcast_origin and len(children) == 0:
             raise ServiceError("Unable to peer with neighbours for disseminating")
         self._children[broadcast_id] = children
+        self._children_ready_events[broadcast_id].set()
 
     async def _disseminate(self, broadcast_id: str, data: Any):
         await self._children_ready_events[

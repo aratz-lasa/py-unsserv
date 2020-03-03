@@ -94,10 +94,12 @@ async def broadcast(amount):
         r_mons.append(r_mon)
 
     await asyncio.sleep(GOSSIPING_FREQUENCY * 15)
-    data = ""
+    data = "data"
     await mon.broadcast(data)
-    for r_mon in r_mons:
-        assert mon_events[r_mon.my_node].is_set()  # check broadcast was received
+    await asyncio.sleep(GOSSIPING_FREQUENCY * 25)
+
+    mon_events_received = [mon_events[r_mon.my_node].is_set() for r_mon in r_mons]
+    assert amount * 0.8 < sum(mon_events_received)
 
     await mon.leave_broadcast()
     for r_mon in r_mons:

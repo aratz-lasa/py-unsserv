@@ -78,7 +78,7 @@ async def sampling(amount):
     await asyncio.sleep(GOSSIPING_FREQUENCY * 10)
 
     samples = {await sampl.get_sample() for _ in range(amount * 2)}
-    assert len({r_newc.my_node for r_newc in r_newcs} - samples) / len(r_newcs) < 0.4
+    assert len({r_newc.my_node for r_newc in r_newcs} - samples) / len(r_newcs) <= 0.45
 
     await sampl.leave_sampling()
     for r_sampl in r_sampls:
