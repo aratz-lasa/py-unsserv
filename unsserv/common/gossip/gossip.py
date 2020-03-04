@@ -94,7 +94,6 @@ class Gossip:
 
     async def stop(self):
         await self.rpc.unregister_service(self.service_id)
-
         if self._proactive_task:
             self._proactive_task.cancel()
             try:

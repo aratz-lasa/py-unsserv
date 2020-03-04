@@ -7,6 +7,9 @@ import pytest
 from tests.utils import get_random_nodes
 from unsserv.common.data_structures import Node
 from unsserv.common.gossip.gossip_config import GOSSIPING_FREQUENCY
+from unsserv.common.gossip import gossip_config
+
+gossip_config.RPC_TIMEOUT = 1  # otherwise it congests the network
 from unsserv.extreme.dissemination.mon.mon import Mon
 from unsserv.extreme.membership import newscast
 
@@ -48,7 +51,6 @@ async def test_start_stop():
 
 async def start_stop(amount):
     newc, r_newcs = await init_membership(amount)
-
     mon = Mon(newc)
     await mon.join_broadcast(
         DISS_SERVICE_ID, partial(dissemination_handler, mon.my_node)
@@ -94,7 +96,7 @@ async def broadcast(amount):
         r_mons.append(r_mon)
 
     await asyncio.sleep(GOSSIPING_FREQUENCY * 15)
-    data = "data"
+    data = b"data"
     await mon.broadcast(data)
     await asyncio.sleep(GOSSIPING_FREQUENCY * 15)
 

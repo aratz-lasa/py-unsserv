@@ -48,7 +48,6 @@ async def test_start_stop():
 
 async def start_stop(amount):
     newc, r_newcs = await init_membership(amount)
-
     lpbcast = Lpbcast(newc)
     await lpbcast.join_broadcast(
         DISS_SERVICE_ID, partial(dissemination_handler, lpbcast.my_node)
@@ -94,14 +93,14 @@ async def broadcast(amount):
         r_lpbcasts.append(r_lpbcast)
 
     await asyncio.sleep(GOSSIPING_FREQUENCY * 15)
-    data = "data"
+    data = b"data"
     await lpbcast.broadcast(data)
     await asyncio.sleep(GOSSIPING_FREQUENCY * 15)
 
     lpbcast_events_received = [
         lpbcast_events[r_lpbcast.my_node].is_set() for r_lpbcast in r_lpbcasts
     ]
-    assert amount * 0.8 < sum(lpbcast_events_received)
+    assert int(amount * 0.8) < sum(lpbcast_events_received)
 
     await lpbcast.leave_broadcast()
     for r_lpbcast in r_lpbcasts:

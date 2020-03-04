@@ -91,7 +91,7 @@ class DisseminationService(ISubService):
         pass
 
     @abstractmethod
-    async def broadcast(self, data: Any) -> None:
+    async def broadcast(self, data: bytes) -> None:
         pass
 
 

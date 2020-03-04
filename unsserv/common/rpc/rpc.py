@@ -7,6 +7,7 @@ from rpcudp.protocol import RPCProtocol
 from unsserv.common.data_structures import Message, Node
 from unsserv.common.gossip.gossip_config import RPC_TIMEOUT
 from unsserv.common.rpc.rpc_typing import RpcCallback
+from unsserv.common.utils import decode_node
 
 
 class RPC:
@@ -51,12 +52,9 @@ class RpcBase(RPCProtocol, ABC):
     async def unregister_service(self, service_id: Any):
         if service_id in self.registered_services:
             del self.registered_services[service_id]
-        print(service_id, "Unregistered RPC")
-
         if (
             len(self.registered_services) == 0
         ):  # deactivate when last service is unregistered
-            print(service_id, "Closed RPC")
             await self._stop()
 
     async def _start(self):
@@ -85,8 +83,7 @@ class RpcBase(RPCProtocol, ABC):
         return result[1]
 
     def _decode_message(self, raw_message: List) -> Message:
-        node = tuple(raw_message[0])
-        node = Node(tuple(node[0]), tuple(node[1]))
+        node = decode_node(raw_message[0])
         return Message(node, raw_message[1], raw_message[2])
 
 

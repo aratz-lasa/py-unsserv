@@ -57,9 +57,9 @@ class MonRPC(RpcBase):
 
     async def rpc_session(self, node: Node, raw_message: List) -> bool:
         message = self._decode_message(raw_message)
-        degree = await self.registered_services[message.service_id](message)
-        assert isinstance(degree, bool)
-        return degree
+        session_ok = await self.registered_services[message.service_id](message)
+        assert isinstance(session_ok, bool)
+        return session_ok
 
     async def rpc_push(self, node: Node, raw_message: List):
         message = self._decode_message(raw_message)
@@ -108,9 +108,10 @@ class Mon(DisseminationService):
         self._protocol = None
         self.running = False
 
-    async def broadcast(self, data: Any) -> None:
+    async def broadcast(self, data: bytes) -> None:
         if not self.running:
             raise RuntimeError("Dissemination service not running")
+        assert isinstance(data, bytes)
         broadcast_id = await self._build_dag()
         await self._disseminate(broadcast_id, data)
 
@@ -173,7 +174,10 @@ class Mon(DisseminationService):
         while neighbours and len(children) <= fanout:
             child = random.choice(neighbours)
             neighbours.remove(child)
-            session_ok = await self._rpc.call_session(child, message)
+            try:
+                session_ok = await self._rpc.call_session(child, message)
+            except Exception:
+                continue
             if session_ok:
                 children.append(child)
         if broadcast_origin and len(children) == 0:
@@ -188,5 +192,12 @@ class Mon(DisseminationService):
         message = self._protocol.make_push_message(
             broadcast_id, data
         )  # only generate once, bc it is the same every time
+        pushed_amount = 0
         for child in self._children[broadcast_id]:
-            await self._rpc.call_push(child, message)
+            try:
+                await self._rpc.call_push(child, message)
+                pushed_amount += 1
+            except ConnectionError:
+                pass
+        if pushed_amount == 0:
+            raise ServiceError("Unable to peer with neighbours for disseminating")

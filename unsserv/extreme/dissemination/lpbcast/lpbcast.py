@@ -4,11 +4,11 @@ from collections import OrderedDict
 from enum import IntEnum, auto
 from typing import Any, List, Optional, Union
 
+from unsserv.common.utils import decode_node, get_random_id
 from unsserv.common.data_structures import Message, Node
 from unsserv.common.rpc.rpc import RPC, RpcBase
 from unsserv.common.services_abc import DisseminationService, MembershipService
 from unsserv.common.typing import BroadcastHandler
-from unsserv.common.utils import get_random_id
 from unsserv.extreme.dissemination.lpbcast.lpbcast_config import (
     DATA_FIELD_COMMAND,
     FANOUT,
@@ -90,7 +90,6 @@ class Lpbcast(DisseminationService):
 
     _events: "OrderedDict[EventId, List[Union[EventData, EventOrigin]]]"
     _events_digest: "OrderedDict[EventId, EventOrigin]"
-    _retrieve_buffer: "OrderedDict[EventId, EventOrigin]"
 
     def __init__(self, membership: MembershipService, multiplex: bool = True):
         self.my_node = membership.my_node
@@ -100,7 +99,6 @@ class Lpbcast(DisseminationService):
 
         self._events = OrderedDict()
         self._events_digest = OrderedDict()
-        self._retrieve_buffer = OrderedDict()
 
     async def join_broadcast(
         self, service_id: str, broadcast_handler: BroadcastHandler
@@ -119,9 +117,10 @@ class Lpbcast(DisseminationService):
         self._protocol = None
         self.running = False
 
-    async def broadcast(self, data: Any) -> None:
+    async def broadcast(self, data: bytes) -> None:
         if not self.running:
             raise RuntimeError("Dissemination service not running")
+        assert isinstance(data, bytes)
         event_id = get_random_id()
         await self._handle_new_event(
             event_id, data, self.my_node, broadcast_origin=True
@@ -135,18 +134,21 @@ class Lpbcast(DisseminationService):
                 self._handle_new_event(
                     message.data[DATA_FIELD_EVENT_ID],
                     message.data[DATA_FIELD_EVENT_DATA],
-                    Node(message.data[DATA_FIELD_EVENT_ORIGIN]),
+                    decode_node(message.data[DATA_FIELD_EVENT_ORIGIN]),
                 )
             )
             for message_id, message_origin in message.data[DATA_FIELD_DIGEST]:
-                asyncio.create_task(
-                    self._retrieve_event(message.node, message_id, Node(message_origin))
-                )
-            print(self.my_node.address_info[1], "Handled PUSH")
+                if message_id not in self._events_digest:  # not the one received
+                    asyncio.create_task(
+                        self._retrieve_event(
+                            message.node, message_id, decode_node(message_origin)
+                        )
+                    )
 
         elif command == LpbcastCommand.RETRIEVE_EVENT:
             retrieve_event_id = message.data[DATA_FIELD_RETRIEVE_EVENT]
-            return self._events.get(retrieve_event_id, default=None)
+            event = self._events.get(retrieve_event_id, None)
+            return event
 
     async def _handle_new_event(
         self,
@@ -157,20 +159,16 @@ class Lpbcast(DisseminationService):
     ):
         if event_id in self._events_digest:
             return
-        if event_id in self._retrieve_buffer:
-            del self._retrieve_buffer[event_id]
         self._events[event_id] = [event_data, event_origin]
         self._events_digest[event_id] = event_origin
         self._purge_events_threshold()
         asyncio.create_task(self._disseminate(event_id, event_data, event_origin))
         if not broadcast_origin:
             asyncio.create_task(self._broadcast_handler(event_data))
-        print(self.my_node.address_info[1], "Handled New Event")
 
     async def _disseminate(
         self, event_id: EventId, event_data: EventData, event_origin: Node
     ):
-        print(self.my_node.address_info[1], "Disseminating...")
         candidate_neighbours = self.membership.get_neighbours()
         assert isinstance(candidate_neighbours, list)
         fanout = min(FANOUT, len(candidate_neighbours))
@@ -180,20 +178,17 @@ class Lpbcast(DisseminationService):
                     event_id,
                     event_data,
                     event_origin,
-                    list(self._events_digest.items()),  # type: ignore
+                    list(map(lambda e: [e[0], e[1]], self._events_digest.items())),
                 )
                 await self._rpc.call_push_event(neighbour, message)
             except Exception:
                 pass  # todo: log the error?
-        print(self.my_node.address_info[1], "Disseminate")
 
     def _purge_events_threshold(self):
         while LPBCAST_THRESHOLD < len(self._events):
             self._events.popitem(last=False)
         while LPBCAST_THRESHOLD < len(self._events_digest):
             self._events_digest.popitem(last=False)
-        while LPBCAST_THRESHOLD < len(self._retrieve_buffer):
-            self._retrieve_buffer.popitem(last=False)
 
     async def _retrieve_event(
         self, event_source: Node, event_id: EventId, event_origin: EventOrigin,
