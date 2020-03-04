@@ -51,10 +51,12 @@ class RpcBase(RPCProtocol, ABC):
     async def unregister_service(self, service_id: Any):
         if service_id in self.registered_services:
             del self.registered_services[service_id]
+        print(service_id, "Unregistered RPC")
 
         if (
             len(self.registered_services) == 0
         ):  # deactivate when last service is unregistered
+            print(service_id, "Closed RPC")
             await self._stop()
 
     async def _start(self):

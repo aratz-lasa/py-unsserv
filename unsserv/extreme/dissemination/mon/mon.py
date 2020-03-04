@@ -13,7 +13,7 @@ from unsserv.extreme.dissemination.mon.mon_config import (
     DATA_FIELD_COMMAND,
     DATA_FIELD_BROADCAST_ID,
     DATA_FIELD_LEVEL,
-    FANOUT,
+    MON_FANOUT,
     DATA_FIELD_BROADCAST_DATA,
 )
 from unsserv.extreme.dissemination.mon.mon_typing import BroadcastID
@@ -166,7 +166,7 @@ class Mon(DisseminationService):
         self, broadcast_id: str, neighbours: list, broadcast_origin=False
     ):
         children: List[Node] = []
-        fanout = min(len(neighbours), FANOUT)
+        fanout = min(len(neighbours), MON_FANOUT)
         message = self._protocol.make_session_message(
             broadcast_id, 0
         )  # only generate once, bc it is the same every time

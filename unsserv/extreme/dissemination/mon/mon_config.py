@@ -1,5 +1,5 @@
 MON_TIMEOUT = 30  # seconds
-FANOUT = 10
+MON_FANOUT = 10
 
 DATA_FIELD_COMMAND = "mon-command"
 DATA_FIELD_BROADCAST_ID = "mon-broadcast-id"
