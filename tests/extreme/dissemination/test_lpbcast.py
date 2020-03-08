@@ -100,7 +100,7 @@ async def broadcast(amount):
     lpbcast_events_received = [
         lpbcast_events[r_lpbcast.my_node].is_set() for r_lpbcast in r_lpbcasts
     ]
-    assert int(amount * 0.8) < sum(lpbcast_events_received)
+    assert int(amount * 0.75) <= sum(lpbcast_events_received)
 
     await lpbcast.leave_broadcast()
     for r_lpbcast in r_lpbcasts:

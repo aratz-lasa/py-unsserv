@@ -99,7 +99,7 @@ async def broadcast(amount):
     await asyncio.sleep(GOSSIPING_FREQUENCY * 15)
 
     mon_events_received = [mon_events[r_mon.my_node].is_set() for r_mon in r_mons]
-    assert amount * 0.8 < sum(mon_events_received)
+    assert int(amount * 0.75) <= sum(mon_events_received)
 
     await mon.leave_broadcast()
     for r_mon in r_mons:
