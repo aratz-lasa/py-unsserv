@@ -9,9 +9,7 @@ from unsserv.common.services_abc import (
 from unsserv.common.data_structures import Node
 from unsserv.common.gossip.gossip import (
     Gossip,
-    PeerSelectionPolicy,
     View,
-    ViewSelectionPolicy,
 )
 
 RankingFunction = Callable[[Node], Any]
@@ -43,8 +41,6 @@ class TMan(ClusteringService):
             service_id=service_id,
             local_view_nodes=local_view_nodes,
             local_view_callback=self._local_view_callback,
-            peer_selection=PeerSelectionPolicy.HEAD,
-            view_selection=ViewSelectionPolicy.HEAD,
             custom_selection_ranking=self._selection_ranking,
             external_view_source=random_view_source,
             multiplex=True,
