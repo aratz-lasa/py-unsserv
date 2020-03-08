@@ -28,7 +28,6 @@ async def init_newscast():
             r_newc = newscast.Newscast(r_node)
             await r_newc.join(SERVICE_ID, [node] + r_nodes[:i])
             r_newcs.append(r_newc)
-        await asyncio.sleep(GOSSIPING_FREQUENCY * 7)
         return newc, r_newcs, r_nodes
 
     try:
@@ -43,6 +42,7 @@ async def init_newscast():
 @pytest.mark.parametrize("amount", [1, 5, 100])
 async def test_newscast_join(init_newscast, amount):
     newc, r_newcs, r_nodes = await init_newscast(amount)
+    await asyncio.sleep(GOSSIPING_FREQUENCY * 7)
 
     all_nodes = set(
         [
@@ -71,6 +71,7 @@ async def test_newscast_join(init_newscast, amount):
 )
 async def test_newscast_leave(init_newscast, amount):
     newc, r_newcs, r_nodes = await init_newscast(amount)
+    await asyncio.sleep(GOSSIPING_FREQUENCY * 7)
 
     await newc.leave()
     await asyncio.sleep(GOSSIPING_FREQUENCY * 30)
@@ -104,5 +105,5 @@ async def test_newscast_callback(init_newscast, amount):
 
     newc.set_neighbours_callback(callback)
 
-    await asyncio.sleep(GOSSIPING_FREQUENCY * 15)
+    await asyncio.sleep(GOSSIPING_FREQUENCY * 7)
     assert callback_event.is_set()

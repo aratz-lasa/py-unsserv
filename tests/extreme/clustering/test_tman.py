@@ -52,7 +52,7 @@ async def test_join_tman(init_extreme_membership, init_tman, amount):
     newc, r_newcs = await init_extreme_membership(amount)
     tman, r_tmans = await init_tman(newc, r_newcs)
 
-    await asyncio.sleep(GOSSIPING_FREQUENCY * 25)
+    await asyncio.sleep(GOSSIPING_FREQUENCY * 30)
 
     neighbours_set = set(tman.get_neighbours())
     ideal_neighbours_set = set(
@@ -74,10 +74,10 @@ async def test_leave_tman(init_extreme_membership, init_tman, amount):
     newc, r_newcs = await init_extreme_membership(amount)
     tman, r_tmans = await init_tman(newc, r_newcs)
 
-    await asyncio.sleep(GOSSIPING_FREQUENCY * 7)
+    await asyncio.sleep(GOSSIPING_FREQUENCY * 15)
     await tman.leave()
     await newc.leave()
-    await asyncio.sleep(GOSSIPING_FREQUENCY * 30)
+    await asyncio.sleep(GOSSIPING_FREQUENCY * 40)
 
     all_nodes = Counter(
         [
