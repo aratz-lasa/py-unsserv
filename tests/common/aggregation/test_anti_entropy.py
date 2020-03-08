@@ -1,45 +1,27 @@
 import asyncio
 
 import pytest
-from tests.utils import get_random_nodes
 from unsserv.common.aggregation.anti_entropy import (
     AggregateType,
     AntiEntropy,
     aggregate_functions,
 )
-from unsserv.common.data_structures import Node
 from unsserv.common.gossip.gossip_config import GOSSIPING_FREQUENCY
-from unsserv.extreme.membership import newscast
+from tests.utils import init_extreme_membership
 
-first_port = 7771
-node = Node(("127.0.0.1", first_port))
+init_extreme_membership = init_extreme_membership  # for flake8 compliance
 
-MEMB_SERVICE_ID = "newscast"
 AGGR_SERVICE_ID = "tman"
-
-
-async def init_membership(amount):
-    newc = newscast.Newscast(node)
-    await newc.join(MEMB_SERVICE_ID)
-
-    r_newcs = []
-    r_nodes = get_random_nodes(amount, first_port=first_port + 1)
-    for i, r_node in enumerate(r_nodes):
-        r_newc = newscast.Newscast(r_node)
-        await r_newc.join(MEMB_SERVICE_ID, [node] + r_nodes[:i])
-        r_newcs.append(r_newc)
-    await asyncio.sleep(GOSSIPING_FREQUENCY * 7)
-    return newc, r_newcs
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("amount", [1, 5, 100])
-async def test_start_stop(amount):
-    newc, r_newcs = await init_membership(amount)
+async def test_start_stop(init_extreme_membership, amount):
+    newc, r_newcs = await init_extreme_membership(amount)
 
     anti = AntiEntropy(newc)
     await anti.join_aggregation(
-        AGGR_SERVICE_ID, (AggregateType.MEAN, node.address_info[1])
+        AGGR_SERVICE_ID, (AggregateType.MEAN, anti.my_node.address_info[1])
     )
     r_antis = []
     for r_newc in r_newcs:
@@ -54,9 +36,6 @@ async def test_start_stop(amount):
     await anti.leave_aggregation()
     for r_anti in r_antis:
         await r_anti.leave_aggregation()
-    await newc.leave()
-    for r_newc in r_newcs:
-        await r_newc.leave()
 
 
 @pytest.mark.asyncio
@@ -68,11 +47,13 @@ async def test_start_stop(amount):
         for aggregate_type in AggregateType
     ],
 )
-async def test_aggregate(amount, aggregate_type):
-    newc, r_newcs = await init_membership(amount)
+async def test_aggregate(init_extreme_membership, amount, aggregate_type):
+    newc, r_newcs = await init_extreme_membership(amount)
 
     anti = AntiEntropy(newc)
-    await anti.join_aggregation(AGGR_SERVICE_ID, (aggregate_type, node.address_info[1]))
+    await anti.join_aggregation(
+        AGGR_SERVICE_ID, (aggregate_type, anti.my_node.address_info[1])
+    )
     r_antis = []
     for r_newc in r_newcs:
         r_anti = AntiEntropy(r_newc)
@@ -83,6 +64,7 @@ async def test_aggregate(amount, aggregate_type):
 
     await asyncio.sleep(GOSSIPING_FREQUENCY * 15)
 
+    first_port = anti.my_node.address_info[1]
     assert (
         abs(
             await anti.get_aggregate()
@@ -108,6 +90,3 @@ async def test_aggregate(amount, aggregate_type):
     await anti.leave_aggregation()
     for r_anti in r_antis:
         await r_anti.leave_aggregation()
-    await newc.leave()
-    for r_newc in r_newcs:
-        await r_newc.leave()

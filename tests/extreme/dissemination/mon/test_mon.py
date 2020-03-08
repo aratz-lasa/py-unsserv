@@ -4,36 +4,16 @@ from typing import Any, Dict
 
 import pytest
 
-from tests.utils import get_random_nodes
 from unsserv.common.data_structures import Node
 from unsserv.common.gossip.gossip_config import GOSSIPING_FREQUENCY
-
 from unsserv.extreme.dissemination.mon.mon import Mon
-from unsserv.extreme.membership import newscast
+from tests.utils import init_extreme_membership
 
-first_port = 7771
-node = Node(("127.0.0.1", first_port))
+init_extreme_membership = init_extreme_membership  # for flake8 compliance
 
-MEMB_SERVICE_ID = "newscast"
 DISS_SERVICE_ID = "mon"
 
 mon_events: Dict[Node, asyncio.Event] = {}
-
-
-async def init_membership(amount):
-    newc = newscast.Newscast(node)
-    await newc.join(MEMB_SERVICE_ID)
-    mon_events[newc.my_node] = asyncio.Event()
-
-    r_newcs = []
-    r_nodes = get_random_nodes(amount, first_port=first_port + 1)
-    for i, r_node in enumerate(r_nodes):
-        r_newc = newscast.Newscast(r_node)
-        await r_newc.join(MEMB_SERVICE_ID, [node] + r_nodes[:i])
-        r_newcs.append(r_newc)
-        mon_events[r_node] = asyncio.Event()
-    await asyncio.sleep(GOSSIPING_FREQUENCY * 7)
-    return newc, r_newcs
 
 
 async def dissemination_handler(node: Node, data: Any):
@@ -42,8 +22,8 @@ async def dissemination_handler(node: Node, data: Any):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("amount", [1, 5, 100])
-async def test_start_stop(amount):
-    newc, r_newcs = await init_membership(amount)
+async def test_start_stop(init_extreme_membership, amount):
+    newc, r_newcs = await init_extreme_membership(amount)
     mon = Mon(newc)
     await mon.join_broadcast(
         DISS_SERVICE_ID, partial(dissemination_handler, mon.my_node)
@@ -61,23 +41,23 @@ async def test_start_stop(amount):
     await mon.leave_broadcast()
     for r_mon in r_mons:
         await r_mon.leave_broadcast()
-    await newc.leave()
-    for r_newc in r_newcs:
-        await r_newc.leave()
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("amount", [1, 5, 100])
-async def test_broadcast(amount):
-    newc, r_newcs = await init_membership(amount)
+async def test_broadcast(init_extreme_membership, amount):
+    newc, r_newcs = await init_extreme_membership(amount)
 
     mon = Mon(newc)
+    mon_events[newc.my_node] = asyncio.Event()
     await mon.join_broadcast(
         DISS_SERVICE_ID, partial(dissemination_handler, mon.my_node)
     )
+
     r_mons = []
     for r_newc in r_newcs:
         r_mon = Mon(r_newc)
+        mon_events[r_newc.my_node] = asyncio.Event()
         await r_mon.join_broadcast(
             DISS_SERVICE_ID, partial(dissemination_handler, r_mon.my_node)
         )
@@ -94,6 +74,3 @@ async def test_broadcast(amount):
     await mon.leave_broadcast()
     for r_mon in r_mons:
         await r_mon.leave_broadcast()
-    await newc.leave()
-    for r_newc in r_newcs:
-        await r_newc.leave()
