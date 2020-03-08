@@ -83,7 +83,7 @@ async def test_gossiping(amount):
         await r_gsp.start()
         r_gsps.append(r_gsp)
 
-    await asyncio.sleep(GOSSIPING_FREQUENCY * 25)
+    await asyncio.sleep(GOSSIPING_FREQUENCY * 15)
 
     for r_gsp in r_gsps:
         assert min(amount, LOCAL_VIEW_SIZE) <= len(r_gsp.local_view)

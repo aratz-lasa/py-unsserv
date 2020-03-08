@@ -29,6 +29,7 @@ async def init_tman():
             r_tman = TMan(r_newc)
             await r_tman.join(C_SERVICE_ID, partial(port_distance, r_tman.my_node))
             r_tmans.append(r_tman)
+        await asyncio.sleep(GOSSIPING_FREQUENCY * 7)
         return tman, r_tmans
 
     try:
@@ -51,7 +52,7 @@ async def test_join_tman(init_extreme_membership, init_tman, amount):
     newc, r_newcs = await init_extreme_membership(amount)
     tman, r_tmans = await init_tman(newc, r_newcs)
 
-    await asyncio.sleep(GOSSIPING_FREQUENCY * 30)
+    await asyncio.sleep(GOSSIPING_FREQUENCY * 25)
 
     neighbours_set = set(tman.get_neighbours())
     ideal_neighbours_set = set(
@@ -73,7 +74,7 @@ async def test_leave_tman(init_extreme_membership, init_tman, amount):
     newc, r_newcs = await init_extreme_membership(amount)
     tman, r_tmans = await init_tman(newc, r_newcs)
 
-    await asyncio.sleep(GOSSIPING_FREQUENCY * 15)
+    await asyncio.sleep(GOSSIPING_FREQUENCY * 7)
     await tman.leave()
     await newc.leave()
     await asyncio.sleep(GOSSIPING_FREQUENCY * 30)
@@ -110,5 +111,5 @@ async def test_tman_callback(init_extreme_membership, init_tman, amount):
 
     tman.set_neighbours_callback(callback, local_view=True)
 
-    await asyncio.sleep(GOSSIPING_FREQUENCY * 5)
+    await asyncio.sleep(GOSSIPING_FREQUENCY * 15)
     assert callback_event.is_set()

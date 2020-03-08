@@ -14,19 +14,35 @@ SERVICE_ID = "newscast"
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("amount", [1, 5, 100])
-async def test_newscast_join(amount):
-    newc = newscast.Newscast(node)
-    await newc.join(SERVICE_ID)
-
+@pytest.fixture
+async def init_newscast():
+    newc = None
     r_newcs = []
-    r_nodes = get_random_nodes(amount)
-    for i, r_node in enumerate(r_nodes):
-        r_newc = newscast.Newscast(r_node)
-        await r_newc.join(SERVICE_ID, [node] + r_nodes[:i])
-        r_newcs.append(r_newc)
 
-    await asyncio.sleep(GOSSIPING_FREQUENCY * 7)
+    async def _init_newscast(amount):
+        nonlocal newc, r_newcs
+        newc = newscast.Newscast(node)
+        await newc.join(SERVICE_ID)
+        r_nodes = get_random_nodes(amount)
+        for i, r_node in enumerate(r_nodes):
+            r_newc = newscast.Newscast(r_node)
+            await r_newc.join(SERVICE_ID, [node] + r_nodes[:i])
+            r_newcs.append(r_newc)
+        await asyncio.sleep(GOSSIPING_FREQUENCY * 7)
+        return newc, r_newcs, r_nodes
+
+    try:
+        yield _init_newscast
+    finally:
+        await newc.leave()
+        for r_newc in r_newcs:
+            await r_newc.leave()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("amount", [1, 5, 100])
+async def test_newscast_join(init_newscast, amount):
+    newc, r_newcs, r_nodes = await init_newscast(amount)
 
     all_nodes = set(
         [
@@ -48,27 +64,14 @@ async def test_newscast_join(amount):
         for r_neighbour in r_neighbours:
             assert r_neighbour in r_nodes or r_neighbour == node
 
-    await newc.leave()
-    for r_newc in r_newcs:
-        await r_newc.leave()
-
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     "amount", [LOCAL_VIEW_SIZE + 1, LOCAL_VIEW_SIZE + 5, LOCAL_VIEW_SIZE + 100]
 )
-async def test_newscast_leave(amount):
-    newc = newscast.Newscast(node)
-    await newc.join(SERVICE_ID)
+async def test_newscast_leave(init_newscast, amount):
+    newc, r_newcs, r_nodes = await init_newscast(amount)
 
-    r_newcs = []
-    r_nodes = get_random_nodes(amount)
-    for i, r_node in enumerate(r_nodes):
-        r_newc = newscast.Newscast(r_node)
-        await r_newc.join(SERVICE_ID, [node] + r_nodes[:i])
-        r_newcs.append(r_newc)
-
-    await asyncio.sleep(GOSSIPING_FREQUENCY * 5)
     await newc.leave()
     await asyncio.sleep(GOSSIPING_FREQUENCY * 30)
 
@@ -84,19 +87,16 @@ async def test_newscast_leave(amount):
         map(lambda p: p[0], all_nodes.most_common()[-nodes_ten_percent:])
     )
 
-    # clean up
-    await newc.leave()
-    for r_newc in r_newcs:
-        await r_newc.leave()
-
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("amount", [1, 5, 100])
-async def test_newscast_callback(amount):
-    callback_event = asyncio.Event()
+@pytest.mark.parametrize(
+    "amount",
+    [(LOCAL_VIEW_SIZE * 2) + 1, (LOCAL_VIEW_SIZE * 2) + 5, (LOCAL_VIEW_SIZE * 2) + 100],
+)
+async def test_newscast_callback(init_newscast, amount):
+    newc, r_newcs, r_nodes = await init_newscast(amount)
 
-    newc = newscast.Newscast(node)
-    await newc.join(SERVICE_ID)
+    callback_event = asyncio.Event()
 
     async def callback(neighbours):
         nonlocal callback_event
@@ -104,17 +104,5 @@ async def test_newscast_callback(amount):
 
     newc.set_neighbours_callback(callback)
 
-    r_newcs = []
-    r_nodes = get_random_nodes(amount)
-    for i, r_node in enumerate(r_nodes):
-        r_newc = newscast.Newscast(r_node)
-        await r_newc.join(SERVICE_ID, [node] + r_nodes[:i])
-        r_newcs.append(r_newc)
-
-    await asyncio.sleep(GOSSIPING_FREQUENCY * 5)
+    await asyncio.sleep(GOSSIPING_FREQUENCY * 15)
     assert callback_event.is_set()
-
-    # clean up
-    await newc.leave()
-    for r_newc in r_newcs:
-        await r_newc.leave()

@@ -26,6 +26,7 @@ async def init_mrwb():
             r_sampl = MRWB(r_newc)
             await r_sampl.join_sampling(AGGR_SERVICE_ID)
             r_sampls.append(r_sampl)
+        await asyncio.sleep(GOSSIPING_FREQUENCY * 7)
         return r_sampls, sampl
 
     try:
@@ -42,16 +43,12 @@ async def test_start_stop(init_extreme_membership, init_mrwb, amount):
     newc, r_newcs = await init_extreme_membership(amount)
     r_sampls, sampl = await init_mrwb(newc, r_newcs)
 
-    await asyncio.sleep(GOSSIPING_FREQUENCY * 10)
-
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("amount", [1, 5, 100])
 async def test_sampling(init_extreme_membership, init_mrwb, amount):
     newc, r_newcs = await init_extreme_membership(amount)
     r_sampls, sampl = await init_mrwb(newc, r_newcs)
-
-    await asyncio.sleep(GOSSIPING_FREQUENCY * 10)
 
     samples = {await sampl.get_sample() for _ in range(amount * 2)}
     assert len({r_newc.my_node for r_newc in r_newcs} - samples) / len(r_newcs) <= 0.45

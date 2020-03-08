@@ -32,6 +32,7 @@ async def init_anti_entropy():
                 AGGR_SERVICE_ID, (AggregateType.MEAN, r_newc.my_node.address_info[1])
             )
             r_antis.append(r_anti)
+        await asyncio.sleep(GOSSIPING_FREQUENCY * 7)
         return anti, r_antis
 
     try:
@@ -46,10 +47,7 @@ async def init_anti_entropy():
 @pytest.mark.parametrize("amount", [1, 5, 100])
 async def test_start_stop(init_extreme_membership, init_anti_entropy, amount):
     newc, r_newcs = await init_extreme_membership(amount)
-
     anti, r_antis = await init_anti_entropy(newc, r_newcs)
-
-    await asyncio.sleep(GOSSIPING_FREQUENCY * 15)
 
 
 @pytest.mark.asyncio
@@ -66,8 +64,6 @@ async def test_aggregate(
 ):
     newc, r_newcs = await init_extreme_membership(amount)
     anti, r_antis = await init_anti_entropy(newc, r_newcs)
-
-    await asyncio.sleep(GOSSIPING_FREQUENCY * 15)
 
     first_port = anti.my_node.address_info[1]
     assert (

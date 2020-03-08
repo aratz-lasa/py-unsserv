@@ -40,6 +40,7 @@ async def init_mon():
                 DISS_SERVICE_ID, partial(dissemination_handler, r_mon.my_node)
             )
             r_mons.append(r_mon)
+        await asyncio.sleep(GOSSIPING_FREQUENCY * 7)
         return mon, r_mons
 
     try:
@@ -56,8 +57,6 @@ async def test_start_stop(init_extreme_membership, init_mon, amount):
     newc, r_newcs = await init_extreme_membership(amount)
     mon, r_mons = await init_mon(newc, r_newcs)
 
-    await asyncio.sleep(GOSSIPING_FREQUENCY * 15)
-
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("amount", [1, 5, 100])
@@ -65,7 +64,6 @@ async def test_broadcast(init_extreme_membership, init_mon, amount):
     newc, r_newcs = await init_extreme_membership(amount)
     mon, r_mons = await init_mon(newc, r_newcs)
 
-    await asyncio.sleep(GOSSIPING_FREQUENCY * 15)
     data = b"data"
     await mon.broadcast(data)
     await asyncio.sleep(GOSSIPING_FREQUENCY * 15)

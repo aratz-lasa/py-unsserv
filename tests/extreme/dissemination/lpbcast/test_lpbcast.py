@@ -39,6 +39,7 @@ async def init_lpbcast():
                 DISS_SERVICE_ID, partial(dissemination_handler, r_lpbcast.my_node)
             )
             r_lpbcasts.append(r_lpbcast)
+        await asyncio.sleep(GOSSIPING_FREQUENCY * 7)
         return lpbcast, r_lpbcasts
 
     try:
@@ -55,8 +56,6 @@ async def test_start_stop(init_extreme_membership, init_lpbcast, amount):
     newc, r_newcs = await init_extreme_membership(amount)
     lpbcast, r_lpbcasts = await init_lpbcast(newc, r_newcs)
 
-    await asyncio.sleep(GOSSIPING_FREQUENCY * 15)
-
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("amount", [1, 5, 100])
@@ -64,7 +63,6 @@ async def test_broadcast(init_extreme_membership, init_lpbcast, amount):
     newc, r_newcs = await init_extreme_membership(amount)
     lpbcast, r_lpbcasts = await init_lpbcast(newc, r_newcs)
 
-    await asyncio.sleep(GOSSIPING_FREQUENCY * 15)
     data = b"data"
     await lpbcast.broadcast(data)
     await asyncio.sleep(GOSSIPING_FREQUENCY * 15)
