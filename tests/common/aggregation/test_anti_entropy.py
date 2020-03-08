@@ -33,13 +33,8 @@ async def init_membership(amount):
 
 
 @pytest.mark.asyncio
-async def test_start_stop():
-    neighbour_amounts = [1, 5, 100]
-    for amount in neighbour_amounts:
-        await start_stop(amount)
-
-
-async def start_stop(amount):
+@pytest.mark.parametrize("amount", [1, 5, 100])
+async def test_start_stop(amount):
     newc, r_newcs = await init_membership(amount)
 
     anti = AntiEntropy(newc)
@@ -65,14 +60,15 @@ async def start_stop(amount):
 
 
 @pytest.mark.asyncio
-async def test_aggregate():
-    neighbour_amounts = [1, 5, 100]
-    for aggregate_type in AggregateType:
-        for amount in neighbour_amounts:
-            await aggregate(amount, aggregate_type)
-
-
-async def aggregate(amount, aggregate_type):
+@pytest.mark.parametrize(
+    "amount,aggregate_type",
+    [
+        (amount, aggregate_type)
+        for amount in [1, 5, 100]
+        for aggregate_type in AggregateType
+    ],
+)
+async def test_aggregate(amount, aggregate_type):
     newc, r_newcs = await init_membership(amount)
 
     anti = AntiEntropy(newc)

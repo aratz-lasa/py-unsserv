@@ -34,13 +34,10 @@ async def init_membership(amount):
 
 
 @pytest.mark.asyncio
-async def test_join_tman():
-    neighbour_amounts = [1, 5, 100]
-    for amount in neighbour_amounts:
-        await join_tman(amount)
-
-
-async def join_tman(amount):
+@pytest.mark.parametrize(
+    "amount", [LOCAL_VIEW_SIZE + 1, LOCAL_VIEW_SIZE + 5, LOCAL_VIEW_SIZE + 100]
+)
+async def test_join_tman(amount):
     newc, r_newcs = await init_membership(amount)
 
     tman = TMan(newc)
@@ -51,7 +48,7 @@ async def join_tman(amount):
         await r_tman.join(C_SERVICE_ID, port_distance)
         r_tmans.append(r_tman)
 
-    await asyncio.sleep(GOSSIPING_FREQUENCY * 40)
+    await asyncio.sleep(GOSSIPING_FREQUENCY * 30)
 
     neighbours_set = set(tman.get_neighbours())
     ideal_neighbours_set = set(
@@ -72,17 +69,10 @@ async def join_tman(amount):
 
 
 @pytest.mark.asyncio
-async def test_leave_tman():
-    neighbour_amounts = [
-        LOCAL_VIEW_SIZE + 1,
-        LOCAL_VIEW_SIZE + 5,
-        LOCAL_VIEW_SIZE + 100,
-    ]
-    for amount in neighbour_amounts:
-        await leave_tman(amount)
-
-
-async def leave_tman(amount):
+@pytest.mark.parametrize(
+    "amount", [LOCAL_VIEW_SIZE + 1, LOCAL_VIEW_SIZE + 5, LOCAL_VIEW_SIZE + 100]
+)
+async def test_leave_tman(amount):
     newc, r_newcs = await init_membership(amount)
 
     tman = TMan(newc)
@@ -96,7 +86,7 @@ async def leave_tman(amount):
     await asyncio.sleep(GOSSIPING_FREQUENCY * 7)
     await tman.leave()
     await newc.leave()
-    await asyncio.sleep(GOSSIPING_FREQUENCY * 40)
+    await asyncio.sleep(GOSSIPING_FREQUENCY * 30)
 
     all_nodes = Counter(
         [
@@ -120,7 +110,13 @@ async def leave_tman(amount):
         await r_newc.leave()
 
 
-async def newscast_callback(neighbours_amount):
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "amount",
+    [(LOCAL_VIEW_SIZE * 2) + 1, (LOCAL_VIEW_SIZE * 2) + 5, (LOCAL_VIEW_SIZE * 2) + 100],
+)  # very high neighbours amount,
+# to assure neighbours will change, because it is initailzied by Newscast
+async def test_tman_callback(amount):
     callback_event = asyncio.Event()
 
     async def callback(local_view):
@@ -128,7 +124,7 @@ async def newscast_callback(neighbours_amount):
         nonlocal callback_event
         callback_event.set()
 
-    newc, r_newcs = await init_membership(neighbours_amount)
+    newc, r_newcs = await init_membership(amount)
 
     tman = TMan(newc)
     await tman.join(C_SERVICE_ID, port_distance)

@@ -30,13 +30,8 @@ async def init_membership(amount):
 
 
 @pytest.mark.asyncio
-async def test_start_stop():
-    neighbour_amounts = [1, 5, 100]
-    for amount in neighbour_amounts:
-        await start_stop(amount)
-
-
-async def start_stop(amount):
+@pytest.mark.parametrize("amount", [1, 5, 100])
+async def test_start_stop(amount):
     newc, r_newcs = await init_membership(amount)
 
     sampl = MRWB(newc)
@@ -58,13 +53,8 @@ async def start_stop(amount):
 
 
 @pytest.mark.asyncio
-async def test_sampling():
-    neighbour_amounts = [1, 5, 100]
-    for amount in neighbour_amounts:
-        await sampling(amount)
-
-
-async def sampling(amount):
+@pytest.mark.parametrize("amount", [1, 5, 100])
+async def test_sampling(amount):
     newc, r_newcs = await init_membership(amount)
 
     sampl = MRWB(newc)

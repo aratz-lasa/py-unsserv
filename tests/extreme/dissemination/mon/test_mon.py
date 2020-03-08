@@ -41,13 +41,8 @@ async def dissemination_handler(node: Node, data: Any):
 
 
 @pytest.mark.asyncio
-async def test_start_stop():
-    neighbour_amounts = [1, 5, 100]
-    for amount in neighbour_amounts:
-        await start_stop(amount)
-
-
-async def start_stop(amount):
+@pytest.mark.parametrize("amount", [1, 5, 100])
+async def test_start_stop(amount):
     newc, r_newcs = await init_membership(amount)
     mon = Mon(newc)
     await mon.join_broadcast(
@@ -72,13 +67,8 @@ async def start_stop(amount):
 
 
 @pytest.mark.asyncio
-async def test_broadcast():
-    neighbour_amounts = [1, 5, 100]
-    for amount in neighbour_amounts:
-        await broadcast(amount)
-
-
-async def broadcast(amount):
+@pytest.mark.parametrize("amount", [1, 5, 100])
+async def test_broadcast(amount):
     newc, r_newcs = await init_membership(amount)
 
     mon = Mon(newc)

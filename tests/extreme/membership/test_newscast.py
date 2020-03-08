@@ -1,8 +1,9 @@
-from math import ceil
 import asyncio
 from collections import Counter
+from math import ceil
 
 import pytest
+
 from tests.utils import get_random_nodes
 from unsserv.common.data_structures import Node
 from unsserv.common.gossip.gossip_config import GOSSIPING_FREQUENCY, LOCAL_VIEW_SIZE
@@ -13,18 +14,13 @@ SERVICE_ID = "newscast"
 
 
 @pytest.mark.asyncio
-async def test_newscast_join():
-    neighbour_amounts = [1, 5, 100]
-    for amount in neighbour_amounts:
-        await newscast_join(amount)
-
-
-async def newscast_join(neighbours_amount):
+@pytest.mark.parametrize("amount", [1, 5, 100])
+async def test_newscast_join(amount):
     newc = newscast.Newscast(node)
     await newc.join(SERVICE_ID)
 
     r_newcs = []
-    r_nodes = get_random_nodes(neighbours_amount)
+    r_nodes = get_random_nodes(amount)
     for i, r_node in enumerate(r_nodes):
         r_newc = newscast.Newscast(r_node)
         await r_newc.join(SERVICE_ID, [node] + r_nodes[:i])
@@ -39,16 +35,16 @@ async def newscast_join(neighbours_amount):
             for item in sublist
         ]
     )
-    assert neighbours_amount * 0.9 < len(all_nodes)
+    assert amount * 0.9 < len(all_nodes)
 
     neighbours = newc.get_neighbours()
-    assert min(neighbours_amount, LOCAL_VIEW_SIZE) <= len(neighbours)
+    assert min(amount, LOCAL_VIEW_SIZE) <= len(neighbours)
     for neighbour in neighbours:
         assert neighbour in r_nodes
 
     for r_newc in r_newcs:
         r_neighbours = r_newc.get_neighbours()
-        assert min(neighbours_amount, LOCAL_VIEW_SIZE) <= len(r_neighbours)
+        assert min(amount, LOCAL_VIEW_SIZE) <= len(r_neighbours)
         for r_neighbour in r_neighbours:
             assert r_neighbour in r_nodes or r_neighbour == node
 
@@ -58,22 +54,15 @@ async def newscast_join(neighbours_amount):
 
 
 @pytest.mark.asyncio
-async def test_newscast_leave():
-    neighbour_amounts = [
-        LOCAL_VIEW_SIZE + 1,
-        LOCAL_VIEW_SIZE + 5,
-        LOCAL_VIEW_SIZE + 100,
-    ]
-    for amount in neighbour_amounts:
-        await newscast_leave(amount)
-
-
-async def newscast_leave(neighbours_amount):
+@pytest.mark.parametrize(
+    "amount", [LOCAL_VIEW_SIZE + 1, LOCAL_VIEW_SIZE + 5, LOCAL_VIEW_SIZE + 100]
+)
+async def test_newscast_leave(amount):
     newc = newscast.Newscast(node)
     await newc.join(SERVICE_ID)
 
     r_newcs = []
-    r_nodes = get_random_nodes(neighbours_amount)
+    r_nodes = get_random_nodes(amount)
     for i, r_node in enumerate(r_nodes):
         r_newc = newscast.Newscast(r_node)
         await r_newc.join(SERVICE_ID, [node] + r_nodes[:i])
@@ -81,7 +70,7 @@ async def newscast_leave(neighbours_amount):
 
     await asyncio.sleep(GOSSIPING_FREQUENCY * 5)
     await newc.leave()
-    await asyncio.sleep(GOSSIPING_FREQUENCY * 40)
+    await asyncio.sleep(GOSSIPING_FREQUENCY * 30)
 
     all_nodes = Counter(
         [
@@ -90,7 +79,7 @@ async def newscast_leave(neighbours_amount):
             for item in sublist
         ]
     )
-    nodes_ten_percent = ceil(neighbours_amount * 0.1)
+    nodes_ten_percent = ceil(amount * 0.1)
     assert node not in all_nodes.keys() or node in set(
         map(lambda p: p[0], all_nodes.most_common()[-nodes_ten_percent:])
     )
@@ -102,13 +91,8 @@ async def newscast_leave(neighbours_amount):
 
 
 @pytest.mark.asyncio
-async def test_newscast_callback():
-    neighbour_amounts = [1, 5, 100]
-    for amount in neighbour_amounts:
-        await newscast_callback(amount)
-
-
-async def newscast_callback(neighbours_amount):
+@pytest.mark.parametrize("amount", [1, 5, 100])
+async def test_newscast_callback(amount):
     callback_event = asyncio.Event()
 
     newc = newscast.Newscast(node)
@@ -121,7 +105,7 @@ async def newscast_callback(neighbours_amount):
     newc.set_neighbours_callback(callback)
 
     r_newcs = []
-    r_nodes = get_random_nodes(neighbours_amount)
+    r_nodes = get_random_nodes(amount)
     for i, r_node in enumerate(r_nodes):
         r_newc = newscast.Newscast(r_node)
         await r_newc.join(SERVICE_ID, [node] + r_nodes[:i])

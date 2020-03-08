@@ -71,13 +71,8 @@ def test_merge():
 
 
 @pytest.mark.asyncio
-async def test_gossiping():
-    neighbour_amounts = [1, 5, 100]
-    for amount in neighbour_amounts:
-        await gossiping(amount)
-
-
-async def gossiping(amount):
+@pytest.mark.parametrize("amount", [1, 5, 100])
+async def test_gossiping(amount):
     r_nodes = get_random_nodes(amount, first_port=7772)
     gsp = gossip.Gossip(node, SERVICE_ID)
     await gsp.start()
