@@ -21,47 +21,49 @@ async def dissemination_handler(node: Node, data: Any):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("amount", [1, 5, 100])
-async def test_start_stop(init_extreme_membership, amount):
-    newc, r_newcs = await init_extreme_membership(amount)
-    mon = Mon(newc)
-    await mon.join_broadcast(
-        DISS_SERVICE_ID, partial(dissemination_handler, mon.my_node)
-    )
+@pytest.fixture
+async def init_mon():
+    mon = None
     r_mons = []
-    for r_newc in r_newcs:
-        r_mon = Mon(r_newc)
-        await r_mon.join_broadcast(
-            DISS_SERVICE_ID, partial(dissemination_handler, r_mon.my_node)
+
+    async def _init_mon(newc, r_newcs):
+        nonlocal mon, r_mons
+        mon = Mon(newc)
+        mon_events[newc.my_node] = asyncio.Event()
+        await mon.join_broadcast(
+            DISS_SERVICE_ID, partial(dissemination_handler, mon.my_node)
         )
-        r_mons.append(r_mon)
+        for r_newc in r_newcs:
+            r_mon = Mon(r_newc)
+            mon_events[r_newc.my_node] = asyncio.Event()
+            await r_mon.join_broadcast(
+                DISS_SERVICE_ID, partial(dissemination_handler, r_mon.my_node)
+            )
+            r_mons.append(r_mon)
+        return mon, r_mons
 
-    await asyncio.sleep(GOSSIPING_FREQUENCY * 15)
-
-    await mon.leave_broadcast()
-    for r_mon in r_mons:
-        await r_mon.leave_broadcast()
+    try:
+        yield _init_mon
+    finally:
+        await mon.leave_broadcast()
+        for r_mon in r_mons:
+            await r_mon.leave_broadcast()
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("amount", [1, 5, 100])
-async def test_broadcast(init_extreme_membership, amount):
+async def test_start_stop(init_extreme_membership, init_mon, amount):
     newc, r_newcs = await init_extreme_membership(amount)
+    mon, r_mons = await init_mon(newc, r_newcs)
 
-    mon = Mon(newc)
-    mon_events[newc.my_node] = asyncio.Event()
-    await mon.join_broadcast(
-        DISS_SERVICE_ID, partial(dissemination_handler, mon.my_node)
-    )
+    await asyncio.sleep(GOSSIPING_FREQUENCY * 15)
 
-    r_mons = []
-    for r_newc in r_newcs:
-        r_mon = Mon(r_newc)
-        mon_events[r_newc.my_node] = asyncio.Event()
-        await r_mon.join_broadcast(
-            DISS_SERVICE_ID, partial(dissemination_handler, r_mon.my_node)
-        )
-        r_mons.append(r_mon)
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("amount", [1, 5, 100])
+async def test_broadcast(init_extreme_membership, init_mon, amount):
+    newc, r_newcs = await init_extreme_membership(amount)
+    mon, r_mons = await init_mon(newc, r_newcs)
 
     await asyncio.sleep(GOSSIPING_FREQUENCY * 15)
     data = b"data"

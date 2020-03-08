@@ -15,6 +15,30 @@ init_extreme_membership = init_extreme_membership  # for flake8 compliance
 C_SERVICE_ID = "tman"
 
 
+@pytest.mark.asyncio
+@pytest.fixture
+async def init_tman():
+    tman = None
+    r_tmans = []
+
+    async def _init_tman(newc, r_newcs):
+        nonlocal tman, r_tmans
+        tman = TMan(newc)
+        await tman.join(C_SERVICE_ID, partial(port_distance, tman.my_node))
+        for r_newc in r_newcs:
+            r_tman = TMan(r_newc)
+            await r_tman.join(C_SERVICE_ID, partial(port_distance, r_tman.my_node))
+            r_tmans.append(r_tman)
+        return tman, r_tmans
+
+    try:
+        yield _init_tman
+    finally:
+        await tman.leave()
+        for r_tman in r_tmans:
+            await r_tman.leave()
+
+
 def port_distance(my_node: Node, ranked_node: Node):
     return abs(my_node.address_info[1] - ranked_node.address_info[1])
 
@@ -23,16 +47,9 @@ def port_distance(my_node: Node, ranked_node: Node):
 @pytest.mark.parametrize(
     "amount", [LOCAL_VIEW_SIZE + 1, LOCAL_VIEW_SIZE + 5, LOCAL_VIEW_SIZE + 100]
 )
-async def test_join_tman(init_extreme_membership, amount):
+async def test_join_tman(init_extreme_membership, init_tman, amount):
     newc, r_newcs = await init_extreme_membership(amount)
-
-    tman = TMan(newc)
-    await tman.join(C_SERVICE_ID, partial(port_distance, tman.my_node))
-    r_tmans = []
-    for r_newc in r_newcs:
-        r_tman = TMan(r_newc)
-        await r_tman.join(C_SERVICE_ID, partial(port_distance, r_tman.my_node))
-        r_tmans.append(r_tman)
+    tman, r_tmans = await init_tman(newc, r_newcs)
 
     await asyncio.sleep(GOSSIPING_FREQUENCY * 30)
 
@@ -47,28 +64,16 @@ async def test_join_tman(init_extreme_membership, amount):
         ideal_neighbours_set.intersection(neighbours_set)
     )
 
-    # clean up
-    await tman.leave()
-    for r_tman in r_tmans:
-        await r_tman.leave()
-
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     "amount", [LOCAL_VIEW_SIZE + 1, LOCAL_VIEW_SIZE + 5, LOCAL_VIEW_SIZE + 100]
 )
-async def test_leave_tman(init_extreme_membership, amount):
+async def test_leave_tman(init_extreme_membership, init_tman, amount):
     newc, r_newcs = await init_extreme_membership(amount)
+    tman, r_tmans = await init_tman(newc, r_newcs)
 
-    tman = TMan(newc)
-    await tman.join(C_SERVICE_ID, partial(port_distance, tman.my_node))
-    r_tmans = []
-    for r_newc in r_newcs:
-        r_tman = TMan(r_newc)
-        await r_tman.join(C_SERVICE_ID, partial(port_distance, r_tman.my_node))
-        r_tmans.append(r_tman)
-
-    await asyncio.sleep(GOSSIPING_FREQUENCY * 7)
+    await asyncio.sleep(GOSSIPING_FREQUENCY * 15)
     await tman.leave()
     await newc.leave()
     await asyncio.sleep(GOSSIPING_FREQUENCY * 30)
@@ -85,11 +90,6 @@ async def test_leave_tman(init_extreme_membership, amount):
         map(lambda p: p[0], all_nodes.most_common()[-nodes_ten_percent:])
     )
 
-    # clean up
-    await tman.leave()
-    for r_tman in r_tmans:
-        await r_tman.leave()
-
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
@@ -97,7 +97,10 @@ async def test_leave_tman(init_extreme_membership, amount):
     [(LOCAL_VIEW_SIZE * 2) + 1, (LOCAL_VIEW_SIZE * 2) + 5, (LOCAL_VIEW_SIZE * 2) + 100],
 )  # very high neighbours amount,
 # to assure neighbours will change, because it is initailzied by Newscast
-async def test_tman_callback(init_extreme_membership, amount):
+async def test_tman_callback(init_extreme_membership, init_tman, amount):
+    newc, r_newcs = await init_extreme_membership(amount)
+    tman, r_tmans = await init_tman(newc, r_newcs)
+
     callback_event = asyncio.Event()
 
     async def callback(local_view):
@@ -105,21 +108,7 @@ async def test_tman_callback(init_extreme_membership, amount):
         nonlocal callback_event
         callback_event.set()
 
-    newc, r_newcs = await init_extreme_membership(amount)
-
-    tman = TMan(newc)
-    await tman.join(C_SERVICE_ID, partial(port_distance, tman.my_node))
     tman.set_neighbours_callback(callback, local_view=True)
-    r_tmans = []
-    for r_newc in r_newcs:
-        r_tman = TMan(r_newc)
-        await r_tman.join(C_SERVICE_ID, partial(port_distance, r_tman.my_node))
-        r_tmans.append(r_tman)
 
     await asyncio.sleep(GOSSIPING_FREQUENCY * 5)
     assert callback_event.is_set()
-
-    # clean up
-    await tman.leave()
-    for r_tman in r_tmans:
-        await r_tman.leave()

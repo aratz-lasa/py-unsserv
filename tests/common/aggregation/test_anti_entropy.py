@@ -15,27 +15,41 @@ AGGR_SERVICE_ID = "tman"
 
 
 @pytest.mark.asyncio
+@pytest.fixture
+async def init_anti_entropy():
+    anti = None
+    r_antis = []
+
+    async def _init_anti_entropy(newc, r_newcs):
+        nonlocal anti, r_antis
+        anti = AntiEntropy(newc)
+        await anti.join_aggregation(
+            AGGR_SERVICE_ID, (AggregateType.MEAN, anti.my_node.address_info[1])
+        )
+        for r_newc in r_newcs:
+            r_anti = AntiEntropy(r_newc)
+            await r_anti.join_aggregation(
+                AGGR_SERVICE_ID, (AggregateType.MEAN, r_newc.my_node.address_info[1])
+            )
+            r_antis.append(r_anti)
+        return anti, r_antis
+
+    try:
+        yield _init_anti_entropy
+    finally:
+        await anti.leave_aggregation()
+        for r_anti in r_antis:
+            await r_anti.leave_aggregation()
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("amount", [1, 5, 100])
-async def test_start_stop(init_extreme_membership, amount):
+async def test_start_stop(init_extreme_membership, init_anti_entropy, amount):
     newc, r_newcs = await init_extreme_membership(amount)
 
-    anti = AntiEntropy(newc)
-    await anti.join_aggregation(
-        AGGR_SERVICE_ID, (AggregateType.MEAN, anti.my_node.address_info[1])
-    )
-    r_antis = []
-    for r_newc in r_newcs:
-        r_anti = AntiEntropy(r_newc)
-        await r_anti.join_aggregation(
-            AGGR_SERVICE_ID, (AggregateType.MEAN, r_newc.my_node.address_info[1])
-        )
-        r_antis.append(r_anti)
+    anti, r_antis = await init_anti_entropy(newc, r_newcs)
 
     await asyncio.sleep(GOSSIPING_FREQUENCY * 15)
-
-    await anti.leave_aggregation()
-    for r_anti in r_antis:
-        await r_anti.leave_aggregation()
 
 
 @pytest.mark.asyncio
@@ -47,20 +61,11 @@ async def test_start_stop(init_extreme_membership, amount):
         for aggregate_type in AggregateType
     ],
 )
-async def test_aggregate(init_extreme_membership, amount, aggregate_type):
+async def test_aggregate(
+    init_extreme_membership, init_anti_entropy, amount, aggregate_type
+):
     newc, r_newcs = await init_extreme_membership(amount)
-
-    anti = AntiEntropy(newc)
-    await anti.join_aggregation(
-        AGGR_SERVICE_ID, (aggregate_type, anti.my_node.address_info[1])
-    )
-    r_antis = []
-    for r_newc in r_newcs:
-        r_anti = AntiEntropy(r_newc)
-        await r_anti.join_aggregation(
-            AGGR_SERVICE_ID, (aggregate_type, r_newc.my_node.address_info[1])
-        )
-        r_antis.append(r_anti)
+    anti, r_antis = await init_anti_entropy(newc, r_newcs)
 
     await asyncio.sleep(GOSSIPING_FREQUENCY * 15)
 
@@ -86,7 +91,3 @@ async def test_aggregate(init_extreme_membership, amount, aggregate_type):
             / await r_anti.get_aggregate()
             < 0.1
         )
-
-    await anti.leave_aggregation()
-    for r_anti in r_antis:
-        await r_anti.leave_aggregation()
