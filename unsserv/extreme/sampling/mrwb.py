@@ -127,6 +127,8 @@ class MRWB(SamplingService):
         self.running = True
 
     async def leave_sampling(self) -> None:
+        if not self.running:
+            return
         self.membership.set_neighbours_callback(None)
         self._neighbours = []
         self._protocol = None

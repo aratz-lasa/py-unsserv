@@ -32,6 +32,8 @@ class Newscast(MembershipService):
         self.running = True
 
     async def leave(self) -> None:
+        if not self.running:
+            return
         await self._gossip.stop()
         self._gossip = None
         self.running = False

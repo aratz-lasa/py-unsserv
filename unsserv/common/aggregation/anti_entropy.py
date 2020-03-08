@@ -59,6 +59,8 @@ class AntiEntropy(AggregationService, IGossipSubscriber):
         self.running = True
 
     async def leave_aggregation(self) -> None:
+        if not self.running:
+            return
         self._aggregate_type = None
         self._aggregate_value = None
         self._gossip.unsubscribe(self)

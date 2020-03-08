@@ -7,9 +7,7 @@ import pytest
 from tests.utils import get_random_nodes
 from unsserv.common.data_structures import Node
 from unsserv.common.gossip.gossip_config import GOSSIPING_FREQUENCY
-from unsserv.common.gossip import gossip_config
 
-gossip_config.RPC_TIMEOUT = 1  # otherwise it congests the network
 from unsserv.extreme.dissemination.mon.mon import Mon
 from unsserv.extreme.membership import newscast
 
@@ -29,9 +27,9 @@ async def init_membership(amount):
 
     r_newcs = []
     r_nodes = get_random_nodes(amount, first_port=first_port + 1)
-    for r_node in r_nodes:
+    for i, r_node in enumerate(r_nodes):
         r_newc = newscast.Newscast(r_node)
-        await r_newc.join(MEMB_SERVICE_ID, [node])
+        await r_newc.join(MEMB_SERVICE_ID, [node] + r_nodes[:i])
         r_newcs.append(r_newc)
         mon_events[r_node] = asyncio.Event()
     await asyncio.sleep(GOSSIPING_FREQUENCY * 7)
@@ -44,7 +42,7 @@ async def dissemination_handler(node: Node, data: Any):
 
 @pytest.mark.asyncio
 async def test_start_stop():
-    neighbour_amounts = [1, 2, 5, 10, 30, 100]
+    neighbour_amounts = [1, 5, 100]
     for amount in neighbour_amounts:
         await start_stop(amount)
 
@@ -75,7 +73,7 @@ async def start_stop(amount):
 
 @pytest.mark.asyncio
 async def test_broadcast():
-    neighbour_amounts = [1, 2, 5, 10, 30, 100]
+    neighbour_amounts = [1, 5, 100]
     for amount in neighbour_amounts:
         await broadcast(amount)
 

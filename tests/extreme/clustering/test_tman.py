@@ -1,7 +1,9 @@
 import asyncio
 from collections import Counter
+from math import ceil
 
 import pytest
+
 from tests.utils import get_random_nodes
 from unsserv.common.data_structures import Node
 from unsserv.common.gossip.gossip_config import GOSSIPING_FREQUENCY, LOCAL_VIEW_SIZE
@@ -17,25 +19,25 @@ def port_distance(ranked_node: Node):
     return abs(node.address_info[1] - ranked_node.address_info[1])
 
 
-@pytest.mark.asyncio
-async def test_join_tman():
-    neighbour_amounts = [1, 2, 5, 10, 30, 100]
-    for amount in neighbour_amounts:
-        await join_tman(amount)
-
-
 async def init_membership(amount):
     newc = newscast.Newscast(node)
     await newc.join(M_SERVICE_ID)
 
     r_newcs = []
     r_nodes = get_random_nodes(amount)
-    for r_node in r_nodes:
+    for i, r_node in enumerate(r_nodes):
         r_newc = newscast.Newscast(r_node)
-        await r_newc.join(M_SERVICE_ID, [node])
+        await r_newc.join(M_SERVICE_ID, [node] + r_nodes[:i])
         r_newcs.append(r_newc)
     await asyncio.sleep(GOSSIPING_FREQUENCY * 7)
     return newc, r_newcs
+
+
+@pytest.mark.asyncio
+async def test_join_tman():
+    neighbour_amounts = [1, 5, 100]
+    for amount in neighbour_amounts:
+        await join_tman(amount)
 
 
 async def join_tman(amount):
@@ -49,13 +51,13 @@ async def join_tman(amount):
         await r_tman.join(C_SERVICE_ID, port_distance)
         r_tmans.append(r_tman)
 
-    await asyncio.sleep(GOSSIPING_FREQUENCY * 25)
+    await asyncio.sleep(GOSSIPING_FREQUENCY * 40)
 
     neighbours_set = set(tman.get_neighbours())
     ideal_neighbours_set = set(
         sorted(map(lambda nc: nc.my_node, r_newcs), key=port_distance)[:LOCAL_VIEW_SIZE]
     )
-    assert min(amount, LOCAL_VIEW_SIZE) * 0.65 < len(
+    assert min(amount, LOCAL_VIEW_SIZE) * 0.5 < len(
         ideal_neighbours_set.intersection(neighbours_set)
     )
 
@@ -71,7 +73,11 @@ async def join_tman(amount):
 
 @pytest.mark.asyncio
 async def test_leave_tman():
-    neighbour_amounts = [1, 2, 5, 10, 30, 100]
+    neighbour_amounts = [
+        LOCAL_VIEW_SIZE + 1,
+        LOCAL_VIEW_SIZE + 5,
+        LOCAL_VIEW_SIZE + 100,
+    ]
     for amount in neighbour_amounts:
         await leave_tman(amount)
 
@@ -89,7 +95,8 @@ async def leave_tman(amount):
 
     await asyncio.sleep(GOSSIPING_FREQUENCY * 7)
     await tman.leave()
-    await asyncio.sleep(GOSSIPING_FREQUENCY * 25)
+    await newc.leave()
+    await asyncio.sleep(GOSSIPING_FREQUENCY * 40)
 
     all_nodes = Counter(
         [
@@ -98,7 +105,7 @@ async def leave_tman(amount):
             for item in sublist
         ]
     )
-    nodes_ten_percent = int(amount * 0.1)
+    nodes_ten_percent = ceil(amount * 0.1)
     assert node not in all_nodes.keys() or node in set(
         map(lambda p: p[0], all_nodes.most_common()[-nodes_ten_percent:])
     )

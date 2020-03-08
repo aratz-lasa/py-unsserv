@@ -24,9 +24,9 @@ async def init_membership(amount):
 
     r_newcs = []
     r_nodes = get_random_nodes(amount, first_port=first_port + 1)
-    for r_node in r_nodes:
+    for i, r_node in enumerate(r_nodes):
         r_newc = newscast.Newscast(r_node)
-        await r_newc.join(MEMB_SERVICE_ID, [node])
+        await r_newc.join(MEMB_SERVICE_ID, [node] + r_nodes[:i])
         r_newcs.append(r_newc)
     await asyncio.sleep(GOSSIPING_FREQUENCY * 7)
     return newc, r_newcs
@@ -34,7 +34,7 @@ async def init_membership(amount):
 
 @pytest.mark.asyncio
 async def test_start_stop():
-    neighbour_amounts = [1, 2, 5, 10, 30, 100]
+    neighbour_amounts = [1, 5, 100]
     for amount in neighbour_amounts:
         await start_stop(amount)
 
@@ -66,7 +66,7 @@ async def start_stop(amount):
 
 @pytest.mark.asyncio
 async def test_aggregate():
-    neighbour_amounts = [1, 2, 5, 10, 30, 100]
+    neighbour_amounts = [1, 5, 100]
     for aggregate_type in AggregateType:
         for amount in neighbour_amounts:
             await aggregate(amount, aggregate_type)

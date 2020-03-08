@@ -17,6 +17,3 @@ install:
 # command to run tests
 script:
   - tox
-# Upload coverage report to 'Codecov'
-after_script:
-  - codecov --token=e2776e79-fc57-44b2-9246-6421a9355853

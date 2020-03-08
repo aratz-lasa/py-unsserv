@@ -72,7 +72,7 @@ def test_merge():
 
 @pytest.mark.asyncio
 async def test_gossiping():
-    neighbour_amounts = [1, 2, 5, 10, 30, 100]
+    neighbour_amounts = [1, 5, 100]
     for amount in neighbour_amounts:
         await gossiping(amount)
 
@@ -83,12 +83,12 @@ async def gossiping(amount):
     await gsp.start()
 
     r_gsps = []
-    for r_node in r_nodes:
-        r_gsp = gossip.Gossip(r_node, SERVICE_ID, [node])
+    for i, r_node in enumerate(r_nodes):
+        r_gsp = gossip.Gossip(r_node, SERVICE_ID, [node] + r_nodes[:i])
         await r_gsp.start()
         r_gsps.append(r_gsp)
 
-    await asyncio.sleep(GOSSIPING_FREQUENCY * 5)
+    await asyncio.sleep(GOSSIPING_FREQUENCY * 25)
 
     for r_gsp in r_gsps:
         assert min(amount, LOCAL_VIEW_SIZE) <= len(r_gsp.local_view)

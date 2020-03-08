@@ -103,6 +103,8 @@ class Mon(DisseminationService):
         self.running = True
 
     async def leave_broadcast(self) -> None:
+        if not self.running:
+            return
         await self._rpc.unregister_service(self.service_id)
         self._broadcast_handler = None
         self._protocol = None

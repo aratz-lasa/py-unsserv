@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Tuple
 from rpcudp.protocol import RPCProtocol
 
 from unsserv.common.data_structures import Message, Node
-from unsserv.common.gossip.gossip_config import RPC_TIMEOUT
+from unsserv.common.gossip import gossip_config as config
 from unsserv.common.rpc.rpc_typing import RpcCallback
 from unsserv.common.utils import decode_node
 
@@ -35,7 +35,7 @@ class RpcBase(RPCProtocol, ABC):
     registered_services: Dict[Node, RpcCallback]
 
     def __init__(self, node: Node):
-        RPCProtocol.__init__(self, RPC_TIMEOUT)
+        RPCProtocol.__init__(self, config.RPC_TIMEOUT)
         self.my_node = node
         self.registered_services = {}
 

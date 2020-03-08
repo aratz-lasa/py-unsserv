@@ -69,7 +69,11 @@ class Gossip:
     ):
         self.my_node = my_node
         self.service_id = service_id
-        self.local_view = Counter(local_view_nodes or [])
+        self.local_view = Counter(
+            random.sample(local_view_nodes, min(len(local_view_nodes), local_view_size))
+            if local_view_nodes
+            else []
+        )
         self.local_view_callback = local_view_callback
         self.get_external_view = external_view_source
         self.view_selection = view_selection
@@ -93,6 +97,8 @@ class Gossip:
         self.running = True
 
     async def stop(self):
+        if not self.running:
+            return
         await self.rpc.unregister_service(self.service_id)
         if self._proactive_task:
             self._proactive_task.cancel()
@@ -146,7 +152,6 @@ class Gossip:
                 buffer = self._merge_views(view, self.local_view)
                 if self.get_external_view:
                     buffer = self._merge_views(view, self.get_external_view())
-
                 new_view = self._select_view(buffer)
                 await self._try_call_callback(new_view)
                 self.local_view = new_view
