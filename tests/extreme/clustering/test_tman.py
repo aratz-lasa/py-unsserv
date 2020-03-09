@@ -52,7 +52,7 @@ async def test_join_tman(init_extreme_membership, init_tman, amount):
     newc, r_newcs = await init_extreme_membership(amount)
     tman, r_tmans = await init_tman(newc, r_newcs)
 
-    await asyncio.sleep(GOSSIPING_FREQUENCY * 30)
+    await asyncio.sleep(GOSSIPING_FREQUENCY * 50)
 
     neighbours_set = set(tman.get_neighbours())
     ideal_neighbours_set = set(
@@ -61,7 +61,7 @@ async def test_join_tman(init_extreme_membership, init_tman, amount):
             key=partial(port_distance, tman.my_node),
         )[:LOCAL_VIEW_SIZE]
     )
-    assert min(amount, LOCAL_VIEW_SIZE) * 0.5 < len(
+    assert min(amount, LOCAL_VIEW_SIZE) * 0.5 <= len(
         ideal_neighbours_set.intersection(neighbours_set)
     )
 
@@ -74,7 +74,6 @@ async def test_leave_tman(init_extreme_membership, init_tman, amount):
     newc, r_newcs = await init_extreme_membership(amount)
     tman, r_tmans = await init_tman(newc, r_newcs)
 
-    await asyncio.sleep(GOSSIPING_FREQUENCY * 15)
     await tman.leave()
     await newc.leave()
     await asyncio.sleep(GOSSIPING_FREQUENCY * 40)

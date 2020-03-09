@@ -74,7 +74,7 @@ async def test_newscast_leave(init_newscast, amount):
     await asyncio.sleep(GOSSIPING_FREQUENCY * 7)
 
     await newc.leave()
-    await asyncio.sleep(GOSSIPING_FREQUENCY * 30)
+    await asyncio.sleep(GOSSIPING_FREQUENCY * 40)
 
     all_nodes = Counter(
         [
