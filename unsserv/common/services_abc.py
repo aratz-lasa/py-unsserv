@@ -97,11 +97,19 @@ class DisseminationService(ISubService):
 
 class SearchingService(ISubService):
     @abstractmethod
-    async def publish(self, data: Any) -> None:
+    async def join_searching(self, service_id: str) -> None:
         pass
 
     @abstractmethod
-    async def unpublish(self, data: Any) -> None:
+    async def leave_searching(self) -> None:
+        pass
+
+    @abstractmethod
+    async def publish(self, data_id: str, data: Any) -> None:
+        pass
+
+    @abstractmethod
+    async def unpublish(self, data_id: str) -> None:
         pass
 
     @abstractmethod
