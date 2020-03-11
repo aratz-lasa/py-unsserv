@@ -23,7 +23,7 @@ async def init_kwalker():
     async def _init_kwalker(newc, r_newcs):
         nonlocal kwalker, r_kwalkers
         kwalker = KWalker(newc)
-        await kwalker.join_searching(SAMPLING_SERVICE_ID)
+        await kwalker.join_searching(SAMPLING_SERVICE_ID, ttl=2)
         for r_newc in r_newcs:
             r_tman = KWalker(r_newc)
             await r_tman.join_searching(SAMPLING_SERVICE_ID)

@@ -97,7 +97,7 @@ class DisseminationService(ISubService):
 
 class SearchingService(ISubService):
     @abstractmethod
-    async def join_searching(self, service_id: str) -> None:
+    async def join_searching(self, service_id: str, **configuration: Any) -> None:
         pass
 
     @abstractmethod
