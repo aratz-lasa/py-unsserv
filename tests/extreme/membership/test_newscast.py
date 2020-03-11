@@ -26,7 +26,7 @@ async def init_newscast():
         r_nodes = get_random_nodes(amount)
         for i, r_node in enumerate(r_nodes):
             r_newc = newscast.Newscast(r_node)
-            await r_newc.join(SERVICE_ID, [node] + r_nodes[:i])
+            await r_newc.join(SERVICE_ID, bootstrap_nodes=[node] + r_nodes[:i])
             r_newcs.append(r_newc)
         return newc, r_newcs, r_nodes
 
@@ -83,7 +83,7 @@ async def test_newscast_leave(init_newscast, amount):
             for item in sublist
         ]
     )
-    nodes_ten_percent = ceil(amount * 0.1)
+    nodes_ten_percent = ceil(amount * 0.2)
     assert node not in all_nodes.keys() or node in set(
         map(lambda p: p[0], all_nodes.most_common()[-nodes_ten_percent:])
     )

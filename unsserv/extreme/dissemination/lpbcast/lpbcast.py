@@ -100,14 +100,12 @@ class Lpbcast(DisseminationService):
         self._events = OrderedDict()
         self._events_digest = OrderedDict()
 
-    async def join_broadcast(
-        self, service_id: str, broadcast_handler: BroadcastHandler
-    ) -> None:
+    async def join_broadcast(self, service_id: str, **configuration: Any) -> None:
         if self.running:
             raise RuntimeError("Already running Dissemination")
+        self._broadcast_handler = configuration["broadcast_handler"]
         self.service_id = service_id
         self._protocol = LpbcastProtocol(self.my_node, self.service_id)
-        self._broadcast_handler = broadcast_handler
         await self._rpc.register_service(service_id, self._rpc_handler)
         self.running = True
 

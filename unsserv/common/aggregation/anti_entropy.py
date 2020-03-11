@@ -47,13 +47,12 @@ class AntiEntropy(AggregationService, IGossipSubscriber):
         self._aggregate_func = None
         self._callback = None
 
-    async def join_aggregation(
-        self, service_id: str, aggregation_configuration: Tuple
-    ) -> None:
+    async def join_aggregation(self, service_id: str, **configuration: Any) -> None:
         if self.running:
             raise RuntimeError("Already running Aggregation")
+        self._aggregate_type = configuration["aggregate_type"]
+        self._aggregate_value = configuration["aggregate_value"]
         self.service_id = service_id
-        self._aggregate_type, self._aggregate_value = aggregation_configuration
         self._aggregate_func = aggregate_functions[self._aggregate_type]
         self._gossip.subscribe(self)
         self.running = True

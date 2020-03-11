@@ -30,13 +30,15 @@ async def init_lpbcast():
         lpbcast = Lpbcast(newc)
         lpbcast_events[newc.my_node] = asyncio.Event()
         await lpbcast.join_broadcast(
-            DISS_SERVICE_ID, partial(dissemination_handler, lpbcast.my_node)
+            DISS_SERVICE_ID,
+            broadcast_handler=partial(dissemination_handler, lpbcast.my_node),
         )
         for r_newc in r_newcs:
             r_lpbcast = Lpbcast(r_newc)
             lpbcast_events[r_newc.my_node] = asyncio.Event()
             await r_lpbcast.join_broadcast(
-                DISS_SERVICE_ID, partial(dissemination_handler, r_lpbcast.my_node)
+                DISS_SERVICE_ID,
+                broadcast_handler=partial(dissemination_handler, r_lpbcast.my_node),
             )
             r_lpbcasts.append(r_lpbcast)
         await asyncio.sleep(GOSSIPING_FREQUENCY * 7)

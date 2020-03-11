@@ -107,7 +107,7 @@ class MRWB(SamplingService):
         self._sampling_queue = {}
         self._sampling_events = {}
 
-    async def join_sampling(self, service_id: str) -> None:
+    async def join_sampling(self, service_id: str, **configuration: Any) -> None:
         if self.running:
             raise RuntimeError("Already running Sampling")
         self.service_id = service_id

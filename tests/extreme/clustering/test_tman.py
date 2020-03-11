@@ -24,10 +24,14 @@ async def init_tman():
     async def _init_tman(newc, r_newcs):
         nonlocal tman, r_tmans
         tman = TMan(newc)
-        await tman.join(C_SERVICE_ID, partial(port_distance, tman.my_node))
+        await tman.join(
+            C_SERVICE_ID, ranking_function=partial(port_distance, tman.my_node)
+        )
         for r_newc in r_newcs:
             r_tman = TMan(r_newc)
-            await r_tman.join(C_SERVICE_ID, partial(port_distance, r_tman.my_node))
+            await r_tman.join(
+                C_SERVICE_ID, ranking_function=partial(port_distance, r_tman.my_node)
+            )
             r_tmans.append(r_tman)
         await asyncio.sleep(GOSSIPING_FREQUENCY * 7)
         return tman, r_tmans
@@ -90,7 +94,7 @@ async def test_leave_tman(init_extreme_membership, init_tman, amount):
             for item in sublist
         ]
     )
-    nodes_ten_percent = ceil(amount * 0.1)
+    nodes_ten_percent = ceil(amount * 0.2)
     assert newc.my_node not in all_nodes.keys() or newc.my_node in set(
         map(lambda p: p[0], all_nodes.most_common()[-nodes_ten_percent:])
     )

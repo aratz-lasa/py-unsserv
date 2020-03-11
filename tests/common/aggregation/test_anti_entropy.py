@@ -24,12 +24,16 @@ async def init_anti_entropy():
         nonlocal anti, r_antis
         anti = AntiEntropy(newc)
         await anti.join_aggregation(
-            AGGR_SERVICE_ID, (AggregateType.MEAN, anti.my_node.address_info[1])
+            AGGR_SERVICE_ID,
+            aggregate_type=AggregateType.MEAN,
+            aggregate_value=anti.my_node.address_info[1],
         )
         for r_newc in r_newcs:
             r_anti = AntiEntropy(r_newc)
             await r_anti.join_aggregation(
-                AGGR_SERVICE_ID, (AggregateType.MEAN, r_newc.my_node.address_info[1])
+                AGGR_SERVICE_ID,
+                aggregate_type=AggregateType.MEAN,
+                aggregate_value=r_newc.my_node.address_info[1],
             )
             r_antis.append(r_anti)
         await asyncio.sleep(GOSSIPING_FREQUENCY * 7)

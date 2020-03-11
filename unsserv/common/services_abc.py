@@ -6,7 +6,6 @@ from unsserv.common.typing import (
     AggregateCallback,
     NeighboursCallback,
     View,
-    BroadcastHandler,
 )
 
 
@@ -22,7 +21,7 @@ class ISubService(IService):
 
 class MembershipService(IService):
     @abstractmethod
-    async def join(self, service_id: Any, configuration: Any):
+    async def join(self, service_id: Any, **configuration: Any):
         pass
 
     @abstractmethod
@@ -46,9 +45,7 @@ class ClusteringService(ISubService, MembershipService):
 
 class AggregationService(ISubService):
     @abstractmethod
-    async def join_aggregation(
-        self, service_id: str, aggregation_configuration: Any
-    ) -> None:
+    async def join_aggregation(self, service_id: str, **configuration: Any) -> None:
         pass
 
     @abstractmethod
@@ -66,7 +63,7 @@ class AggregationService(ISubService):
 
 class SamplingService(ISubService):
     @abstractmethod
-    async def join_sampling(self, service_id: str) -> None:
+    async def join_sampling(self, service_id: str, **configuration: Any) -> None:
         pass
 
     @abstractmethod
@@ -80,9 +77,7 @@ class SamplingService(ISubService):
 
 class DisseminationService(ISubService):
     @abstractmethod
-    async def join_broadcast(
-        self, service_id: str, broadcast_handler: BroadcastHandler
-    ) -> None:
+    async def join_broadcast(self, service_id: str, **configuration: Any) -> None:
         """Duplicates must handle the user."""
         pass
 

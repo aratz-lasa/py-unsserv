@@ -28,11 +28,11 @@ class TMan(ClusteringService):
         self._ranking_function: RankingFunction
         self._gossip: Union[Gossip, None] = None
 
-    async def join(self, service_id: Any, ranking_function: RankingFunction) -> None:
+    async def join(self, service_id: Any, **configuration: Any) -> None:
         if self.running:
             raise RuntimeError("Already running Clustering")
         self.service_id = service_id
-        self._ranking_function = ranking_function
+        self._ranking_function = configuration["ranking_function"]
         random_view_source = partial(self.membership.get_neighbours, True)
         local_view_nodes = self.membership.get_neighbours()
         assert isinstance(local_view_nodes, list)  # for mypy validation

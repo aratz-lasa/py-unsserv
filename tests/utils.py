@@ -27,7 +27,7 @@ async def init_extreme_membership():
         r_nodes = get_random_nodes(amount, first_port=first_port + 1)
         for i, r_node in enumerate(r_nodes):
             r_newc = newscast.Newscast(r_node)
-            await r_newc.join(NEWSCAST_SERVICE_ID, [node] + r_nodes[:i])
+            await r_newc.join(NEWSCAST_SERVICE_ID, bootstrap_nodes=[node] + r_nodes[:i])
             r_newcs.append(r_newc)
         await asyncio.sleep(GOSSIPING_FREQUENCY * 7)
         return newc, r_newcs

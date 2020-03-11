@@ -17,14 +17,14 @@ class Newscast(MembershipService):
         self._callback_raw_format = False
         self._gossip = None
 
-    async def join(self, service_id: Any, bootstrap_nodes: List[Node] = None):
+    async def join(self, service_id: Any, **configuration: Any):
         if self.running:
             raise RuntimeError("Already running Membership")
         self.service_id = service_id
         self._gossip = Gossip(
             my_node=self.my_node,
             service_id=service_id,
-            local_view_nodes=bootstrap_nodes,
+            local_view_nodes=configuration.get("bootstrap_nodes", None),
             local_view_callback=self._local_view_callback,
             multiplex=self._multiplex,
         )
