@@ -98,3 +98,12 @@ async def test_search(
         finally:
             random_walks_amount += 1
     assert found_data
+
+
+@pytest.mark.asyncio
+async def test_search_fail(init_extreme_membership, init_kwalker):
+    newc, r_newcs = await init_extreme_membership(100)
+    kwalker, r_kwalkers = await init_kwalker(newc, r_newcs)
+    data_id = get_random_id()
+    result = await kwalker.search(data_id)
+    assert not result

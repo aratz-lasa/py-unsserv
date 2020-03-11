@@ -139,12 +139,12 @@ class KWalker(SearchingService):
         self._walk_events[walk_id] = asyncio.Event()
         for neighbour in random.sample(candidate_neighbours, fanout):
             await self._rpc.call_walk(neighbour, message)
-        results_amount = 0
-        while results_amount < fanout:
-            await self._walk_events[walk_id].wait()
-            if self._walk_results[walk_id]:
-                return self._walk_results[walk_id]
-        raise ValueError("Data not found")
+        try:
+            return await asyncio.wait_for(
+                self._get_walk_result(fanout, walk_id), timeout=config.TIMEOUT
+            )
+        except asyncio.TimeoutError:
+            return None
 
     async def _handle_rpc(self, message: Message) -> Any:
         command = message.data[DATA_FIELD_COMMAND]
@@ -162,7 +162,7 @@ class KWalker(SearchingService):
                     message.data[DATA_FIELD_DATA_ID],
                     message.data[DATA_FIELD_WALK_ID],
                     message.data[DATA_FIELD_ORIGIN_NODE],
-                    message.data[DATA_FIELD_TTL],
+                    message.data[DATA_FIELD_TTL] - 1,
                 )
                 candidate_neighbours = self.membership.get_neighbours()
                 assert isinstance(candidate_neighbours, list)
@@ -175,3 +175,14 @@ class KWalker(SearchingService):
             self._walk_events[walk_id].set()
         else:
             raise ValueError("Invalid KWalker protocol value")
+
+    async def _get_walk_result(self, fanout, walk_id):
+        results_amount = 0
+        result = None
+        while results_amount < fanout:
+            await self._walk_events[walk_id].wait()
+            results_amount += 1
+            result = self._walk_results[walk_id]
+            if result:
+                return result
+        return result

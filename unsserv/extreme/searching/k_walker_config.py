@@ -1,5 +1,6 @@
 DEFAULT_TTL = 4
 DEFAULT_FANOUT = 4
+TIMEOUT = 4
 
 DATA_FIELD_COMMAND = "kwalker-command"
 DATA_FIELD_WALK_ID = "kwalker-walk-id"
