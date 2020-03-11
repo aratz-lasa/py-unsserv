@@ -23,7 +23,7 @@ repos:
     rev: v2.3.0
     hooks:
       - id: flake8
-        args: ["--max-line-length", "88", "unsserv"]
+        args: ["--max-line-length", "88", "--ignore=E203", "unsserv"]
 
   - repo: local
     hooks:

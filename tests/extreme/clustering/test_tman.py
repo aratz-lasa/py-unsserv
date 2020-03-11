@@ -46,24 +46,29 @@ def port_distance(my_node: Node, ranked_node: Node):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "amount", [LOCAL_VIEW_SIZE + 1, LOCAL_VIEW_SIZE + 5, LOCAL_VIEW_SIZE + 100]
+    "amount", [LOCAL_VIEW_SIZE * 2 + 1, LOCAL_VIEW_SIZE * 2 + 5, 100]
 )
 async def test_join_tman(init_extreme_membership, init_tman, amount):
     newc, r_newcs = await init_extreme_membership(amount)
     tman, r_tmans = await init_tman(newc, r_newcs)
 
-    await asyncio.sleep(GOSSIPING_FREQUENCY * 50)
+    await asyncio.sleep(GOSSIPING_FREQUENCY * 40)
 
-    neighbours_set = set(tman.get_neighbours())
-    ideal_neighbours_set = set(
-        sorted(
-            map(lambda nc: nc.my_node, r_newcs),
-            key=partial(port_distance, tman.my_node),
-        )[:LOCAL_VIEW_SIZE]
-    )
-    assert min(amount, LOCAL_VIEW_SIZE) * 0.5 <= len(
-        ideal_neighbours_set.intersection(neighbours_set)
-    )
+    cluster_nodes = [tman] + r_tmans
+    satisfy_ideal_neighbours = []
+    for cluster in cluster_nodes:
+        neighbours = set(cluster.get_neighbours())
+        key_function = partial(port_distance, cluster.my_node)
+        ideal_neighbours = set(
+            sorted(map(lambda c_n: c_n.my_node, cluster_nodes), key=key_function)[
+                1 : LOCAL_VIEW_SIZE + 1
+            ]
+        )
+        satisfies_half_ideal_neighbours = min(amount, LOCAL_VIEW_SIZE) * 0.5 <= len(
+            ideal_neighbours.intersection(neighbours)
+        )
+        satisfy_ideal_neighbours.append(satisfies_half_ideal_neighbours)
+    assert sum(satisfy_ideal_neighbours) / (amount + 1) >= 0.5
 
 
 @pytest.mark.asyncio
