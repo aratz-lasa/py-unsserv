@@ -128,7 +128,7 @@ class KWalker(SearchingService):
             raise KeyError("Data-id not published")
         del self._search_data[data_id]
 
-    async def search(self, data_id: str) -> Any:
+    async def search(self, data_id: str) -> Optional[bytes]:
         candidate_neighbours = self.membership.get_neighbours()
         assert isinstance(candidate_neighbours, list)
         fanout = min(self._fanout, len(candidate_neighbours))

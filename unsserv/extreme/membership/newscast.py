@@ -38,20 +38,22 @@ class Newscast(MembershipService):
         self._gossip = None
         self.running = False
 
-    def get_neighbours(self, local_view: bool = False) -> Union[List[Node], View]:
+    def get_neighbours(
+        self, local_view_format: bool = False
+    ) -> Union[List[Node], View]:
         if not self.running:
             raise RuntimeError("Membership service not running")
-        if local_view:
+        if local_view_format:
             return self._gossip.local_view
         return list(self._gossip.local_view.keys())
 
     def set_neighbours_callback(
-        self, callback: NeighboursCallback, local_view: bool = False
+        self, callback: NeighboursCallback, local_view_format: bool = False
     ) -> None:
         if not self.running:
             raise RuntimeError("Membership service not running")
         self._callback = callback
-        self._callback_raw_format = local_view
+        self._callback_raw_format = local_view_format
 
     async def _local_view_callback(self, local_view: View):
         if self._callback:

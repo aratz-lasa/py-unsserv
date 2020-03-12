@@ -26,6 +26,8 @@ aggregate_functions: Dict[AggregateType, Callable] = {
 
 
 class AntiEntropy(AggregationService, IGossipSubscriber):
+    """Aggregation Anti-Entropy service."""
+
     _gossip: Gossip
     _aggregate_value: Any
     _aggregate_type: Optional[AggregateType]
