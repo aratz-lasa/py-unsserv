@@ -119,7 +119,7 @@ class AggregationService(ISubService):
         """
         Get current aggregate value.
 
-        :return:
+        :return: aggregate value.
         """
         pass
 
@@ -142,7 +142,7 @@ class SamplingService(ISubService):
         """
         Join/start sampling service.
 
-        :param service_id: sampling service's id
+        :param service_id: sampling service's id.
         :param configuration: configuration parameters.
         :return:
         """
