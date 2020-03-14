@@ -12,7 +12,7 @@ from tests.utils import init_extreme_membership
 
 init_extreme_membership = init_extreme_membership  # for flake8 compliance
 
-C_SERVICE_ID = "tman"
+CLUSTERING_SERVICE_ID = "tman"
 
 
 @pytest.mark.asyncio
@@ -25,12 +25,13 @@ async def init_tman():
         nonlocal tman, r_tmans
         tman = TMan(newc)
         await tman.join(
-            C_SERVICE_ID, ranking_function=partial(port_distance, tman.my_node)
+            CLUSTERING_SERVICE_ID, ranking_function=partial(port_distance, tman.my_node)
         )
         for r_newc in r_newcs:
             r_tman = TMan(r_newc)
             await r_tman.join(
-                C_SERVICE_ID, ranking_function=partial(port_distance, r_tman.my_node)
+                CLUSTERING_SERVICE_ID,
+                ranking_function=partial(port_distance, r_tman.my_node),
             )
             r_tmans.append(r_tman)
         await asyncio.sleep(GOSSIPING_FREQUENCY * 7)

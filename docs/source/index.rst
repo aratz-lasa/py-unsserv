@@ -8,7 +8,6 @@ Welcome to py_unsserv's documentation!
 
 .. toctree::
    :maxdepth: 2
-   :caption: Contents:
 
    usage
    theory

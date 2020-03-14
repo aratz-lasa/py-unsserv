@@ -10,7 +10,7 @@ from unsserv.common.gossip.gossip_config import GOSSIPING_FREQUENCY
 from unsserv.extreme.dissemination.lpbcast.lpbcast import Lpbcast
 
 init_extreme_membership = init_extreme_membership  # for flake8 compliance
-DISS_SERVICE_ID = "lpbcast"
+DISSEMINATION_SERVICE_ID = "lpbcast"
 
 lpbcast_events: Dict[Node, asyncio.Event] = {}
 
@@ -30,14 +30,14 @@ async def init_lpbcast():
         lpbcast = Lpbcast(newc)
         lpbcast_events[newc.my_node] = asyncio.Event()
         await lpbcast.join_broadcast(
-            DISS_SERVICE_ID,
+            DISSEMINATION_SERVICE_ID,
             broadcast_handler=partial(dissemination_handler, lpbcast.my_node),
         )
         for r_newc in r_newcs:
             r_lpbcast = Lpbcast(r_newc)
             lpbcast_events[r_newc.my_node] = asyncio.Event()
             await r_lpbcast.join_broadcast(
-                DISS_SERVICE_ID,
+                DISSEMINATION_SERVICE_ID,
                 broadcast_handler=partial(dissemination_handler, r_lpbcast.my_node),
             )
             r_lpbcasts.append(r_lpbcast)

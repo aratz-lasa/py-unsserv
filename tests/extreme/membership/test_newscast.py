@@ -10,7 +10,7 @@ from unsserv.common.gossip.gossip_config import GOSSIPING_FREQUENCY, LOCAL_VIEW_
 from unsserv.extreme.membership import newscast
 
 node = Node(("127.0.0.1", 7771))
-SERVICE_ID = "newscast"
+MEMBERSHIP_SERVICE_ID = "newscast"
 
 
 @pytest.mark.asyncio
@@ -22,11 +22,13 @@ async def init_newscast():
     async def _init_newscast(amount):
         nonlocal newc, r_newcs
         newc = newscast.Newscast(node)
-        await newc.join(SERVICE_ID)
+        await newc.join(MEMBERSHIP_SERVICE_ID)
         r_nodes = get_random_nodes(amount)
         for i, r_node in enumerate(r_nodes):
             r_newc = newscast.Newscast(r_node)
-            await r_newc.join(SERVICE_ID, bootstrap_nodes=[node] + r_nodes[:i])
+            await r_newc.join(
+                MEMBERSHIP_SERVICE_ID, bootstrap_nodes=[node] + r_nodes[:i]
+            )
             r_newcs.append(r_newc)
         return newc, r_newcs, r_nodes
 

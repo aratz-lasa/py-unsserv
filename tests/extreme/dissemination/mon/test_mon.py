@@ -11,7 +11,7 @@ from tests.utils import init_extreme_membership
 
 init_extreme_membership = init_extreme_membership  # for flake8 compliance
 
-DISS_SERVICE_ID = "mon"
+DISSEMINATION_SERVICE_ID = "mon"
 
 mon_events: Dict[Node, asyncio.Event] = {}
 
@@ -31,14 +31,14 @@ async def init_mon():
         mon = Mon(newc)
         mon_events[newc.my_node] = asyncio.Event()
         await mon.join_broadcast(
-            DISS_SERVICE_ID,
+            DISSEMINATION_SERVICE_ID,
             broadcast_handler=partial(dissemination_handler, mon.my_node),
         )
         for r_newc in r_newcs:
             r_mon = Mon(r_newc)
             mon_events[r_newc.my_node] = asyncio.Event()
             await r_mon.join_broadcast(
-                DISS_SERVICE_ID,
+                DISSEMINATION_SERVICE_ID,
                 broadcast_handler=partial(dissemination_handler, r_mon.my_node),
             )
             r_mons.append(r_mon)

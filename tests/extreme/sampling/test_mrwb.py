@@ -9,7 +9,7 @@ from tests.utils import init_extreme_membership
 
 init_extreme_membership = init_extreme_membership  # for flake8 compliance
 
-AGGR_SERVICE_ID = "mrwb"
+AGGREGATION_SERVICE_ID = "mrwb"
 
 
 @pytest.mark.asyncio
@@ -21,10 +21,10 @@ async def init_mrwb():
     async def _init_mrwb(newc, r_newcs):
         nonlocal sampl, r_sampls
         sampl = MRWB(newc)
-        await sampl.join_sampling(AGGR_SERVICE_ID)
+        await sampl.join_sampling(AGGREGATION_SERVICE_ID)
         for r_newc in r_newcs:
             r_sampl = MRWB(r_newc)
-            await r_sampl.join_sampling(AGGR_SERVICE_ID)
+            await r_sampl.join_sampling(AGGREGATION_SERVICE_ID)
             r_sampls.append(r_sampl)
         await asyncio.sleep(GOSSIPING_FREQUENCY * 7)
         return r_sampls, sampl
