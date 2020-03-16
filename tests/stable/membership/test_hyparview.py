@@ -45,7 +45,7 @@ async def init_hyparview():
 @pytest.mark.parametrize("amount", [1, 5, 100])
 async def test_join_hyparview(init_hyparview, amount):
     hyparview, r_hyparviews = await init_hyparview(amount)
-    await asyncio.sleep(GOSSIPING_FREQUENCY * 7)
+    await asyncio.sleep(GOSSIPING_FREQUENCY * 15)
 
     all_nodes = set(
         [
@@ -96,7 +96,6 @@ async def test_leave_hyparview(init_hyparview, amount):
 # to assure neighbours will change, because it is initailzied by Newscast
 async def test_hyparview_callback(init_hyparview, amount):
     hyparview, r_hyparviews = await init_hyparview(amount)
-    await asyncio.sleep(GOSSIPING_FREQUENCY * 7)
 
     callback_event = asyncio.Event()
 

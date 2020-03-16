@@ -120,6 +120,7 @@ class HyParView(MembershipService):
         self._multiplex = multiplex
         self._rpc = RPC.get_rpc(self.my_node, HyParViewRPC, multiplex)
         self._active_view = []
+        self._callback = None
         self._callback_raw_format = False
         self._gossip = None
 
@@ -127,12 +128,15 @@ class HyParView(MembershipService):
         if self.running:
             raise RuntimeError("Already running Membership")
         self.service_id = service_id
+        self._protocol = HyParViewProtocol(self.my_node, self.service_id)
         self._gossip = Gossip(
             my_node=self.my_node,
-            service_id=service_id,
+            service_id=f"gossip-{service_id}",
             local_view_nodes=configuration.get("bootstrap_nodes", None),
+            local_view_callback=self._local_view_callback,
             multiplex=self._multiplex,
         )
+        await self._gossip.start()
         await self._rpc.register_service(service_id, self._handle_rpc)
         self._local_view_maintenance_task = asyncio.create_task(
             self._maintain_active_view()
@@ -143,14 +147,15 @@ class HyParView(MembershipService):
         if not self.running:
             return
         self._active_view = []
-        self._protocol = None
-        await self._rpc.unregister_service(self.service_id)
         if self._local_view_maintenance_task:
             self._local_view_maintenance_task.cancel()
             try:
                 await self._local_view_maintenance_task
             except asyncio.CancelledError:
                 pass
+        await self._gossip.stop()
+        await self._rpc.unregister_service(self.service_id)
+        self._protocol = None
         self.running = False
 
     def get_neighbours(
