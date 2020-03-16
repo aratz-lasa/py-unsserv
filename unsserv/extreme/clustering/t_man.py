@@ -1,5 +1,5 @@
 from functools import partial
-from typing import Any, Callable, List, Union
+from typing import Any, Callable, List, Union, Optional
 
 from unsserv.common.services_abc import (
     ClusteringService,
@@ -18,15 +18,17 @@ RankingFunction = Callable[[Node], Any]
 class TMan(ClusteringService):
     _multiplex: bool
     _callback: NeighboursCallback
+    _callback_raw_format: bool
+    _gossip: Optional[Gossip]
 
     def __init__(self, membership: MembershipService, multiplex: bool = True):
         self.my_node = membership.my_node
-        self._multiplex = multiplex
         self.membership = membership
+        self._multiplex = multiplex
         self._callback = None
-        self._callback_raw_format = False
         self._ranking_function: RankingFunction
-        self._gossip: Union[Gossip, None] = None
+        self._callback_raw_format = False
+        self._gossip = None
 
     async def join(self, service_id: Any, **configuration: Any) -> None:
         if self.running:

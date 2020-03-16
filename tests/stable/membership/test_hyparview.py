@@ -7,7 +7,7 @@ import pytest
 from tests.utils import init_extreme_membership
 from unsserv.common.gossip.gossip_config import GOSSIPING_FREQUENCY, LOCAL_VIEW_SIZE
 from unsserv.stable.membership.hyparview import HyParView
-from unsserv.stable.membership.hyparview_config import NEIGHBOURS_AMOUNT
+from unsserv.stable.membership.hyparview_config import ACTIVE_VIEW_SIZE
 
 init_extreme_membership = init_extreme_membership  # for flake8 compliance
 
@@ -55,11 +55,11 @@ async def test_join_hyparview(init_extreme_membership, init_hyparview, amount):
     assert amount * 0.9 < len(all_nodes)
 
     neighbours = hyparview.get_neighbours()
-    assert min(amount, NEIGHBOURS_AMOUNT) <= len(neighbours)
+    assert min(amount, ACTIVE_VIEW_SIZE) <= len(neighbours)
 
     for r_hyparview in r_hyparviews:
         r_neighbours = r_hyparview.get_neighbours()
-        assert min(amount, NEIGHBOURS_AMOUNT) <= len(r_neighbours)
+        assert min(amount, ACTIVE_VIEW_SIZE) <= len(r_neighbours)
 
 
 @pytest.mark.asyncio
