@@ -1,3 +1,4 @@
+from collections import Counter
 import asyncio
 import random
 from enum import IntEnum, auto
@@ -161,7 +162,7 @@ class HyParView(MembershipService):
     def get_neighbours(
         self, local_view_format: bool = False
     ) -> Union[List[Node], View]:
-        return self._active_view  # todo: how to returns as local view format
+        return Counter(self._active_view) if local_view_format else self._active_view
 
     def set_neighbours_callback(
         self, callback: NeighboursCallback, local_view_format: bool = False
