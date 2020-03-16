@@ -1,17 +1,17 @@
+from unsserv.common.data_structures import Node
 from math import ceil
 import asyncio
 from collections import Counter
 
 import pytest
 
-from tests.utils import init_extreme_membership
+from tests.utils import get_random_nodes
 from unsserv.common.gossip.gossip_config import GOSSIPING_FREQUENCY, LOCAL_VIEW_SIZE
 from unsserv.stable.membership.hyparview import HyParView
 from unsserv.stable.membership.hyparview_config import ACTIVE_VIEW_SIZE
 
-init_extreme_membership = init_extreme_membership  # for flake8 compliance
-
 MEMBERSHIP_SERVICE_ID = "hyparview"
+node = Node(("127.0.0.1", 7771))
 
 
 @pytest.mark.asyncio
@@ -20,15 +20,17 @@ async def init_hyparview():
     hyparview = None
     r_hyparviews = []
 
-    async def _init_hyparview(newc, r_newcs):
+    async def _init_hyparview(amount):
         nonlocal hyparview, r_hyparviews
-        hyparview = HyParView(newc)
+        hyparview = HyParView(node)
         await hyparview.join(MEMBERSHIP_SERVICE_ID)
-        for r_newc in r_newcs:
-            r_hyparview = HyParView(r_newc)
-            await r_hyparview.join(MEMBERSHIP_SERVICE_ID)
+        r_nodes = get_random_nodes(amount)
+        for i, r_node in enumerate(r_nodes):
+            r_hyparview = HyParView(r_node)
+            await r_hyparview.join(
+                MEMBERSHIP_SERVICE_ID, bootstrap_nodes=[node] + r_nodes[:i]
+            )
             r_hyparviews.append(r_hyparview)
-        await asyncio.sleep(GOSSIPING_FREQUENCY * 7)
         return hyparview, r_hyparviews
 
     try:
@@ -41,14 +43,14 @@ async def init_hyparview():
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("amount", [1, 5, 100])
-async def test_join_hyparview(init_extreme_membership, init_hyparview, amount):
-    newc, r_newcs = await init_extreme_membership(amount)
-    hyparview, r_hyparviews = await init_hyparview(newc, r_newcs)
+async def test_join_hyparview(init_hyparview, amount):
+    hyparview, r_hyparviews = await init_hyparview(amount)
+    await asyncio.sleep(GOSSIPING_FREQUENCY * 7)
 
     all_nodes = set(
         [
             item
-            for sublist in map(lambda n: n.get_neighbours(), r_newcs + [newc])
+            for sublist in map(lambda n: n.get_neighbours(), r_hyparviews + [hyparview])
             for item in sublist
         ]
     )
@@ -66,12 +68,11 @@ async def test_join_hyparview(init_extreme_membership, init_hyparview, amount):
 @pytest.mark.parametrize(
     "amount", [LOCAL_VIEW_SIZE + 1, LOCAL_VIEW_SIZE + 5, LOCAL_VIEW_SIZE + 100]
 )
-async def test_leave_hyparview(init_extreme_membership, init_hyparview, amount):
-    newc, r_newcs = await init_extreme_membership(amount)
-    hyparview, r_hyparviews = await init_hyparview(newc, r_newcs)
+async def test_leave_hyparview(init_hyparview, amount):
+    hyparview, r_hyparviews = await init_hyparview(amount)
+    await asyncio.sleep(GOSSIPING_FREQUENCY * 7)
 
     await hyparview.leave()
-    await newc.leave()
     await asyncio.sleep(GOSSIPING_FREQUENCY * 40)
 
     all_nodes = Counter(
@@ -93,9 +94,9 @@ async def test_leave_hyparview(init_extreme_membership, init_hyparview, amount):
     [(LOCAL_VIEW_SIZE * 2) + 1, (LOCAL_VIEW_SIZE * 2) + 5, (LOCAL_VIEW_SIZE * 2) + 100],
 )  # very high neighbours amount,
 # to assure neighbours will change, because it is initailzied by Newscast
-async def test_hyparview_callback(init_extreme_membership, init_hyparview, amount):
-    newc, r_newcs = await init_extreme_membership(amount)
-    hyparview, r_hyparviews = await init_hyparview(newc, r_newcs)
+async def test_hyparview_callback(init_hyparview, amount):
+    hyparview, r_hyparviews = await init_hyparview(amount)
+    await asyncio.sleep(GOSSIPING_FREQUENCY * 7)
 
     callback_event = asyncio.Event()
 
