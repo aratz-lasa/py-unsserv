@@ -2,7 +2,7 @@ from collections import Counter
 import asyncio
 import random
 from enum import IntEnum, auto
-from typing import Union, List, Any, Optional
+from typing import Union, List, Any, Optional, Set
 
 from unsserv.common.data_structures import Node, Message
 from unsserv.common.gossip.gossip import Gossip
@@ -110,7 +110,7 @@ class HyParView(MembershipService):
     _rpc: HyParViewRPC
     _protocol: Optional[HyParViewProtocol]
     _gossip: Optional[Gossip]
-    _active_view: List[Node]
+    _active_view: Set[Node]
     _multiplex: bool
     _callback: NeighboursCallback
     _callback_raw_format: bool
@@ -120,7 +120,7 @@ class HyParView(MembershipService):
         self.my_node = my_node
         self._multiplex = multiplex
         self._rpc = RPC.get_rpc(self.my_node, HyParViewRPC, multiplex)
-        self._active_view = []
+        self._active_view = set()
         self._callback = None
         self._callback_raw_format = False
         self._gossip = None
@@ -147,7 +147,7 @@ class HyParView(MembershipService):
     async def leave(self) -> None:
         if not self.running:
             return
-        self._active_view = []
+        self._active_view = set()
         if self._local_view_maintenance_task:
             self._local_view_maintenance_task.cancel()
             try:
@@ -162,7 +162,9 @@ class HyParView(MembershipService):
     def get_neighbours(
         self, local_view_format: bool = False
     ) -> Union[List[Node], View]:
-        return Counter(self._active_view) if local_view_format else self._active_view
+        return (
+            Counter(self._active_view) if local_view_format else list(self._active_view)
+        )
 
     def set_neighbours_callback(
         self, callback: NeighboursCallback, local_view_format: bool = False
@@ -183,10 +185,10 @@ class HyParView(MembershipService):
         command = message.data[DATA_FIELD_COMMAND]
         if command == HyParViewCommand.JOIN:
             if len(self._active_view) >= ACTIVE_VIEW_SIZE:
-                self._active_view.pop(
-                    random.randrange(ACTIVE_VIEW_SIZE)
+                self._active_view.remove(
+                    random.choice(list(self._active_view))
                 )  # randomly remove
-            self._active_view.append(message.node)
+            self._active_view.add(message.node)
             message = self._protocol.make_forward_join_message(message.node, TTL)
             for neighbour in self._active_view:
                 asyncio.create_task(self._rpc.call_join(neighbour, message))
@@ -196,7 +198,7 @@ class HyParView(MembershipService):
             if ttl == 0:
                 asyncio.create_task(self._connect_to_node(origin_node))
             else:
-                neighbour = random.choice(self._active_view)
+                neighbour = random.choice(list(self._active_view))
                 message = self._protocol.make_forward_join_message(origin_node, ttl - 1)
                 asyncio.create_task(self._rpc.call_forward_join(neighbour, message))
         elif command == HyParViewCommand.CONNECT:
@@ -204,10 +206,10 @@ class HyParView(MembershipService):
             if not is_a_priority and len(self._active_view) >= ACTIVE_VIEW_SIZE:
                 return False
             if len(self._active_view) >= ACTIVE_VIEW_SIZE:
-                self._active_view.pop(
-                    random.randrange(ACTIVE_VIEW_SIZE)
+                self._active_view.remove(
+                    random.choice(list(self._active_view))
                 )  # randomly remove
-            self._active_view.append(message.node)
+            self._active_view.add(message.node)
             return True
         elif command == HyParViewCommand.DISCONNECT:
             if message.node in self._active_view:
@@ -223,17 +225,17 @@ class HyParView(MembershipService):
         message = self._protocol.make_connect_message(is_a_priority)
         is_connected = await self._rpc.call_connect(node, message)
         if is_connected:
-            self._active_view.append(node)
+            self._active_view.add(node)
 
     async def _maintain_active_view(self):
         while True:
             await asyncio.sleep(ACTIVE_VIEW_MAINTAIN_FREQUENCY)
-            active_nodes = []
+            active_nodes = set()
             message = self._protocol.make_ping_message()
             for node in self._active_view:
                 try:
                     await self._rpc.call_ping(node, message)
-                    active_nodes.append(node)
+                    active_nodes.add(node)
                 except ConnectionError:
                     pass
             self._active_view = active_nodes
@@ -246,6 +248,6 @@ class HyParView(MembershipService):
                 )
                 try:
                     await self._rpc.call_ping(candidate_neighbour, message)
-                    active_nodes.append(candidate_neighbour)
+                    active_nodes.add(candidate_neighbour)
                 except ConnectionError:
                     pass

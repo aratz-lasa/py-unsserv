@@ -63,6 +63,9 @@ async def test_join_hyparview(init_hyparview, amount):
         r_neighbours = r_hyparview.get_neighbours()
         assert min(amount, ACTIVE_VIEW_SIZE) <= len(r_neighbours)
 
+    await asyncio.sleep(GOSSIPING_FREQUENCY * 7)
+    assert neighbours == hyparview.get_neighbours()
+
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
