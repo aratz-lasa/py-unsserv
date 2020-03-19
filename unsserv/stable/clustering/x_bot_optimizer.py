@@ -1,17 +1,17 @@
+from math import ceil
 import asyncio
 import random
 from collections import Counter
 from contextlib import contextmanager
 from enum import IntEnum, auto
-from typing import Union, List, Any, Optional, Set, Counter as CounterType
+from typing import Union, List, Any, Optional, Set, Counter as CounterType, Callable
 
 from unsserv.common.data_structures import Node, Message
-from unsserv.common.gossip.gossip import Gossip
 from unsserv.common.rpc.rpc import RpcBase, RPC
-from unsserv.common.services_abc import MembershipService
+from unsserv.common.services_abc import MembershipService, ClusteringService
 from unsserv.common.typing import NeighboursCallback, View
 from unsserv.common.utils import parse_node
-from unsserv.stable.membership.hyparview_config import (
+from unsserv.stable.clustering.x_bot_config import (
     DATA_FIELD_COMMAND,
     ACTIVE_VIEW_SIZE,
     DATA_FIELD_TTL,
@@ -19,29 +19,33 @@ from unsserv.stable.membership.hyparview_config import (
     DATA_FIELD_PRIORITY,
     ACTIVE_VIEW_MAINTAIN_FREQUENCY,
     TTL,
+    UNBIASED_NODES,
+    PASSIVE_SCAN_LENGTH,
 )
 
+RankingFunction = Callable[[Node], Any]
 
-class HyParViewCommand(IntEnum):
+
+class XBotOptimizerCommand(IntEnum):
     JOIN = auto()
     FORWARD_JOIN = auto()
-    CONNECT = auto()  # it is equivalent to NEIGHBOR in HyParView specification
+    CONNECT = auto()  # it is equivalent to NEIGHBOR in XBotOptimizer specification
     DISCONNECT = auto()
     STAY_CONNECTED = auto()
 
 
-class HyParViewProtocol:
+class XBotOptimizerProtocol:
     def __init__(self, my_node: Node, service_id: Any):
         self.my_node = my_node
         self.service_id = service_id
 
     def make_join_message(self) -> Message:
-        data = {DATA_FIELD_COMMAND: HyParViewCommand.JOIN}
+        data = {DATA_FIELD_COMMAND: XBotOptimizerCommand.JOIN}
         return Message(self.my_node, self.service_id, data)
 
     def make_forward_join_message(self, origin_node: Node, ttl: int) -> Message:
         data = {
-            DATA_FIELD_COMMAND: HyParViewCommand.FORWARD_JOIN,
+            DATA_FIELD_COMMAND: XBotOptimizerCommand.FORWARD_JOIN,
             DATA_FIELD_ORIGIN_NODE: origin_node,
             DATA_FIELD_TTL: ttl,
         }
@@ -49,21 +53,21 @@ class HyParViewProtocol:
 
     def make_connect_message(self, is_a_priority: bool) -> Message:
         data = {
-            DATA_FIELD_COMMAND: HyParViewCommand.CONNECT,
+            DATA_FIELD_COMMAND: XBotOptimizerCommand.CONNECT,
             DATA_FIELD_PRIORITY: is_a_priority,
         }
         return Message(self.my_node, self.service_id, data)
 
     def make_disconnect_message(self) -> Message:
-        data = {DATA_FIELD_COMMAND: HyParViewCommand.DISCONNECT}
+        data = {DATA_FIELD_COMMAND: XBotOptimizerCommand.DISCONNECT}
         return Message(self.my_node, self.service_id, data)
 
     def make_stay_connected_message(self) -> Message:
-        data = {DATA_FIELD_COMMAND: HyParViewCommand.STAY_CONNECTED}
+        data = {DATA_FIELD_COMMAND: XBotOptimizerCommand.STAY_CONNECTED}
         return Message(self.my_node, self.service_id, data)
 
 
-class HyParViewRPC(RpcBase):
+class XBotOptimizerRPC(RpcBase):
     async def call_join(self, destination: Node, message: Message):
         rpc_result = await self.join(destination.address_info, message)
         self._handle_call_response(rpc_result)
@@ -109,10 +113,9 @@ class HyParViewRPC(RpcBase):
         return is_still_connected
 
 
-class HyParView(MembershipService):
-    _rpc: HyParViewRPC
-    _protocol: Optional[HyParViewProtocol]
-    _gossip: Optional[Gossip]
+class XBotOptimizer(ClusteringService):
+    _rpc: XBotOptimizerRPC
+    _protocol: Optional[XBotOptimizerProtocol]
     _active_view: Set[Node]
     _multiplex: bool
     _callback: NeighboursCallback
@@ -120,29 +123,23 @@ class HyParView(MembershipService):
     _local_view_maintenance_task: asyncio.Task
     _candidate_neighbours: CounterType[Node]
 
-    def __init__(self, my_node: Node, multiplex: bool = True):
-        self.my_node = my_node
+    def __init__(self, membership: MembershipService, multiplex: bool = True):
+        self.membership = membership
+        self.my_node = membership.my_node
         self._multiplex = multiplex
-        self._rpc = RPC.get_rpc(self.my_node, HyParViewRPC, multiplex)
-        self._gossip = None
+        self._rpc = RPC.get_rpc(self.my_node, XBotOptimizerRPC, multiplex)
         self._callback = None
         self._callback_raw_format = False
         self._active_view = set()
         self._candidate_neighbours = Counter()
+        self._ranking_function: RankingFunction
 
     async def join(self, service_id: Any, **configuration: Any):
         if self.running:
-            raise RuntimeError("Already running Membership")
+            raise RuntimeError("Already running Clustering")
         self.service_id = service_id
-        self._protocol = HyParViewProtocol(self.my_node, self.service_id)
-        self._gossip = Gossip(
-            my_node=self.my_node,
-            service_id=f"gossip-{service_id}",
-            local_view_nodes=configuration.get("bootstrap_nodes", None),
-            local_view_callback=self._local_view_callback,
-            multiplex=self._multiplex,
-        )
-        await self._gossip.start()
+        self._ranking_function = configuration["ranking_function"]
+        self._protocol = XBotOptimizerProtocol(self.my_node, self.service_id)
         await self._rpc.register_service(service_id, self._handle_rpc)
         self._local_view_maintenance_task = asyncio.create_task(
             self._maintain_active_view()
@@ -159,7 +156,6 @@ class HyParView(MembershipService):
                 await self._local_view_maintenance_task
             except asyncio.CancelledError:
                 pass
-        await self._gossip.stop()
         await self._rpc.unregister_service(self.service_id)
         self._protocol = None
         self.running = False
@@ -175,7 +171,7 @@ class HyParView(MembershipService):
         self, callback: NeighboursCallback, local_view_format: bool = False
     ) -> None:
         if not self.running:
-            raise RuntimeError("Memberhsip service not running")
+            raise RuntimeError("Clustering service not running")
         self._callback = callback
         self._callback_raw_format = local_view_format
 
@@ -188,7 +184,7 @@ class HyParView(MembershipService):
 
     async def _handle_rpc(self, message: Message) -> Any:
         command = message.data[DATA_FIELD_COMMAND]
-        if command == HyParViewCommand.JOIN:
+        if command == XBotOptimizerCommand.JOIN:
             while len(self._active_view) >= ACTIVE_VIEW_SIZE:
                 random_neighbour = random.choice(list(self._active_view))
                 self._active_view.remove(random_neighbour)  # randomly remove
@@ -199,7 +195,7 @@ class HyParView(MembershipService):
                 filter(lambda n: n != message.node, self._active_view)
             ):
                 asyncio.create_task(self._rpc.call_forward_join(neighbour, message))
-        elif command == HyParViewCommand.FORWARD_JOIN:
+        elif command == XBotOptimizerCommand.FORWARD_JOIN:
             ttl = message.data[DATA_FIELD_TTL]
             origin_node = parse_node(message.data[DATA_FIELD_ORIGIN_NODE])
             if ttl == 0:
@@ -211,7 +207,7 @@ class HyParView(MembershipService):
                 neighbour = random.choice(candidate_neighbours)
                 message = self._protocol.make_forward_join_message(origin_node, ttl - 1)
                 asyncio.create_task(self._rpc.call_forward_join(neighbour, message))
-        elif command == HyParViewCommand.CONNECT:
+        elif command == XBotOptimizerCommand.CONNECT:
             is_a_priority = message.data[DATA_FIELD_PRIORITY]
             if not is_a_priority and len(self._active_view) >= ACTIVE_VIEW_SIZE:
                 return False
@@ -221,16 +217,16 @@ class HyParView(MembershipService):
                 asyncio.create_task(self._try_disconnect(random_neighbour))
             self._active_view.add(message.node)
             return True
-        elif command == HyParViewCommand.DISCONNECT:
+        elif command == XBotOptimizerCommand.DISCONNECT:
             if message.node in self._active_view:
                 self._active_view.remove(message.node)
-        elif command == HyParViewCommand.STAY_CONNECTED:
+        elif command == XBotOptimizerCommand.STAY_CONNECTED:
             return (
                 message.node in self._active_view
                 or message.node in self._candidate_neighbours
             )
         else:
-            raise ValueError("Invalid HyParView protocol value")
+            raise ValueError("Invalid XBotOptimizer protocol value")
         return None
 
     async def _connect_to_node(self, node: Node):
@@ -246,7 +242,7 @@ class HyParView(MembershipService):
 
     async def _join_first_time(self):
         message = self._protocol.make_join_message()
-        bootstrap_nodes = list(self._gossip.local_view.keys())
+        bootstrap_nodes = self.membership.get_neighbours()
         while bootstrap_nodes:
             candidate_node = bootstrap_nodes.pop(random.randrange(len(bootstrap_nodes)))
             with self._create_candidate_neighbour(candidate_node):
@@ -281,13 +277,38 @@ class HyParView(MembershipService):
                     inactive_nodes.add(node)
             self._active_view = self._active_view - inactive_nodes
             if len(self._active_view) >= ACTIVE_VIEW_SIZE:
+                await self._optimize_active_view()  # todo: create task instead?
                 continue
-            candidate_neighbours: List[Node] = list(self._gossip.local_view.keys())
+            candidate_neighbours: List[Node] = self.membership.get_neighbours()
             while candidate_neighbours and len(self._active_view) < ACTIVE_VIEW_SIZE:
                 candidate_neighbour = candidate_neighbours.pop(
                     random.randrange(len(candidate_neighbours))
                 )
                 await self._connect_to_node(candidate_neighbour)
+
+    async def _optimize_active_view(self):
+        candidate_neighbours = self.membership.get_neighbours()
+        if not candidate_neighbours:
+            return None
+        candidate_neighbours = random.sample(
+            candidate_neighbours, min(len(candidate_neighbours), PASSIVE_SCAN_LENGTH)
+        )
+        biasable_nodes = list(sorted(self._active_view, key=self._ranking_function))[
+            ceil(ACTIVE_VIEW_SIZE * UNBIASED_NODES) :
+        ]
+        for node in biasable_nodes:
+            if not candidate_neighbours:
+                return None
+            candidate = candidate_neighbours.pop()
+            if self._get_the_best(candidate, node) == candidate:
+                pass  # todo: send optimization
+
+    def _get_the_best(self, node1: Node, node2: Node):
+        return (
+            node1
+            if self._ranking_function(node1) < self._ranking_function(node2)
+            else node2
+        )
 
     @contextmanager
     def _create_candidate_neighbour(self, node: Node):
