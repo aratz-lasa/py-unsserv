@@ -1,14 +1,13 @@
+from collections import Counter
 import asyncio
 import random
-from collections import Counter
-from contextlib import contextmanager
 from enum import IntEnum, auto
-from typing import Union, List, Any, Optional, Set, Counter as CounterType
+from typing import Union, List, Any, Optional, Set
 
 from unsserv.common.data_structures import Node, Message
 from unsserv.common.gossip.gossip import Gossip
 from unsserv.common.rpc.rpc import RpcBase, RPC
-from unsserv.common.services_abc import MembershipService
+from unsserv.common.services_abc import MembershipService, ClusteringService
 from unsserv.common.typing import NeighboursCallback, View
 from unsserv.common.utils import parse_node
 from unsserv.stable.membership.hyparview_config import (
@@ -22,26 +21,26 @@ from unsserv.stable.membership.hyparview_config import (
 )
 
 
-class HyParViewCommand(IntEnum):
+class XBotCommand(IntEnum):
     JOIN = auto()
     FORWARD_JOIN = auto()
-    CONNECT = auto()  # it is equivalent to NEIGHBOR in HyParView specification
+    CONNECT = auto()  # it is equivalent to NEIGHBOR in XBot specification
     DISCONNECT = auto()
-    STAY_CONNECTED = auto()
+    PING = auto()
 
 
-class HyParViewProtocol:
+class XBotProtocol:
     def __init__(self, my_node: Node, service_id: Any):
         self.my_node = my_node
         self.service_id = service_id
 
     def make_join_message(self) -> Message:
-        data = {DATA_FIELD_COMMAND: HyParViewCommand.JOIN}
+        data = {DATA_FIELD_COMMAND: XBotCommand.JOIN}
         return Message(self.my_node, self.service_id, data)
 
     def make_forward_join_message(self, origin_node: Node, ttl: int) -> Message:
         data = {
-            DATA_FIELD_COMMAND: HyParViewCommand.FORWARD_JOIN,
+            DATA_FIELD_COMMAND: XBotCommand.FORWARD_JOIN,
             DATA_FIELD_ORIGIN_NODE: origin_node,
             DATA_FIELD_TTL: ttl,
         }
@@ -49,21 +48,21 @@ class HyParViewProtocol:
 
     def make_connect_message(self, is_a_priority: bool) -> Message:
         data = {
-            DATA_FIELD_COMMAND: HyParViewCommand.CONNECT,
+            DATA_FIELD_COMMAND: XBotCommand.CONNECT,
             DATA_FIELD_PRIORITY: is_a_priority,
         }
         return Message(self.my_node, self.service_id, data)
 
     def make_disconnect_message(self) -> Message:
-        data = {DATA_FIELD_COMMAND: HyParViewCommand.DISCONNECT}
+        data = {DATA_FIELD_COMMAND: XBotCommand.DISCONNECT}
         return Message(self.my_node, self.service_id, data)
 
-    def make_stay_connected_message(self) -> Message:
-        data = {DATA_FIELD_COMMAND: HyParViewCommand.STAY_CONNECTED}
+    def make_ping_message(self) -> Message:
+        data = {DATA_FIELD_COMMAND: XBotCommand.PING}
         return Message(self.my_node, self.service_id, data)
 
 
-class HyParViewRPC(RpcBase):
+class XBotRPC(RpcBase):
     async def call_join(self, destination: Node, message: Message):
         rpc_result = await self.join(destination.address_info, message)
         self._handle_call_response(rpc_result)
@@ -80,9 +79,9 @@ class HyParViewRPC(RpcBase):
         rpc_result = await self.disconnect(destination.address_info, message)
         self._handle_call_response(rpc_result)
 
-    async def call_stay_connected(self, destination: Node, message: Message) -> bool:
-        rpc_result = await self.stay_connected(destination.address_info, message)
-        return self._handle_call_response(rpc_result)
+    async def call_ping(self, destination: Node, message: Message):
+        rpc_result = await self.join(destination.address_info, message)
+        self._handle_call_response(rpc_result)
 
     async def rpc_join(self, node: Node, raw_message: List):
         message = self._decode_message(raw_message)
@@ -102,39 +101,36 @@ class HyParViewRPC(RpcBase):
         message = self._decode_message(raw_message)
         await self.registered_services[message.service_id](message)
 
-    async def rpc_stay_connected(self, node: Node, raw_message: List) -> bool:
+    async def rpc_ping(self, node: Node, raw_message: List):
         message = self._decode_message(raw_message)
-        is_still_connected = await self.registered_services[message.service_id](message)
-        assert isinstance(is_still_connected, bool)
-        return is_still_connected
+        await self.registered_services[message.service_id](message)
 
 
-class HyParView(MembershipService):
-    _rpc: HyParViewRPC
-    _protocol: Optional[HyParViewProtocol]
+class XBot(ClusteringService):
+    _rpc: XBotRPC
+    _protocol: Optional[XBotProtocol]
     _gossip: Optional[Gossip]
     _active_view: Set[Node]
     _multiplex: bool
     _callback: NeighboursCallback
     _callback_raw_format: bool
     _local_view_maintenance_task: asyncio.Task
-    _candidate_neighbours: CounterType[Node]
 
-    def __init__(self, my_node: Node, multiplex: bool = True):
-        self.my_node = my_node
+    def __init__(self, membership: MembershipService, multiplex: bool = True):
+        self.my_node = membership.my_node
+        self.membership = membership
         self._multiplex = multiplex
-        self._rpc = RPC.get_rpc(self.my_node, HyParViewRPC, multiplex)
-        self._gossip = None
+        self._rpc = RPC.get_rpc(self.my_node, XBotRPC, multiplex)
+        self._active_view = set()
         self._callback = None
         self._callback_raw_format = False
-        self._active_view = set()
-        self._candidate_neighbours = Counter()
+        self._gossip = None
 
     async def join(self, service_id: Any, **configuration: Any):
         if self.running:
             raise RuntimeError("Already running Membership")
         self.service_id = service_id
-        self._protocol = HyParViewProtocol(self.my_node, self.service_id)
+        self._protocol = XBotProtocol(self.my_node, self.service_id)
         self._gossip = Gossip(
             my_node=self.my_node,
             service_id=f"gossip-{service_id}",
@@ -188,78 +184,62 @@ class HyParView(MembershipService):
 
     async def _handle_rpc(self, message: Message) -> Any:
         command = message.data[DATA_FIELD_COMMAND]
-        if command == HyParViewCommand.JOIN:
-            while len(self._active_view) >= ACTIVE_VIEW_SIZE:
-                random_neighbour = random.choice(list(self._active_view))
-                self._active_view.remove(random_neighbour)  # randomly remove
-                asyncio.create_task(self._try_disconnect(random_neighbour))
+        if command == XBotCommand.JOIN:
+            if len(self._active_view) >= ACTIVE_VIEW_SIZE:
+                self._active_view.remove(
+                    random.choice(list(self._active_view))
+                )  # randomly remove
             self._active_view.add(message.node)
             message = self._protocol.make_forward_join_message(message.node, TTL)
-            for neighbour in list(
-                filter(lambda n: n != message.node, self._active_view)
-            ):
-                asyncio.create_task(self._rpc.call_forward_join(neighbour, message))
-        elif command == HyParViewCommand.FORWARD_JOIN:
+            for neighbour in self._active_view:
+                asyncio.create_task(self._rpc.call_join(neighbour, message))
+        elif command == XBotCommand.FORWARD_JOIN:
             ttl = message.data[DATA_FIELD_TTL]
             origin_node = parse_node(message.data[DATA_FIELD_ORIGIN_NODE])
             if ttl == 0:
                 asyncio.create_task(self._connect_to_node(origin_node))
             else:
-                candidate_neighbours = list(
-                    filter(lambda n: n != origin_node, self._active_view)
-                ) or [self.my_node]
-                neighbour = random.choice(candidate_neighbours)
+                neighbour = random.choice(list(self._active_view))
                 message = self._protocol.make_forward_join_message(origin_node, ttl - 1)
                 asyncio.create_task(self._rpc.call_forward_join(neighbour, message))
-        elif command == HyParViewCommand.CONNECT:
+        elif command == XBotCommand.CONNECT:
             is_a_priority = message.data[DATA_FIELD_PRIORITY]
             if not is_a_priority and len(self._active_view) >= ACTIVE_VIEW_SIZE:
                 return False
-            while len(self._active_view) >= ACTIVE_VIEW_SIZE:
-                random_neighbour = random.choice(list(self._active_view))
-                self._active_view.remove(random_neighbour)  # randomly remove
-                asyncio.create_task(self._try_disconnect(random_neighbour))
+            if len(self._active_view) >= ACTIVE_VIEW_SIZE:
+                self._active_view.remove(
+                    random.choice(list(self._active_view))
+                )  # randomly remove
             self._active_view.add(message.node)
             return True
-        elif command == HyParViewCommand.DISCONNECT:
+        elif command == XBotCommand.DISCONNECT:
             if message.node in self._active_view:
                 self._active_view.remove(message.node)
-        elif command == HyParViewCommand.STAY_CONNECTED:
-            return (
-                message.node in self._active_view
-                or message.node in self._candidate_neighbours
-            )
+        elif command == XBotCommand.PING:
+            return None
         else:
-            raise ValueError("Invalid HyParView protocol value")
+            raise ValueError("Invalid XBot protocol value")
         return None
 
     async def _connect_to_node(self, node: Node):
-        with self._create_candidate_neighbour(node):
-            is_a_priority = len(self._active_view) == 0
-            message = self._protocol.make_connect_message(is_a_priority)
-            try:
-                is_connected = await self._rpc.call_connect(node, message)
-                if is_connected:
-                    self._active_view.add(node)
-            except ConnectionError:
-                pass
+        is_a_priority = len(self._active_view) == 0
+        message = self._protocol.make_connect_message(is_a_priority)
+        is_connected = await self._rpc.call_connect(node, message)
+        if is_connected:
+            self._active_view.add(node)
 
     async def _maintain_active_view(self):
-        await self._join_first_time()
         while True:
             await asyncio.sleep(ACTIVE_VIEW_MAINTAIN_FREQUENCY)
-            inactive_nodes = set()
-            message = self._protocol.make_stay_connected_message()
-            for node in self._active_view.copy():
+            active_nodes = set()
+            message = self._protocol.make_ping_message()
+            for node in self._active_view:
                 try:
-                    is_still_connected = await self._rpc.call_stay_connected(
-                        node, message
-                    )
-                    if not is_still_connected:
-                        inactive_nodes.add(node)
+                    await self._rpc.call_ping(node, message)
+                    active_nodes.add(node)
                 except ConnectionError:
-                    inactive_nodes.add(node)
-            self._active_view = self._active_view - inactive_nodes
+                    pass
+            self._active_view = active_nodes
             if len(self._active_view) >= ACTIVE_VIEW_SIZE:
                 continue
             candidate_neighbours: List[Node] = list(self._gossip.local_view.keys())
@@ -267,35 +247,8 @@ class HyParView(MembershipService):
                 candidate_neighbour = candidate_neighbours.pop(
                     random.randrange(len(candidate_neighbours))
                 )
-                await self._connect_to_node(candidate_neighbour)
-
-    async def _join_first_time(self):
-        message = self._protocol.make_join_message()
-        bootstrap_nodes = list(self._gossip.local_view.keys())
-        while bootstrap_nodes:
-            candidate_node = bootstrap_nodes.pop(random.randrange(len(bootstrap_nodes)))
-            with self._create_candidate_neighbour(candidate_node):
                 try:
-                    await self._rpc.call_join(candidate_node, message)
-                    self._active_view.add(candidate_node)
-                    break
+                    await self._rpc.call_ping(candidate_neighbour, message)
+                    active_nodes.add(candidate_neighbour)
                 except ConnectionError:
                     pass
-
-    async def _try_disconnect(self, node: Node):
-        message = self._protocol.make_disconnect_message()
-        try:
-            await self._rpc.call_disconnect(node, message)
-        except ConnectionError:
-            pass
-
-    @contextmanager
-    def _create_candidate_neighbour(self, node: Node):
-        self._candidate_neighbours.update([node])
-        try:
-            yield
-        finally:
-            self._candidate_neighbours.subtract([node])
-            self._candidate_neighbours = (
-                +self._candidate_neighbours
-            )  # remove zero and negative counts

@@ -1,14 +1,13 @@
-from unsserv.common.data_structures import Node
-from math import ceil
 import asyncio
 from collections import Counter
+from math import ceil
 
 import pytest
 
 from tests.utils import get_random_nodes
+from unsserv.common.data_structures import Node
 from unsserv.common.gossip.gossip_config import GOSSIPING_FREQUENCY, LOCAL_VIEW_SIZE
 from unsserv.stable.membership.hyparview import HyParView
-from unsserv.stable.membership.hyparview_config import ACTIVE_VIEW_SIZE
 
 MEMBERSHIP_SERVICE_ID = "hyparview"
 node = Node(("127.0.0.1", 7771))
@@ -54,17 +53,14 @@ async def test_join_hyparview(init_hyparview, amount):
             for item in sublist
         ]
     )
-    assert amount * 0.9 < len(all_nodes)
+    assert amount < len(all_nodes)
 
-    neighbours = hyparview.get_neighbours()
-    assert min(amount, ACTIVE_VIEW_SIZE) <= len(neighbours)
-
-    for r_hyparview in r_hyparviews:
-        r_neighbours = r_hyparview.get_neighbours()
-        assert min(amount, ACTIVE_VIEW_SIZE) <= len(r_neighbours)
-
-    await asyncio.sleep(GOSSIPING_FREQUENCY * 7)
-    assert neighbours == hyparview.get_neighbours()
+    all_neighbours = {}
+    for r_hyparview in r_hyparviews + [hyparview]:
+        all_neighbours[r_hyparview.my_node] = r_hyparview.get_neighbours()
+    for node, neighbours in all_neighbours.items():
+        for neighbour in neighbours:
+            assert node in all_neighbours[neighbour]  # check symmetry
 
 
 @pytest.mark.asyncio
