@@ -1,9 +1,9 @@
-from math import ceil
 import asyncio
 import random
 from collections import Counter
 from contextlib import contextmanager
 from enum import IntEnum, auto
+from math import ceil
 from typing import Union, List, Any, Optional, Set, Counter as CounterType, Callable
 
 from unsserv.common.data_structures import Node, Message
@@ -17,6 +17,11 @@ from unsserv.stable.clustering.x_bot_config import (
     DATA_FIELD_TTL,
     DATA_FIELD_ORIGIN_NODE,
     DATA_FIELD_PRIORITY,
+    DATA_FIELD_OLD_NODE,
+    DATA_FIELD_REPLACE_RESULT,
+    DATA_FIELD_OPTIMIZATION_NODE,
+    DATA_FIELD_SWITCH_RESULT,
+    DATA_FIELD_NEW_NODE,
     ACTIVE_VIEW_MAINTAIN_FREQUENCY,
     TTL,
     UNBIASED_NODES,
@@ -32,6 +37,13 @@ class XBotCommand(IntEnum):
     CONNECT = auto()  # it is equivalent to NEIGHBOR in XBot specification
     DISCONNECT = auto()
     STAY_CONNECTED = auto()
+    # Optimization Commands
+    OPTIMIZATION = auto()
+    OPTIMIZATION_REPLY = auto()
+    REPLACE = auto()
+    REPLACE_REPLY = auto()
+    SWITCH = auto()
+    SWITCH_REPLY = auto()
 
 
 class XBotProtocol:
@@ -64,6 +76,59 @@ class XBotProtocol:
 
     def make_stay_connected_message(self) -> Message:
         data = {DATA_FIELD_COMMAND: XBotCommand.STAY_CONNECTED}
+        return Message(self.my_node, self.service_id, data)
+
+    def make_optimization_message(self, old_node: Node):
+        data = {
+            DATA_FIELD_COMMAND: XBotCommand.OPTIMIZATION,
+            DATA_FIELD_OLD_NODE: old_node,
+        }
+        return Message(self.my_node, self.service_id, data)
+
+    def make_optimization_reply_message(self, is_replaced: bool, old_node: Node):
+        data = {
+            DATA_FIELD_COMMAND: XBotCommand.OPTIMIZATION_REPLY,
+            DATA_FIELD_OLD_NODE: old_node,
+            DATA_FIELD_REPLACE_RESULT: is_replaced,
+        }
+        return Message(self.my_node, self.service_id, data)
+
+    def make_replace_message(self, old_node: Node, origin_node: Node):
+        data = {
+            DATA_FIELD_COMMAND: XBotCommand.REPLACE,
+            DATA_FIELD_OLD_NODE: old_node,
+            DATA_FIELD_OPTIMIZATION_NODE: origin_node,
+        }
+        return Message(self.my_node, self.service_id, data)
+
+    def make_replace_reply_message(
+        self, is_replaced: bool, old_node: Node, origin_node: Node
+    ):
+        data = {
+            DATA_FIELD_COMMAND: XBotCommand.REPLACE_REPLY,
+            DATA_FIELD_OLD_NODE: old_node,
+            DATA_FIELD_OPTIMIZATION_NODE: origin_node,
+            DATA_FIELD_REPLACE_RESULT: is_replaced,
+        }
+        return Message(self.my_node, self.service_id, data)
+
+    def make_switch_message(self, origin_node: Node, new_node: Node):
+        data = {
+            DATA_FIELD_COMMAND: XBotCommand.SWITCH,
+            DATA_FIELD_OPTIMIZATION_NODE: origin_node,
+            DATA_FIELD_NEW_NODE: new_node,
+        }
+        return Message(self.my_node, self.service_id, data)
+
+    def make_switch_reply_message(
+        self, is_switched: bool, origin_node: Node, new_node: Node
+    ):
+        data = {
+            DATA_FIELD_COMMAND: XBotCommand.SWITCH,
+            DATA_FIELD_OPTIMIZATION_NODE: origin_node,
+            DATA_FIELD_NEW_NODE: new_node,
+            DATA_FIELD_SWITCH_RESULT: is_switched,
+        }
         return Message(self.my_node, self.service_id, data)
 
 
@@ -111,6 +176,56 @@ class XBotRPC(RpcBase):
         is_still_connected = await self.registered_services[message.service_id](message)
         assert isinstance(is_still_connected, bool)
         return is_still_connected
+
+    # optimization RPCs
+
+    async def call_optimization(self, destination: Node, message: Message):
+        rpc_result = await self.optimization(destination.address_info, message)
+        self._handle_call_response(rpc_result)
+
+    async def rpc_optimization(self, node: Node, raw_message: List):
+        message = self._decode_message(raw_message)
+        await self.registered_services[message.service_id](message)
+
+    async def call_optimization_reply(self, destination: Node, message: Message):
+        rpc_result = await self.optimization_reply(destination.address_info, message)
+        self._handle_call_response(rpc_result)
+
+    async def rpc_optimizaiton_reply(self, node: Node, raw_message: List):
+        message = self._decode_message(raw_message)
+        await self.registered_services[message.service_id](message)
+
+    async def call_replace(self, destination: Node, message: Message):
+        rpc_result = await self.replace(destination.address_info, message)
+        self._handle_call_response(rpc_result)
+
+    async def rpc_replace(self, node: Node, raw_message: List):
+        message = self._decode_message(raw_message)
+        await self.registered_services[message.service_id](message)
+
+    async def call_replace_reply(self, destination: Node, message: Message):
+        rpc_result = await self.replace_reply(destination.address_info, message)
+        self._handle_call_response(rpc_result)
+
+    async def rpc_replace_reply(self, node: Node, raw_message: List):
+        message = self._decode_message(raw_message)
+        await self.registered_services[message.service_id](message)
+
+    async def call_switch(self, destination: Node, message: Message):
+        rpc_result = await self.switch(destination.address_info, message)
+        self._handle_call_response(rpc_result)
+
+    async def rpc_switch(self, node: Node, raw_message: List):
+        message = self._decode_message(raw_message)
+        await self.registered_services[message.service_id](message)
+
+    async def call_switch_reply(self, destination: Node, message: Message):
+        rpc_result = await self.switch_reply(destination.address_info, message)
+        self._handle_call_response(rpc_result)
+
+    async def rpc_switch_reply(self, node: Node, raw_message: List):
+        message = self._decode_message(raw_message)
+        await self.registered_services[message.service_id](message)
 
 
 class XBot(ClusteringService):
@@ -226,7 +341,7 @@ class XBot(ClusteringService):
                 or message.node in self._candidate_neighbours
             )
         else:
-            raise ValueError("Invalid XBot protocol value")
+            await self._handle_optmization_message(message)
         return None
 
     async def _connect_to_node(self, node: Node):
@@ -286,23 +401,6 @@ class XBot(ClusteringService):
                 )
                 await self._connect_to_node(candidate_neighbour)
 
-    async def _optimize_active_view(self):
-        candidate_neighbours = self.membership.get_neighbours()
-        if not candidate_neighbours:
-            return None
-        candidate_neighbours = random.sample(
-            candidate_neighbours, min(len(candidate_neighbours), PASSIVE_SCAN_LENGTH)
-        )
-        biasable_nodes = list(sorted(self._active_view, key=self._ranking_function))[
-            ceil(ACTIVE_VIEW_SIZE * UNBIASED_NODES) :
-        ]
-        for node in biasable_nodes:
-            if not candidate_neighbours:
-                return None
-            candidate = candidate_neighbours.pop()
-            if self._get_the_best(candidate, node) == candidate:
-                pass  # todo: send optimization
-
     def _get_the_best(self, node1: Node, node2: Node):
         return (
             node1
@@ -320,3 +418,98 @@ class XBot(ClusteringService):
             self._candidate_neighbours = (
                 +self._candidate_neighbours
             )  # remove zero and negative counts
+
+    async def _optimize_active_view(self):
+        candidate_neighbours = self.membership.get_neighbours()
+        if not candidate_neighbours:
+            return
+        candidate_neighbours = random.sample(
+            candidate_neighbours, min(len(candidate_neighbours), PASSIVE_SCAN_LENGTH)
+        )
+        biasable_nodes = list(sorted(self._active_view, key=self._ranking_function))[
+            ceil(ACTIVE_VIEW_SIZE * UNBIASED_NODES) :
+        ]
+        for old_node in biasable_nodes:
+            if not candidate_neighbours:
+                return None
+            candidate_node = candidate_neighbours.pop()
+            if self._get_the_best(candidate_node, old_node) == candidate_node:
+                message = self._protocol.make_optimization_message(old_node)
+                asyncio.create_task(
+                    self._rpc.call_optimization(candidate_node, message)
+                )
+
+    async def _handle_optmization_message(self, message: Message):
+        command = message.data[DATA_FIELD_COMMAND]
+        if command == XBotCommand.OPTIMIZATION:
+            old_node = message.data[DATA_FIELD_OLD_NODE]
+            if len(self._active_view) < ACTIVE_VIEW_SIZE:
+                self._active_view.add(message.node)
+                message = self._protocol.make_optimization_reply_message(True, old_node)
+                asyncio.create_task(
+                    self._rpc.call_optimization_reply(message.node, message)
+                )
+            else:
+                replace_node = list(
+                    sorted(self._active_view, key=self._ranking_function)
+                )[-1]
+                message = self._protocol.make_replace_message(old_node, message.node)
+                asyncio.create_task(self._rpc.call_replace(replace_node, message))
+        elif command == XBotCommand.OPTIMIZATION_REPLY:
+            old_node = parse_node(message.data[DATA_FIELD_OLD_NODE])
+            if old_node in self._active_view:
+                message = self._protocol.make_disconnect_message()
+                asyncio.create_task(self._rpc.call_disconnect(old_node, message))
+                self._active_view.remove(old_node)
+            self._active_view.add(message.node)
+        elif command == XBotCommand.REPLACE:
+            old_node = parse_node(message.data[DATA_FIELD_OLD_NODE])
+            if self._get_the_best(old_node, message.node) == message.node:
+                message = self._protocol.make_replace_reply_message(
+                    False, old_node, message.node
+                )
+                asyncio.create_task(self._rpc.call_replace_reply(message.node, message))
+            else:
+                message = self._protocol.make_switch_message(
+                    message.data[DATA_FIELD_OPTIMIZATION_NODE], message.node
+                )
+                asyncio.create_task(self._rpc.call_switch(old_node, message))
+        elif command == XBotCommand.REPLACE_REPLY:
+            is_replaced = message.data[DATA_FIELD_REPLACE_RESULT]
+            optimization_node = parse_node(message.data[DATA_FIELD_OPTIMIZATION_NODE])
+            old_node = parse_node(message.data[DATA_FIELD_OLD_NODE])
+            if is_replaced:
+                self._active_view.remove(message.node)
+                self._active_view.add(optimization_node)
+            message = self._protocol.make_optimization_reply_message(
+                is_replaced, old_node
+            )
+            asyncio.create_task(
+                self._rpc.call_optimization_reply(optimization_node, message)
+            )
+        elif command == XBotCommand.SWITCH:
+            origin_node = parse_node(message.data[DATA_FIELD_OPTIMIZATION_NODE])
+            new_node = parse_node(message.data[DATA_FIELD_NEW_NODE])
+            pivot_node = message.node
+            is_switched = False
+            if origin_node in self._active_view:
+                self._active_view.remove(origin_node)
+                self._active_view.add(message.node)
+                is_switched = True
+            message = self._protocol.make_switch_reply_message(
+                is_switched, origin_node, new_node
+            )
+            asyncio.create_task(self._rpc.call_switch_reply(pivot_node, message))
+        elif command == XBotCommand.SWITCH_REPLY:
+            is_switched = message.data[DATA_FIELD_SWITCH_RESULT]
+            new_node = message.node[DATA_FIELD_NEW_NODE]
+            origin_node = message.data[DATA_FIELD_OPTIMIZATION_NODE]
+            if is_switched:
+                self._active_view.remove(new_node)
+                self._active_view.add(message.node)
+            message = self._protocol.make_replace_reply_message(
+                is_switched, message.data, origin_node
+            )
+            asyncio.create_task(self._rpc.call_replace_reply(new_node, message))
+        else:
+            raise ValueError("Invalid XBot protocol value")
