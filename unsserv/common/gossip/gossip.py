@@ -4,6 +4,7 @@ import random
 from collections import Counter
 from typing import Any, Dict, List, Optional, Union
 
+from unsserv.common.utils import parse_message
 from unsserv.common.gossip.gossip_policies import (
     ViewSelectionPolicy,
     PeerSelectionPolicy,
@@ -25,29 +26,8 @@ from unsserv.common.rpc.rpc import RPCRegister, RPC
 from unsserv.common.services_abc import View
 
 
-class GossipProtocol(RPC):
-    async def call_push(self, destination: Node, message: Message) -> None:
-        rpc_result = await self.push(destination.address_info, message)
-        self._handle_call_response(rpc_result)
-
-    async def call_pushpull(self, destination: Node, message: Message) -> Message:
-        rpc_result = await self.pushpull(destination.address_info, message)
-        return self._decode_message(self._handle_call_response(rpc_result))
-
-    async def rpc_push(self, node: Node, raw_message: List) -> None:
-        message = self._decode_message(raw_message)
-        await self.registered_services[message.service_id](message)
-
-    async def rpc_pushpull(self, node: Node, raw_message: List) -> Message:
-        message = self._decode_message(raw_message)
-        pull_return_message = await self.registered_services[message.service_id](
-            message
-        )
-        assert pull_return_message
-        return pull_return_message
-
-
 class Gossip:
+    rpc: RPC
     my_node: Node
     local_view: View
     running: bool = False
@@ -127,7 +107,7 @@ class Gossip:
             push_message = Message(self.my_node, self.service_id, data)
             if self.view_propagation is ViewPropagationPolicy.PUSH:
                 try:
-                    await self.rpc.call_push(peer, push_message)
+                    await self.rpc.call_without_response(peer, push_message)
                 except ConnectionError:
                     try:
                         self.local_view.pop(peer)
@@ -136,8 +116,8 @@ class Gossip:
                     continue
             else:
                 try:
-                    push_message = await self.rpc.call_pushpull(
-                        peer, push_message
+                    push_message = parse_message(
+                        await self.rpc.call_with_response(peer, push_message)
                     )  # rpc.pushpull used for bot PULL and PUSHPULL
                 except ConnectionError:
                     try:
