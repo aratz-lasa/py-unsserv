@@ -7,7 +7,7 @@ from typing import Union, List, Any, Optional, Set, Counter as CounterType
 
 from unsserv.common.data_structures import Node, Message
 from unsserv.common.gossip.gossip import Gossip
-from unsserv.common.rpc.rpc import RpcBase, RPC
+from unsserv.common.rpc.rpc import RPC, RPCRegister
 from unsserv.common.services_abc import MembershipService
 from unsserv.common.typing import NeighboursCallback, View
 from unsserv.common.utils import parse_node
@@ -63,54 +63,8 @@ class HyParViewProtocol:
         return Message(self.my_node, self.service_id, data)
 
 
-class HyParViewRPC(RpcBase):
-    async def call_join(self, destination: Node, message: Message):
-        rpc_result = await self.join(destination.address_info, message)
-        self._handle_call_response(rpc_result)
-
-    async def call_forward_join(self, destination: Node, message: Message):
-        rpc_result = await self.forward_join(destination.address_info, message)
-        self._handle_call_response(rpc_result)
-
-    async def call_connect(self, destination: Node, message: Message) -> int:
-        rpc_result = await self.connect(destination.address_info, message)
-        return self._handle_call_response(rpc_result)
-
-    async def call_disconnect(self, destination: Node, message: Message):
-        rpc_result = await self.disconnect(destination.address_info, message)
-        self._handle_call_response(rpc_result)
-
-    async def call_stay_connected(self, destination: Node, message: Message) -> bool:
-        rpc_result = await self.stay_connected(destination.address_info, message)
-        return self._handle_call_response(rpc_result)
-
-    async def rpc_join(self, node: Node, raw_message: List):
-        message = self._decode_message(raw_message)
-        await self.registered_services[message.service_id](message)
-
-    async def rpc_forward_join(self, node: Node, raw_message: List):
-        message = self._decode_message(raw_message)
-        await self.registered_services[message.service_id](message)
-
-    async def rpc_connect(self, node: Node, raw_message: List) -> bool:
-        message = self._decode_message(raw_message)
-        is_connected = await self.registered_services[message.service_id](message)
-        assert isinstance(is_connected, bool)
-        return is_connected
-
-    async def rpc_disconnect(self, node: Node, raw_message: List):
-        message = self._decode_message(raw_message)
-        await self.registered_services[message.service_id](message)
-
-    async def rpc_stay_connected(self, node: Node, raw_message: List) -> bool:
-        message = self._decode_message(raw_message)
-        is_still_connected = await self.registered_services[message.service_id](message)
-        assert isinstance(is_still_connected, bool)
-        return is_still_connected
-
-
 class HyParView(MembershipService):
-    _rpc: HyParViewRPC
+    _rpc: RPC
     _protocol: Optional[HyParViewProtocol]
     _gossip: Optional[Gossip]
     _active_view: Set[Node]
@@ -123,7 +77,7 @@ class HyParView(MembershipService):
     def __init__(self, my_node: Node, multiplex: bool = True):
         self.my_node = my_node
         self._multiplex = multiplex
-        self._rpc = RPC.get_rpc(self.my_node, HyParViewRPC, multiplex)
+        self._rpc = RPCRegister.get_rpc(self.my_node, multiplex)
         self._gossip = None
         self._callback = None
         self._callback_raw_format = False
@@ -198,7 +152,7 @@ class HyParView(MembershipService):
             for neighbour in list(
                 filter(lambda n: n != message.node, self._active_view)
             ):
-                asyncio.create_task(self._rpc.call_forward_join(neighbour, message))
+                asyncio.create_task(self._rpc.call_without_response(neighbour, message))
         elif command == HyParViewCommand.FORWARD_JOIN:
             ttl = message.data[DATA_FIELD_TTL]
             origin_node = parse_node(message.data[DATA_FIELD_ORIGIN_NODE])
@@ -210,7 +164,7 @@ class HyParView(MembershipService):
                 ) or [self.my_node]
                 neighbour = random.choice(candidate_neighbours)
                 message = self._protocol.make_forward_join_message(origin_node, ttl - 1)
-                asyncio.create_task(self._rpc.call_forward_join(neighbour, message))
+                asyncio.create_task(self._rpc.call_without_response(neighbour, message))
         elif command == HyParViewCommand.CONNECT:
             is_a_priority = message.data[DATA_FIELD_PRIORITY]
             if not is_a_priority and len(self._active_view) >= ACTIVE_VIEW_SIZE:
@@ -238,7 +192,7 @@ class HyParView(MembershipService):
             is_a_priority = len(self._active_view) == 0
             message = self._protocol.make_connect_message(is_a_priority)
             try:
-                is_connected = await self._rpc.call_connect(node, message)
+                is_connected = await self._rpc.call_with_response(node, message)
                 if is_connected:
                     self._active_view.add(node)
             except ConnectionError:
@@ -251,7 +205,7 @@ class HyParView(MembershipService):
             candidate_node = bootstrap_nodes.pop(random.randrange(len(bootstrap_nodes)))
             with self._create_candidate_neighbour(candidate_node):
                 try:
-                    await self._rpc.call_join(candidate_node, message)
+                    await self._rpc.call_without_response(candidate_node, message)
                     self._active_view.add(candidate_node)
                     break
                 except ConnectionError:
@@ -260,7 +214,7 @@ class HyParView(MembershipService):
     async def _try_disconnect(self, node: Node):
         message = self._protocol.make_disconnect_message()
         try:
-            await self._rpc.call_disconnect(node, message)
+            await self._rpc.call_without_response(node, message)
         except ConnectionError:
             pass
 
@@ -272,7 +226,7 @@ class HyParView(MembershipService):
             message = self._protocol.make_stay_connected_message()
             for node in self._active_view.copy():
                 try:
-                    is_still_connected = await self._rpc.call_stay_connected(
+                    is_still_connected = await self._rpc.call_with_response(
                         node, message
                     )
                     if not is_still_connected:

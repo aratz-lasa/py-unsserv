@@ -4,9 +4,9 @@ from collections import OrderedDict
 from enum import IntEnum, auto
 from typing import Any, List, Optional, Union
 
-from unsserv.common.utils import decode_node, get_random_id
+from unsserv.common.utils import parse_node, get_random_id
 from unsserv.common.data_structures import Message, Node
-from unsserv.common.rpc.rpc import RPC, RpcBase
+from unsserv.common.rpc.rpc import RPCRegister, RPC
 from unsserv.common.services_abc import DisseminationService, MembershipService
 from unsserv.common.typing import BroadcastHandler
 from unsserv.extreme.dissemination.lpbcast.lpbcast_config import (
@@ -60,31 +60,8 @@ class LpbcastProtocol:
         return Message(self.my_node, self.service_id, data)
 
 
-class LpbcastRPC(RpcBase):
-    async def call_push_event(self, destination: Node, message: Message) -> bool:
-        rpc_result = await self.push_event(destination.address_info, message)
-        return self._handle_call_response(rpc_result)
-
-    async def call_retrieve_event(
-        self, destination: Node, message: Message
-    ) -> List[Union[EventData, EventOrigin]]:
-        rpc_result = await self.retrieve_event(destination.address_info, message)
-        return self._handle_call_response(rpc_result)
-
-    async def rpc_push_event(self, node: Node, raw_message: List):
-        message = self._decode_message(raw_message)
-        await self.registered_services[message.service_id](message)
-
-    async def rpc_retrieve_event(
-        self, node: Node, raw_message: List
-    ) -> List[Union[EventData, EventOrigin]]:
-        message = self._decode_message(raw_message)
-        event = await self.registered_services[message.service_id](message)
-        return event
-
-
 class Lpbcast(DisseminationService):
-    _rpc: LpbcastRPC
+    _rpc: RPC
     _broadcast_handler: BroadcastHandler
     _protocol: Optional[LpbcastProtocol]
 
@@ -95,7 +72,7 @@ class Lpbcast(DisseminationService):
         self.my_node = membership.my_node
         self.membership = membership
         self._broadcast_handler = None
-        self._rpc = RPC.get_rpc(self.my_node, LpbcastRPC, multiplex=multiplex)
+        self._rpc = RPCRegister.get_rpc(self.my_node, multiplex=multiplex)
 
         self._events = OrderedDict()
         self._events_digest = OrderedDict()
@@ -134,14 +111,14 @@ class Lpbcast(DisseminationService):
                 self._handle_new_event(
                     message.data[DATA_FIELD_EVENT_ID],
                     message.data[DATA_FIELD_EVENT_DATA],
-                    decode_node(message.data[DATA_FIELD_EVENT_ORIGIN]),
+                    parse_node(message.data[DATA_FIELD_EVENT_ORIGIN]),
                 )
             )
             for message_id, message_origin in message.data[DATA_FIELD_DIGEST]:
                 if message_id not in self._events_digest:  # not the one received
                     asyncio.create_task(
                         self._retrieve_event(
-                            message.node, message_id, decode_node(message_origin)
+                            message.node, message_id, parse_node(message_origin)
                         )
                     )
 
@@ -180,7 +157,7 @@ class Lpbcast(DisseminationService):
                     event_origin,
                     list(map(lambda e: [e[0], e[1]], self._events_digest.items())),
                 )
-                await self._rpc.call_push_event(neighbour, message)
+                await self._rpc.call_without_response(neighbour, message)
             except Exception:
                 pass  # todo: log the error?
 
@@ -195,7 +172,7 @@ class Lpbcast(DisseminationService):
     ):
         message = self._protocol.make_retrieve_event_message(event_id)
         try:
-            event_data, _ = await self._rpc.call_retrieve_event(event_source, message)
+            event_data, _ = await self._rpc.call_with_response(event_source, message)
             assert isinstance(event_data, bytes)
             return await self._handle_new_event(event_id, event_data, event_origin)
         except Exception:
@@ -204,7 +181,7 @@ class Lpbcast(DisseminationService):
             candidate_neighbours = self.membership.get_neighbours()
             assert isinstance(candidate_neighbours, list)
             random_neighbour = random.choice(candidate_neighbours)
-            event_data, _ = await self._rpc.call_retrieve_event(
+            event_data, _ = await self._rpc.call_with_response(
                 random_neighbour, message
             )
             assert isinstance(event_data, bytes)
@@ -212,7 +189,7 @@ class Lpbcast(DisseminationService):
         except Exception:
             pass
         try:
-            event_data, _ = await self._rpc.call_retrieve_event(event_origin, message)
+            event_data, _ = await self._rpc.call_with_response(event_origin, message)
             assert isinstance(event_data, bytes)
             return await self._handle_new_event(event_id, event_data, event_origin)
         except Exception:

@@ -21,11 +21,11 @@ from unsserv.common.gossip.gossip_typing import (
     CustomSelectionRanking,
     LocalViewCallback,
 )
-from unsserv.common.rpc.rpc import RPC, RpcBase
+from unsserv.common.rpc.rpc import RPCRegister, RPC
 from unsserv.common.services_abc import View
 
 
-class GossipProtocol(RpcBase):
+class GossipProtocol(RPC):
     async def call_push(self, destination: Node, message: Message) -> None:
         rpc_result = await self.push(destination.address_info, message)
         self._handle_call_response(rpc_result)
@@ -83,9 +83,7 @@ class Gossip:
 
         self.local_view_size = local_view_size
         self.gossiping_frequency = gossiping_frequency
-        self.rpc = RPC.get_rpc(
-            self.my_node, ProtocolClass=GossipProtocol, multiplex=multiplex
-        )
+        self.rpc = RPCRegister.get_rpc(self.my_node, multiplex=multiplex)
 
         self.subscribers: List[IGossipSubscriber] = []
 

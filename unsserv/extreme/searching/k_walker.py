@@ -1,11 +1,13 @@
 import asyncio
 import random
-from typing import Any, Dict, List, Optional
-
 from enum import IntEnum, auto
+from typing import Any, Dict, Optional
+
 from unsserv.common.data_structures import Message, Node
-from unsserv.common.rpc.rpc import RpcBase, RPC
+from unsserv.common.rpc.rpc import RPC, RPCRegister
 from unsserv.common.services_abc import SearchingService, MembershipService
+from unsserv.common.utils import get_random_id, parse_node
+from unsserv.extreme.searching import k_walker_config as config
 from unsserv.extreme.searching.k_walker_config import (
     DATA_FIELD_COMMAND,
     DATA_FIELD_TTL,
@@ -14,8 +16,6 @@ from unsserv.extreme.searching.k_walker_config import (
     DATA_FIELD_WALK_RESULT,
     DATA_FIELD_DATA_ID,
 )
-from unsserv.extreme.searching import k_walker_config as config
-from unsserv.common.utils import get_random_id, parse_node
 
 
 class KWalkerCommand(IntEnum):
@@ -49,29 +49,11 @@ class KWalkerProtocol:
         return Message(self.my_node, self.service_id, data)
 
 
-class KWalkerRPC(RpcBase):
-    async def call_walk(self, destination: Node, message: Message):
-        rpc_result = await self.walk(destination.address_info, message)
-        self._handle_call_response(rpc_result)
-
-    async def call_walk_result(self, destination: Node, message: Message):
-        rpc_result = await self.walk_result(destination.address_info, message)
-        self._handle_call_response(rpc_result)
-
-    async def rpc_walk(self, node: Node, raw_message: List):
-        message = self._decode_message(raw_message)
-        await self.registered_services[message.service_id](message)
-
-    async def rpc_walk_result(self, node: Node, raw_message: List):
-        message = self._decode_message(raw_message)
-        await self.registered_services[message.service_id](message)
-
-
 class KWalker(SearchingService):
     _search_data: Dict[str, bytes]
     _walk_events: Dict[str, asyncio.Event]
     _walk_results: Dict[str, bytes]
-    _rpc: KWalkerRPC
+    _rpc: RPC
     _protocol: Optional[KWalkerProtocol]
     _ttl: int
     _fanout: int
@@ -80,9 +62,7 @@ class KWalker(SearchingService):
         self.membership = membership
         self.my_node = membership.my_node
         self._search_data = {}
-        self._rpc = RPC.get_rpc(
-            self.my_node, ProtocolClass=KWalkerRPC, multiplex=multiplex
-        )
+        self._rpc = RPCRegister.get_rpc(self.my_node, multiplex=multiplex)
         self._walk_results = {}
         self._walk_events = {}
 
@@ -138,7 +118,7 @@ class KWalker(SearchingService):
         )
         self._walk_events[walk_id] = asyncio.Event()
         for neighbour in random.sample(candidate_neighbours, fanout):
-            await self._rpc.call_walk(neighbour, message)
+            await self._rpc.call_without_response(neighbour, message)
         try:
             return await asyncio.wait_for(
                 self._get_walk_result(fanout, walk_id), timeout=config.TIMEOUT
@@ -156,7 +136,9 @@ class KWalker(SearchingService):
                 message = self._protocol.make_walk_result_message(
                     message.data[DATA_FIELD_WALK_ID], result
                 )
-                asyncio.create_task(self._rpc.call_walk_result(origin_node, message))
+                asyncio.create_task(
+                    self._rpc.call_without_response(origin_node, message)
+                )
             else:
                 message = self._protocol.make_walk_message(
                     message.data[DATA_FIELD_DATA_ID],
@@ -167,7 +149,7 @@ class KWalker(SearchingService):
                 candidate_neighbours = self.membership.get_neighbours()
                 assert isinstance(candidate_neighbours, list)
                 neighbour = random.choice(candidate_neighbours)
-                asyncio.create_task(self._rpc.call_walk(neighbour, message))
+                asyncio.create_task(self._rpc.call_without_response(neighbour, message))
         elif command == KWalkerCommand.WALK_RESULT:
             walk_id = message.data[DATA_FIELD_WALK_ID]
             walk_result = message.data[DATA_FIELD_WALK_RESULT]

@@ -5,7 +5,7 @@ from typing import Any, List, Dict, Optional
 
 from unsserv.common.data_structures import Message, Node
 from unsserv.common.errors import ServiceError
-from unsserv.common.rpc.rpc import RPC, RpcBase
+from unsserv.common.rpc.rpc import RPCRegister, RPC
 from unsserv.common.services_abc import DisseminationService, MembershipService
 from unsserv.common.typing import BroadcastHandler
 from unsserv.common.utils import get_random_id
@@ -46,28 +46,8 @@ class MonProtocol:
         return Message(self.my_node, self.service_id, data)
 
 
-class MonRPC(RpcBase):
-    async def call_session(self, destination: Node, message: Message) -> bool:
-        rpc_result = await self.session(destination.address_info, message)
-        return self._handle_call_response(rpc_result)
-
-    async def call_push(self, destination: Node, message: Message):
-        rpc_result = await self.push(destination.address_info, message)
-        self._handle_call_response(rpc_result)
-
-    async def rpc_session(self, node: Node, raw_message: List) -> bool:
-        message = self._decode_message(raw_message)
-        session_ok = await self.registered_services[message.service_id](message)
-        assert isinstance(session_ok, bool)
-        return session_ok
-
-    async def rpc_push(self, node: Node, raw_message: List):
-        message = self._decode_message(raw_message)
-        await self.registered_services[message.service_id](message)
-
-
 class Mon(DisseminationService):
-    _rpc: MonRPC
+    _rpc: RPC
     _broadcast_handler: BroadcastHandler
     _protocol: Optional[MonProtocol]
     _levels: Dict[BroadcastID, int]
@@ -82,7 +62,7 @@ class Mon(DisseminationService):
         self.my_node = membership.my_node
         self.membership = membership
         self._broadcast_handler = None
-        self._rpc = RPC.get_rpc(self.my_node, MonRPC, multiplex=multiplex)
+        self._rpc = RPCRegister.get_rpc(self.my_node, multiplex=multiplex)
 
         self._children = {}
         self._parents = {}
@@ -175,7 +155,7 @@ class Mon(DisseminationService):
             child = random.choice(neighbours)
             neighbours.remove(child)
             try:
-                session_ok = await self._rpc.call_session(child, message)
+                session_ok = await self._rpc.call_with_response(child, message)
             except Exception:
                 continue
             if session_ok:
@@ -195,7 +175,7 @@ class Mon(DisseminationService):
         pushed_amount = 0
         for child in self._children[broadcast_id]:
             try:
-                await self._rpc.call_push(child, message)
+                await self._rpc.call_without_response(child, message)
                 pushed_amount += 1
             except ConnectionError:
                 pass

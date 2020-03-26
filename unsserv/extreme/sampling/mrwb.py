@@ -7,7 +7,7 @@ from typing import Dict, List, Optional, Any
 from unsserv.common.services_abc import MembershipService, SamplingService
 from unsserv.common.data_structures import Message, Node
 from unsserv.common.errors import ServiceError
-from unsserv.common.rpc.rpc import RPC, RpcBase
+from unsserv.common.rpc.rpc import RPCRegister, RPC
 from unsserv.common.utils import parse_node, get_random_id
 from unsserv.extreme.sampling.mrwb_config import (
     DATA_FIELD_COMMAND,
@@ -59,38 +59,10 @@ class MRWBProtocol:
         return Message(self.my_node, self.service_id, data)
 
 
-class MRWBRPC(RpcBase):
-    async def call_get_degree(self, destination: Node, message: Message) -> int:
-        rpc_result = await self.get_degree(destination.address_info, message)
-        return self._handle_call_response(rpc_result)
-
-    async def call_sample(self, destination: Node, message: Message):
-        rpc_result = await self.sample(destination.address_info, message)
-        self._handle_call_response(rpc_result)
-
-    async def call_sample_result(self, destination: Node, message: Message):
-        rpc_result = await self.sample_result(destination.address_info, message)
-        self._handle_call_response(rpc_result)
-
-    async def rpc_get_degree(self, node: Node, raw_message: List) -> int:
-        message = self._decode_message(raw_message)
-        degree = await self.registered_services[message.service_id](message)
-        assert isinstance(degree, int)
-        return degree
-
-    async def rpc_sample(self, node: Node, raw_message: List):
-        message = self._decode_message(raw_message)
-        await self.registered_services[message.service_id](message)
-
-    async def rpc_sample_result(self, node: Node, raw_message: List):
-        message = self._decode_message(raw_message)
-        await self.registered_services[message.service_id](message)
-
-
 class MRWB(SamplingService):
     _neighbours: List[Node]
     _neighbour_degrees: Dict[Node, int]
-    _rpc: MRWBRPC
+    _rpc: RPC
     _sampling_queue: Dict[str, Node]
     _sampling_events: Dict[str, asyncio.Event]
     _protocol: Optional[MRWBProtocol]
@@ -100,9 +72,7 @@ class MRWB(SamplingService):
         self.membership = membership
         self._neighbours = []
         self._neighbour_degrees = {}
-        self._rpc = RPC.get_rpc(
-            self.my_node, ProtocolClass=MRWBRPC, multiplex=multiplex
-        )
+        self._rpc = RPCRegister.get_rpc(self.my_node, multiplex=multiplex)
 
         self._sampling_queue = {}
         self._sampling_events = {}
@@ -149,7 +119,7 @@ class MRWB(SamplingService):
             raise ServiceError("Unable to peer with neighbours for sampling.")
         node = random.choice(self._neighbours)  # random neighbour
         message = self._protocol.make_sample_message(sample_id, self.my_node, TTL)
-        await self._rpc.call_sample(node, message)
+        await self._rpc.call_without_response(node, message)
         event = asyncio.Event()
         self._sampling_events[sample_id] = event
         try:
@@ -189,14 +159,16 @@ class MRWB(SamplingService):
                         message.data[DATA_FIELD_ORIGIN_NODE],
                         ttl - 1,
                     )
-                    asyncio.create_task(self._rpc.call_sample(next_hop, message))
+                    asyncio.create_task(
+                        self._rpc.call_without_response(next_hop, message)
+                    )
                     return None
                 ttl -= 1
             origin_node = parse_node(message.data[DATA_FIELD_ORIGIN_NODE])
             message = self._protocol.make_sample_result_message(
                 message.data[DATA_FIELD_SAMPLE_ID], self.my_node
             )
-            asyncio.create_task(self._rpc.call_sample_result(origin_node, message))
+            asyncio.create_task(self._rpc.call_without_response(origin_node, message))
         else:
             raise ValueError("Invalid MON protocol value")
         return None
@@ -212,7 +184,7 @@ class MRWB(SamplingService):
     async def _update_degree(self, node: Node):
         message = self._protocol.make_get_degree_message()
         try:
-            degree = await self._rpc.call_get_degree(node, message)
+            degree = await self._rpc.call_with_response(node, message)
             self._neighbour_degrees[node] = degree
         except ConnectionError:
             pass  # let membership to decide whether to remove the node or not
