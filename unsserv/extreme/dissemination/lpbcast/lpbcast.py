@@ -10,13 +10,13 @@ from unsserv.common.rpc.rpc import RPCRegister, RPC
 from unsserv.common.services_abc import DisseminationService, MembershipService
 from unsserv.common.typing import BroadcastHandler
 from unsserv.extreme.dissemination.lpbcast.lpbcast_config import (
-    DATA_FIELD_COMMAND,
+    FIELD_COMMAND,
     FANOUT,
-    DATA_FIELD_EVENT_ID,
-    DATA_FIELD_EVENT_DATA,
-    DATA_FIELD_EVENT_ORIGIN,
-    DATA_FIELD_DIGEST,
-    DATA_FIELD_RETRIEVE_EVENT,
+    FIELD_EVENT_ID,
+    FIELD_EVENT_DATA,
+    FIELD_EVENT_ORIGIN,
+    FIELD_DIGEST,
+    FIELD_RETRIEVE_EVENT,
     LPBCAST_THRESHOLD,
 )
 from unsserv.extreme.dissemination.lpbcast.lpbcast_typing import (
@@ -44,18 +44,18 @@ class LpbcastProtocol:
         digest: List[List[Union[EventId, EventOrigin]]],
     ):
         data = {
-            DATA_FIELD_COMMAND: LpbcastCommand.PUSH_EVENT,
-            DATA_FIELD_EVENT_ID: event_id,
-            DATA_FIELD_EVENT_DATA: event_data,
-            DATA_FIELD_EVENT_ORIGIN: event_origin,
-            DATA_FIELD_DIGEST: digest,
+            FIELD_COMMAND: LpbcastCommand.PUSH_EVENT,
+            FIELD_EVENT_ID: event_id,
+            FIELD_EVENT_DATA: event_data,
+            FIELD_EVENT_ORIGIN: event_origin,
+            FIELD_DIGEST: digest,
         }
         return Message(self.my_node, self.service_id, data)
 
     def make_retrieve_event_message(self, retrieve_event: EventId):
         data = {
-            DATA_FIELD_COMMAND: LpbcastCommand.RETRIEVE_EVENT,
-            DATA_FIELD_RETRIEVE_EVENT: retrieve_event,
+            FIELD_COMMAND: LpbcastCommand.RETRIEVE_EVENT,
+            FIELD_RETRIEVE_EVENT: retrieve_event,
         }
         return Message(self.my_node, self.service_id, data)
 
@@ -104,17 +104,17 @@ class Lpbcast(DisseminationService):
         )
 
     async def _rpc_handler(self, message: Message) -> Any:
-        command = message.data[DATA_FIELD_COMMAND]
+        command = message.data[FIELD_COMMAND]
 
         if command == LpbcastCommand.PUSH_EVENT:
             asyncio.create_task(
                 self._handle_new_event(
-                    message.data[DATA_FIELD_EVENT_ID],
-                    message.data[DATA_FIELD_EVENT_DATA],
-                    parse_node(message.data[DATA_FIELD_EVENT_ORIGIN]),
+                    message.data[FIELD_EVENT_ID],
+                    message.data[FIELD_EVENT_DATA],
+                    parse_node(message.data[FIELD_EVENT_ORIGIN]),
                 )
             )
-            for message_id, message_origin in message.data[DATA_FIELD_DIGEST]:
+            for message_id, message_origin in message.data[FIELD_DIGEST]:
                 if message_id not in self._events_digest:  # not the one received
                     asyncio.create_task(
                         self._retrieve_event(
@@ -123,7 +123,7 @@ class Lpbcast(DisseminationService):
                     )
 
         elif command == LpbcastCommand.RETRIEVE_EVENT:
-            retrieve_event_id = message.data[DATA_FIELD_RETRIEVE_EVENT]
+            retrieve_event_id = message.data[FIELD_RETRIEVE_EVENT]
             event = self._events.get(retrieve_event_id, None)
             return event
 

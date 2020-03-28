@@ -12,7 +12,7 @@ from unsserv.common.gossip.gossip_policies import (
 )
 from unsserv.common.data_structures import Message, Node
 from unsserv.common.gossip.gossip_config import (
-    DATA_FIELD_VIEW,
+    FIELD_VIEW,
     GOSSIPING_FREQUENCY,
     LOCAL_VIEW_SIZE,
 )
@@ -103,7 +103,7 @@ class Gossip:
                 my_descriptor = Counter({self.my_node: 0})
                 push_view = self._merge_views(my_descriptor, self.local_view)
             subscribers_data = await self._get_data_from_subscribers()
-            data = {DATA_FIELD_VIEW: push_view, **subscribers_data}
+            data = {FIELD_VIEW: push_view, **subscribers_data}
             push_message = Message(self.my_node, self.service_id, data)
             if self.view_propagation is ViewPropagationPolicy.PUSH:
                 try:
@@ -125,7 +125,7 @@ class Gossip:
                     except KeyError:
                         pass
                     continue
-                view = _decode_view(push_message.data[DATA_FIELD_VIEW])
+                view = _decode_view(push_message.data[FIELD_VIEW])
                 view = self._increase_hop_count(view)
                 buffer = self._merge_views(view, self.local_view)
                 if self.get_external_view:
@@ -135,14 +135,14 @@ class Gossip:
                 self.local_view = new_view
 
     async def _reactive_process(self, message: Message) -> Union[None, Message]:
-        view = _decode_view(message.data[DATA_FIELD_VIEW])
+        view = _decode_view(message.data[FIELD_VIEW])
         view = self._increase_hop_count(view)
         pull_return_message = None
         if self.view_propagation is not ViewPropagationPolicy.PUSH:
             my_descriptor = Counter({self.my_node: 0})
             subscribers_data = await self._get_data_from_subscribers()
             data = {
-                DATA_FIELD_VIEW: self._merge_views(my_descriptor, self.local_view),
+                FIELD_VIEW: self._merge_views(my_descriptor, self.local_view),
                 **subscribers_data,
             }
             pull_return_message = Message(self.my_node, self.service_id, data)

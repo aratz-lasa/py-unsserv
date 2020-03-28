@@ -3,7 +3,7 @@ TTL = 10
 ID_LENGTH = 10
 ACTIVE_VIEW_MAINTAIN_FREQUENCY = 1
 
-DATA_FIELD_COMMAND = "hyparview-command"
-DATA_FIELD_TTL = "hyparview-ttl"
-DATA_FIELD_PRIORITY = "hyparview-ttl"
-DATA_FIELD_ORIGIN_NODE = "hyparview-origin-node"
+FIELD_COMMAND = "hyparview-command"
+FIELD_TTL = "hyparview-ttl"
+FIELD_PRIORITY = "hyparview-priority"
+FIELD_ORIGIN_NODE = "hyparview-origin-node"

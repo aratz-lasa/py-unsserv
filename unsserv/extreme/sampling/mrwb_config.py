@@ -3,8 +3,8 @@ TTL = 10
 ID_LENGTH = 10
 MRWB_DEGREE_REFRESH_FREQUENCY = 0.5
 
-DATA_FIELD_COMMAND = "mrwb-command"
-DATA_FIELD_TTL = "mrwb-ttl"
-DATA_FIELD_ORIGIN_NODE = "mrwb-origin-node"
-DATA_FIELD_SAMPLE_RESULT = "mrwb-sample-result"
-DATA_FIELD_SAMPLE_ID = "mrwb-sample-id"
+FIELD_COMMAND = "mrwb-command"
+FIELD_TTL = "mrwb-ttl"
+FIELD_ORIGIN_NODE = "mrwb-origin-node"
+FIELD_SAMPLE_RESULT = "mrwb-sample-result"
+FIELD_SAMPLE_ID = "mrwb-sample-id"

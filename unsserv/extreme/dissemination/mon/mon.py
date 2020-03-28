@@ -10,11 +10,11 @@ from unsserv.common.services_abc import DisseminationService, MembershipService
 from unsserv.common.typing import BroadcastHandler
 from unsserv.common.utils import get_random_id
 from unsserv.extreme.dissemination.mon.mon_config import (
-    DATA_FIELD_COMMAND,
-    DATA_FIELD_BROADCAST_ID,
-    DATA_FIELD_LEVEL,
+    FIELD_COMMAND,
+    FIELD_BROADCAST_ID,
+    FIELD_LEVEL,
     MON_FANOUT,
-    DATA_FIELD_BROADCAST_DATA,
+    FIELD_BROADCAST_DATA,
 )
 from unsserv.extreme.dissemination.mon.mon_typing import BroadcastID
 
@@ -31,17 +31,17 @@ class MonProtocol:
 
     def make_session_message(self, broadcast_id: str, level: int) -> Message:
         data = {
-            DATA_FIELD_COMMAND: MonCommand.SESSION,
-            DATA_FIELD_BROADCAST_ID: broadcast_id,
-            DATA_FIELD_LEVEL: level,
+            FIELD_COMMAND: MonCommand.SESSION,
+            FIELD_BROADCAST_ID: broadcast_id,
+            FIELD_LEVEL: level,
         }
         return Message(self.my_node, self.service_id, data)
 
     def make_push_message(self, broadcast_id: str, data: Any) -> Message:
         data = {
-            DATA_FIELD_COMMAND: MonCommand.PUSH,
-            DATA_FIELD_BROADCAST_ID: broadcast_id,
-            DATA_FIELD_BROADCAST_DATA: data,
+            FIELD_COMMAND: MonCommand.PUSH,
+            FIELD_BROADCAST_ID: broadcast_id,
+            FIELD_BROADCAST_DATA: data,
         }
         return Message(self.my_node, self.service_id, data)
 
@@ -96,13 +96,13 @@ class Mon(DisseminationService):
         await self._disseminate(broadcast_id, data)
 
     async def _rpc_handler(self, message: Message) -> Any:
-        command = message.data[DATA_FIELD_COMMAND]
-        broadcast_id = message.data[DATA_FIELD_BROADCAST_ID]
+        command = message.data[FIELD_COMMAND]
+        broadcast_id = message.data[FIELD_BROADCAST_ID]
         if command == MonCommand.SESSION:
             first_time = broadcast_id not in self._levels
             if first_time:
                 self._parents[broadcast_id] = [message.node]
-                self._levels[broadcast_id] = message.data[DATA_FIELD_LEVEL] + 1
+                self._levels[broadcast_id] = message.data[FIELD_LEVEL] + 1
                 candidate_children = list(
                     set(self.membership.get_neighbours()) - {message.node}
                 )
@@ -111,7 +111,7 @@ class Mon(DisseminationService):
                     self._initialize_children(broadcast_id, candidate_children)
                 )
             else:
-                if self._levels[broadcast_id] <= message.data[DATA_FIELD_LEVEL]:
+                if self._levels[broadcast_id] <= message.data[FIELD_LEVEL]:
                     return False
                 if (
                     message.node not in self._parents[broadcast_id]
@@ -119,7 +119,7 @@ class Mon(DisseminationService):
                     self._parents[broadcast_id].append(message.node)
             return True
         elif command == MonCommand.PUSH:
-            broadcast_data = message.data[DATA_FIELD_BROADCAST_DATA]
+            broadcast_data = message.data[FIELD_BROADCAST_DATA]
             if (
                 broadcast_id not in self._received_data
             ):  # if already received data, ignores it

@@ -12,11 +12,11 @@ from unsserv.common.services_abc import MembershipService
 from unsserv.common.typing import NeighboursCallback, View
 from unsserv.common.utils import parse_node
 from unsserv.stable.membership.hyparview_config import (
-    DATA_FIELD_COMMAND,
+    FIELD_COMMAND,
     ACTIVE_VIEW_SIZE,
-    DATA_FIELD_TTL,
-    DATA_FIELD_ORIGIN_NODE,
-    DATA_FIELD_PRIORITY,
+    FIELD_TTL,
+    FIELD_ORIGIN_NODE,
+    FIELD_PRIORITY,
     ACTIVE_VIEW_MAINTAIN_FREQUENCY,
     TTL,
 )
@@ -36,30 +36,30 @@ class HyParViewProtocol:
         self.service_id = service_id
 
     def make_join_message(self) -> Message:
-        data = {DATA_FIELD_COMMAND: HyParViewCommand.JOIN}
+        data = {FIELD_COMMAND: HyParViewCommand.JOIN}
         return Message(self.my_node, self.service_id, data)
 
     def make_forward_join_message(self, origin_node: Node, ttl: int) -> Message:
         data = {
-            DATA_FIELD_COMMAND: HyParViewCommand.FORWARD_JOIN,
-            DATA_FIELD_ORIGIN_NODE: origin_node,
-            DATA_FIELD_TTL: ttl,
+            FIELD_COMMAND: HyParViewCommand.FORWARD_JOIN,
+            FIELD_ORIGIN_NODE: origin_node,
+            FIELD_TTL: ttl,
         }
         return Message(self.my_node, self.service_id, data)
 
     def make_connect_message(self, is_a_priority: bool) -> Message:
         data = {
-            DATA_FIELD_COMMAND: HyParViewCommand.CONNECT,
-            DATA_FIELD_PRIORITY: is_a_priority,
+            FIELD_COMMAND: HyParViewCommand.CONNECT,
+            FIELD_PRIORITY: is_a_priority,
         }
         return Message(self.my_node, self.service_id, data)
 
     def make_disconnect_message(self) -> Message:
-        data = {DATA_FIELD_COMMAND: HyParViewCommand.DISCONNECT}
+        data = {FIELD_COMMAND: HyParViewCommand.DISCONNECT}
         return Message(self.my_node, self.service_id, data)
 
     def make_stay_connected_message(self) -> Message:
-        data = {DATA_FIELD_COMMAND: HyParViewCommand.STAY_CONNECTED}
+        data = {FIELD_COMMAND: HyParViewCommand.STAY_CONNECTED}
         return Message(self.my_node, self.service_id, data)
 
 
@@ -141,7 +141,7 @@ class HyParView(MembershipService):
                 await self._callback(list(local_view.keys()))
 
     async def _handle_rpc(self, message: Message) -> Any:
-        command = message.data[DATA_FIELD_COMMAND]
+        command = message.data[FIELD_COMMAND]
         if command == HyParViewCommand.JOIN:
             while len(self._active_view) >= ACTIVE_VIEW_SIZE:
                 random_neighbour = random.choice(list(self._active_view))
@@ -154,8 +154,8 @@ class HyParView(MembershipService):
             ):
                 asyncio.create_task(self._rpc.call_without_response(neighbour, message))
         elif command == HyParViewCommand.FORWARD_JOIN:
-            ttl = message.data[DATA_FIELD_TTL]
-            origin_node = parse_node(message.data[DATA_FIELD_ORIGIN_NODE])
+            ttl = message.data[FIELD_TTL]
+            origin_node = parse_node(message.data[FIELD_ORIGIN_NODE])
             if ttl == 0:
                 asyncio.create_task(self._connect_to_node(origin_node))
             else:
@@ -166,7 +166,7 @@ class HyParView(MembershipService):
                 message = self._protocol.make_forward_join_message(origin_node, ttl - 1)
                 asyncio.create_task(self._rpc.call_without_response(neighbour, message))
         elif command == HyParViewCommand.CONNECT:
-            is_a_priority = message.data[DATA_FIELD_PRIORITY]
+            is_a_priority = message.data[FIELD_PRIORITY]
             if not is_a_priority and len(self._active_view) >= ACTIVE_VIEW_SIZE:
                 return False
             while len(self._active_view) >= ACTIVE_VIEW_SIZE:
@@ -200,7 +200,7 @@ class HyParView(MembershipService):
 
     async def _join_first_time(self):
         message = self._protocol.make_join_message()
-        bootstrap_nodes = list(self._gossip.local_view.keys())
+        bootstrap_nodes = self._get_passive_view_nodes()
         while bootstrap_nodes:
             candidate_node = bootstrap_nodes.pop(random.randrange(len(bootstrap_nodes)))
             with self._create_candidate_neighbour(candidate_node):
@@ -222,26 +222,27 @@ class HyParView(MembershipService):
         await self._join_first_time()
         while True:
             await asyncio.sleep(ACTIVE_VIEW_MAINTAIN_FREQUENCY)
-            inactive_nodes = set()
-            message = self._protocol.make_stay_connected_message()
-            for node in self._active_view.copy():
-                try:
-                    is_still_connected = await self._rpc.call_with_response(
-                        node, message
-                    )
-                    if not is_still_connected:
-                        inactive_nodes.add(node)
-                except ConnectionError:
+            await self._update_active_view()
+
+    async def _update_active_view(self):
+        inactive_nodes = set()
+        message = self._protocol.make_stay_connected_message()
+        for node in self._active_view.copy():
+            try:
+                is_still_connected = await self._rpc.call_with_response(node, message)
+                if not is_still_connected:
                     inactive_nodes.add(node)
-            self._active_view = self._active_view - inactive_nodes
-            if len(self._active_view) >= ACTIVE_VIEW_SIZE:
-                continue
-            candidate_neighbours: List[Node] = list(self._gossip.local_view.keys())
-            while candidate_neighbours and len(self._active_view) < ACTIVE_VIEW_SIZE:
-                candidate_neighbour = candidate_neighbours.pop(
-                    random.randrange(len(candidate_neighbours))
-                )
-                await self._connect_to_node(candidate_neighbour)
+            except ConnectionError:
+                inactive_nodes.add(node)
+        self._active_view = self._active_view - inactive_nodes
+        if len(self._active_view) >= ACTIVE_VIEW_SIZE:
+            return
+        candidate_neighbours: List[Node] = self._get_passive_view_nodes()
+        while candidate_neighbours and len(self._active_view) < ACTIVE_VIEW_SIZE:
+            candidate_neighbour = candidate_neighbours.pop(
+                random.randrange(len(candidate_neighbours))
+            )
+            await self._connect_to_node(candidate_neighbour)
 
     @contextmanager
     def _create_candidate_neighbour(self, node: Node):
@@ -253,3 +254,6 @@ class HyParView(MembershipService):
             self._candidate_neighbours = (
                 +self._candidate_neighbours
             )  # remove zero and negative counts
+
+    def _get_passive_view_nodes(self):
+        return list(self._gossip.local_view.keys())

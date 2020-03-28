@@ -9,12 +9,12 @@ from unsserv.common.services_abc import SearchingService, MembershipService
 from unsserv.common.utils import get_random_id, parse_node
 from unsserv.extreme.searching import k_walker_config as config
 from unsserv.extreme.searching.k_walker_config import (
-    DATA_FIELD_COMMAND,
-    DATA_FIELD_TTL,
-    DATA_FIELD_ORIGIN_NODE,
-    DATA_FIELD_WALK_ID,
-    DATA_FIELD_WALK_RESULT,
-    DATA_FIELD_DATA_ID,
+    FIELD_COMMAND,
+    FIELD_TTL,
+    FIELD_ORIGIN_NODE,
+    FIELD_WALK_ID,
+    FIELD_WALK_RESULT,
+    FIELD_DATA_ID,
 )
 
 
@@ -32,19 +32,19 @@ class KWalkerProtocol:
         self, data_id: str, walk_id: str, origin_node: Node, ttl: int
     ) -> Message:
         data = {
-            DATA_FIELD_DATA_ID: data_id,
-            DATA_FIELD_COMMAND: KWalkerCommand.WALK,
-            DATA_FIELD_WALK_ID: walk_id,
-            DATA_FIELD_ORIGIN_NODE: origin_node,
-            DATA_FIELD_TTL: ttl,
+            FIELD_DATA_ID: data_id,
+            FIELD_COMMAND: KWalkerCommand.WALK,
+            FIELD_WALK_ID: walk_id,
+            FIELD_ORIGIN_NODE: origin_node,
+            FIELD_TTL: ttl,
         }
         return Message(self.my_node, self.service_id, data)
 
     def make_walk_result_message(self, walk_id: str, walk_result: bytes) -> Message:
         data = {
-            DATA_FIELD_COMMAND: KWalkerCommand.WALK_RESULT,
-            DATA_FIELD_WALK_ID: walk_id,
-            DATA_FIELD_WALK_RESULT: walk_result,
+            FIELD_COMMAND: KWalkerCommand.WALK_RESULT,
+            FIELD_WALK_ID: walk_id,
+            FIELD_WALK_RESULT: walk_result,
         }
         return Message(self.my_node, self.service_id, data)
 
@@ -127,32 +127,32 @@ class KWalker(SearchingService):
             return None
 
     async def _handle_rpc(self, message: Message) -> Any:
-        command = message.data[DATA_FIELD_COMMAND]
+        command = message.data[FIELD_COMMAND]
         if command == KWalkerCommand.WALK:
-            ttl = message.data[DATA_FIELD_TTL]
-            result = self._search_data.get(message.data[DATA_FIELD_DATA_ID], None)
+            ttl = message.data[FIELD_TTL]
+            result = self._search_data.get(message.data[FIELD_DATA_ID], None)
             if result or ttl < 1:
-                origin_node = parse_node(message.data[DATA_FIELD_ORIGIN_NODE])
+                origin_node = parse_node(message.data[FIELD_ORIGIN_NODE])
                 message = self._protocol.make_walk_result_message(
-                    message.data[DATA_FIELD_WALK_ID], result
+                    message.data[FIELD_WALK_ID], result
                 )
                 asyncio.create_task(
                     self._rpc.call_without_response(origin_node, message)
                 )
             else:
                 message = self._protocol.make_walk_message(
-                    message.data[DATA_FIELD_DATA_ID],
-                    message.data[DATA_FIELD_WALK_ID],
-                    message.data[DATA_FIELD_ORIGIN_NODE],
-                    message.data[DATA_FIELD_TTL] - 1,
+                    message.data[FIELD_DATA_ID],
+                    message.data[FIELD_WALK_ID],
+                    message.data[FIELD_ORIGIN_NODE],
+                    message.data[FIELD_TTL] - 1,
                 )
                 candidate_neighbours = self.membership.get_neighbours()
                 assert isinstance(candidate_neighbours, list)
                 neighbour = random.choice(candidate_neighbours)
                 asyncio.create_task(self._rpc.call_without_response(neighbour, message))
         elif command == KWalkerCommand.WALK_RESULT:
-            walk_id = message.data[DATA_FIELD_WALK_ID]
-            walk_result = message.data[DATA_FIELD_WALK_RESULT]
+            walk_id = message.data[FIELD_WALK_ID]
+            walk_result = message.data[FIELD_WALK_RESULT]
             self._walk_results[walk_id] = walk_result
             self._walk_events[walk_id].set()
         else:

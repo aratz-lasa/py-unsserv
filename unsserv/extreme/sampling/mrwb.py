@@ -10,11 +10,11 @@ from unsserv.common.errors import ServiceError
 from unsserv.common.rpc.rpc import RPCRegister, RPC
 from unsserv.common.utils import parse_node, get_random_id
 from unsserv.extreme.sampling.mrwb_config import (
-    DATA_FIELD_COMMAND,
-    DATA_FIELD_ORIGIN_NODE,
-    DATA_FIELD_SAMPLE_ID,
-    DATA_FIELD_SAMPLE_RESULT,
-    DATA_FIELD_TTL,
+    FIELD_COMMAND,
+    FIELD_ORIGIN_NODE,
+    FIELD_SAMPLE_ID,
+    FIELD_SAMPLE_RESULT,
+    FIELD_TTL,
     ID_LENGTH,
     MRWB_DEGREE_REFRESH_FREQUENCY,
     SAMPLING_TIMEOUT,
@@ -37,10 +37,10 @@ class MRWBProtocol:
         self, sample_id: str, origin_node: Node, ttl: int
     ) -> Message:
         data = {
-            DATA_FIELD_COMMAND: MRWBCommand.SAMPLE,
-            DATA_FIELD_SAMPLE_ID: sample_id,
-            DATA_FIELD_ORIGIN_NODE: origin_node,
-            DATA_FIELD_TTL: ttl,
+            FIELD_COMMAND: MRWBCommand.SAMPLE,
+            FIELD_SAMPLE_ID: sample_id,
+            FIELD_ORIGIN_NODE: origin_node,
+            FIELD_TTL: ttl,
         }
         return Message(self.my_node, self.service_id, data)
 
@@ -48,14 +48,14 @@ class MRWBProtocol:
         self, sample_id: str, sample_result: Node
     ) -> Message:
         data = {
-            DATA_FIELD_COMMAND: MRWBCommand.SAMPLE_RESULT,
-            DATA_FIELD_SAMPLE_ID: sample_id,
-            DATA_FIELD_SAMPLE_RESULT: sample_result,
+            FIELD_COMMAND: MRWBCommand.SAMPLE_RESULT,
+            FIELD_SAMPLE_ID: sample_id,
+            FIELD_SAMPLE_RESULT: sample_result,
         }
         return Message(self.my_node, self.service_id, data)
 
     def make_get_degree_message(self) -> Message:
-        data = {DATA_FIELD_COMMAND: MRWBCommand.GET_DEGREE}
+        data = {FIELD_COMMAND: MRWBCommand.GET_DEGREE}
         return Message(self.my_node, self.service_id, data)
 
 
@@ -140,23 +140,23 @@ class MRWB(SamplingService):
             await asyncio.sleep(MRWB_DEGREE_REFRESH_FREQUENCY)
 
     async def _handle_rpc(self, message: Message) -> Optional[int]:
-        command = message.data[DATA_FIELD_COMMAND]
+        command = message.data[FIELD_COMMAND]
         if command == MRWBCommand.GET_DEGREE:
             return len(self._neighbours)
         elif command == MRWBCommand.SAMPLE_RESULT:
-            sample_result = parse_node(message.data[DATA_FIELD_SAMPLE_RESULT])
-            sample_id = message.data[DATA_FIELD_SAMPLE_ID]
+            sample_result = parse_node(message.data[FIELD_SAMPLE_RESULT])
+            sample_id = message.data[FIELD_SAMPLE_ID]
             self._sampling_queue[sample_id] = sample_result
             self._sampling_events[sample_id].set()
             del self._sampling_events[sample_id]
         elif command == MRWBCommand.SAMPLE:
-            ttl = message.data[DATA_FIELD_TTL]
+            ttl = message.data[FIELD_TTL]
             while ttl > 0:
                 next_hop = self._choose_neighbour()
                 if next_hop != self.my_node:
                     message = self._protocol.make_sample_message(
-                        message.data[DATA_FIELD_SAMPLE_ID],
-                        message.data[DATA_FIELD_ORIGIN_NODE],
+                        message.data[FIELD_SAMPLE_ID],
+                        message.data[FIELD_ORIGIN_NODE],
                         ttl - 1,
                     )
                     asyncio.create_task(
@@ -164,9 +164,9 @@ class MRWB(SamplingService):
                     )
                     return None
                 ttl -= 1
-            origin_node = parse_node(message.data[DATA_FIELD_ORIGIN_NODE])
+            origin_node = parse_node(message.data[FIELD_ORIGIN_NODE])
             message = self._protocol.make_sample_result_message(
-                message.data[DATA_FIELD_SAMPLE_ID], self.my_node
+                message.data[FIELD_SAMPLE_ID], self.my_node
             )
             asyncio.create_task(self._rpc.call_without_response(origin_node, message))
         else:
