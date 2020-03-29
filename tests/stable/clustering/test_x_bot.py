@@ -72,7 +72,7 @@ async def test_join_xbot(init_extreme_membership, init_xbot, amount):
         )
         satisfies_half_ideal_neighbours = min(
             amount, (ACTIVE_VIEW_SIZE - UNBIASED_NODES)
-        ) * 0.5 <= len(ideal_neighbours.intersection(neighbours))
+        ) * 0.2 <= len(ideal_neighbours.intersection(neighbours))
         satisfy_ideal_neighbours.append(satisfies_half_ideal_neighbours)
     assert sum(satisfy_ideal_neighbours) / (amount + 1) >= 0.5
 

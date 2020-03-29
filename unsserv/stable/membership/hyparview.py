@@ -201,7 +201,7 @@ class HyParView(MembershipService):
     async def _join_first_time(self):
         message = self._protocol.make_join_message()
         bootstrap_nodes = self._get_passive_view_nodes()
-        while bootstrap_nodes:
+        while bootstrap_nodes and len(self._active_view) < ACTIVE_VIEW_SIZE:
             candidate_node = bootstrap_nodes.pop(random.randrange(len(bootstrap_nodes)))
             with self._create_candidate_neighbour(candidate_node):
                 try:
