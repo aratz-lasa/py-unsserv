@@ -101,17 +101,15 @@ class XBot(ClusteringService, HyParView):
     _rpc: RPC
     _protocol: Optional[XBotProtocol]
     _active_view: Set[Node]
-    _multiplex: bool
     _callback: NeighboursCallback
     _callback_raw_format: bool
     _local_view_maintenance_task: asyncio.Task
     _candidate_neighbours: CounterType[Node]
 
-    def __init__(self, membership: MembershipService, multiplex: bool = True):
+    def __init__(self, membership: MembershipService):
         self.membership = membership
         self.my_node = membership.my_node
-        self._multiplex = multiplex
-        self._rpc = RPCRegister.get_rpc(self.my_node, multiplex)
+        self._rpc = RPCRegister.get_rpc(self.my_node)
         self._callback = None
         self._callback_raw_format = False
         self._active_view = set()

@@ -68,16 +68,14 @@ class HyParView(MembershipService):
     _protocol: Optional[HyParViewProtocol]
     _gossip: Optional[Gossip]
     _active_view: Set[Node]
-    _multiplex: bool
     _callback: NeighboursCallback
     _callback_raw_format: bool
     _local_view_maintenance_task: asyncio.Task
     _candidate_neighbours: CounterType[Node]
 
-    def __init__(self, my_node: Node, multiplex: bool = True):
+    def __init__(self, my_node: Node):
         self.my_node = my_node
-        self._multiplex = multiplex
-        self._rpc = RPCRegister.get_rpc(self.my_node, multiplex)
+        self._rpc = RPCRegister.get_rpc(self.my_node)
         self._gossip = None
         self._callback = None
         self._callback_raw_format = False
@@ -94,7 +92,6 @@ class HyParView(MembershipService):
             service_id=f"gossip-{service_id}",
             local_view_nodes=configuration.get("bootstrap_nodes", None),
             local_view_callback=self._local_view_callback,
-            multiplex=self._multiplex,
         )
         await self._gossip.start()
         await self._rpc.register_service(service_id, self._handle_rpc)

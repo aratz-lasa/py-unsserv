@@ -6,13 +6,11 @@ from unsserv.common.gossip.gossip import Gossip, View
 
 
 class Newscast(MembershipService):
-    _multiplex: bool
     _callback: NeighboursCallback
     _gossip: Optional[Gossip]
 
-    def __init__(self, node: Node, multiplex: bool = True):
+    def __init__(self, node: Node):
         self.my_node = node
-        self._multiplex = multiplex
         self._callback = None
         self._callback_raw_format = False
         self._gossip = None
@@ -26,7 +24,6 @@ class Newscast(MembershipService):
             service_id=service_id,
             local_view_nodes=configuration.get("bootstrap_nodes", None),
             local_view_callback=self._local_view_callback,
-            multiplex=self._multiplex,
         )
         await self._gossip.start()
         self.running = True

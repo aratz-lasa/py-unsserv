@@ -45,7 +45,6 @@ class Gossip:
         custom_selection_ranking: CustomSelectionRanking = None,
         local_view_size: int = LOCAL_VIEW_SIZE,
         gossiping_frequency: float = GOSSIPING_FREQUENCY,
-        multiplex: bool = True,
     ):
         self.my_node = my_node
         self.service_id = service_id
@@ -63,7 +62,7 @@ class Gossip:
 
         self.local_view_size = local_view_size
         self.gossiping_frequency = gossiping_frequency
-        self.rpc = RPCRegister.get_rpc(self.my_node, multiplex=multiplex)
+        self.rpc = RPCRegister.get_rpc(self.my_node)
 
         self.subscribers: List[IGossipSubscriber] = []
 

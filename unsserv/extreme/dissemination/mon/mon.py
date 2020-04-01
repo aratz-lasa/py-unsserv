@@ -58,11 +58,11 @@ class Mon(DisseminationService):
     ]  # stores the data received from each broadcast (for avoiding duplicates)
     _children_ready_events: Dict[BroadcastID, asyncio.Event]
 
-    def __init__(self, membership: MembershipService, multiplex: bool = True):
+    def __init__(self, membership: MembershipService):
         self.my_node = membership.my_node
         self.membership = membership
         self._broadcast_handler = None
-        self._rpc = RPCRegister.get_rpc(self.my_node, multiplex=multiplex)
+        self._rpc = RPCRegister.get_rpc(self.my_node)
 
         self._children = {}
         self._parents = {}

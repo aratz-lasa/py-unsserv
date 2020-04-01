@@ -68,11 +68,11 @@ class Lpbcast(DisseminationService):
     _events: "OrderedDict[EventId, List[Union[EventData, EventOrigin]]]"
     _events_digest: "OrderedDict[EventId, EventOrigin]"
 
-    def __init__(self, membership: MembershipService, multiplex: bool = True):
+    def __init__(self, membership: MembershipService):
         self.my_node = membership.my_node
         self.membership = membership
         self._broadcast_handler = None
-        self._rpc = RPCRegister.get_rpc(self.my_node, multiplex=multiplex)
+        self._rpc = RPCRegister.get_rpc(self.my_node)
 
         self._events = OrderedDict()
         self._events_digest = OrderedDict()

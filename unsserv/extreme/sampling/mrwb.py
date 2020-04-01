@@ -67,12 +67,12 @@ class MRWB(SamplingService):
     _sampling_events: Dict[str, asyncio.Event]
     _protocol: Optional[MRWBProtocol]
 
-    def __init__(self, membership: MembershipService, multiplex: bool = True):
+    def __init__(self, membership: MembershipService):
         self.my_node = membership.my_node
         self.membership = membership
         self._neighbours = []
         self._neighbour_degrees = {}
-        self._rpc = RPCRegister.get_rpc(self.my_node, multiplex=multiplex)
+        self._rpc = RPCRegister.get_rpc(self.my_node)
 
         self._sampling_queue = {}
         self._sampling_events = {}

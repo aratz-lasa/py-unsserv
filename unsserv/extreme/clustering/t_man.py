@@ -16,15 +16,13 @@ RankingFunction = Callable[[Node], Any]
 
 
 class TMan(ClusteringService):
-    _multiplex: bool
     _callback: NeighboursCallback
     _callback_raw_format: bool
     _gossip: Optional[Gossip]
 
-    def __init__(self, membership: MembershipService, multiplex: bool = True):
+    def __init__(self, membership: MembershipService):
         self.my_node = membership.my_node
         self.membership = membership
-        self._multiplex = multiplex
         self._callback = None
         self._ranking_function: RankingFunction
         self._callback_raw_format = False
@@ -45,7 +43,6 @@ class TMan(ClusteringService):
             local_view_callback=self._local_view_callback,
             custom_selection_ranking=self._selection_ranking,
             external_view_source=random_view_source,
-            multiplex=True,
         )
         await self._gossip.start()
         self.running = True

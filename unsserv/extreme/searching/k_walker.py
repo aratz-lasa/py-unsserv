@@ -58,11 +58,11 @@ class KWalker(SearchingService):
     _ttl: int
     _fanout: int
 
-    def __init__(self, membership: MembershipService, multiplex: bool = True):
+    def __init__(self, membership: MembershipService):
         self.membership = membership
         self.my_node = membership.my_node
         self._search_data = {}
-        self._rpc = RPCRegister.get_rpc(self.my_node, multiplex=multiplex)
+        self._rpc = RPCRegister.get_rpc(self.my_node)
         self._walk_results = {}
         self._walk_events = {}
 

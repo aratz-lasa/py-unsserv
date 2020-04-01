@@ -34,9 +34,8 @@ class AntiEntropy(AggregationService, IGossipSubscriber):
     _aggregate_func: Optional[Callable]
     _callback: Optional[AggregateCallback]
 
-    def __init__(self, membership: MembershipService, multiplex: bool = True):
+    def __init__(self, membership: MembershipService):
         self.my_node = membership.my_node
-        self.multiplex = multiplex
         if not hasattr(membership, "_gossip"):
             raise ValueError(
                 "Invalid membership service. "

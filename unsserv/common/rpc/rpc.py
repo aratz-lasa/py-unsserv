@@ -13,9 +13,7 @@ class RPCRegister:
     rpc_register: Dict = {}
 
     @staticmethod
-    def get_rpc(node, multiplex: bool = False):
-        if not multiplex and node in RPCRegister.rpc_register:
-            raise ConnectionError("RPC address already in use")
+    def get_rpc(node):
         rpc = RPCRegister.rpc_register.get(node, RPC(node))
         RPCRegister.rpc_register[node] = rpc
         return rpc
