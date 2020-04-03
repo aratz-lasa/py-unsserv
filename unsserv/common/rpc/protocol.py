@@ -8,7 +8,7 @@ from unsserv.common.rpc.rpc import RPCRegister, RPC
 
 Command = IntEnum
 Data = Any
-Handler = Callable[[Any], Any]
+Handler = Callable[[Node, Any], Any]
 
 
 class ITranscoder(ABC):
@@ -61,9 +61,9 @@ class AProtocol:
         command, data = self._transcoder.decode(message)
         handler = self._handlers[command]
         if asyncio.iscoroutinefunction(handler):
-            return await handler(*data)
+            return await handler(message.node, *data)
         else:
-            return handler(*data)
+            return handler(message.node, *data)
 
     @abstractmethod
     def _get_new_transcoder(self):

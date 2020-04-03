@@ -1,55 +1,21 @@
 import asyncio
 import random
-from enum import IntEnum, auto
-from typing import Any, List, Dict, Optional
+from typing import Any, List, Dict
 
-from unsserv.common.data_structures import Message, Node
+from unsserv.common.data_structures import Node
 from unsserv.common.errors import ServiceError
-from unsserv.common.rpc.rpc import RPCRegister, RPC
 from unsserv.common.services_abc import DisseminationService, MembershipService
 from unsserv.common.typing import BroadcastHandler
 from unsserv.common.utils import get_random_id
-from unsserv.extreme.dissemination.mon.mon_config import (
-    FIELD_COMMAND,
-    FIELD_BROADCAST_ID,
-    FIELD_LEVEL,
-    MON_FANOUT,
-    FIELD_BROADCAST_DATA,
-)
-from unsserv.extreme.dissemination.mon.mon_typing import BroadcastID
-
-
-class MonCommand(IntEnum):
-    SESSION = auto()
-    PUSH = auto()
-
-
-class MonProtocol:
-    def __init__(self, my_node: Node, service_id: Any):
-        self.my_node = my_node
-        self.service_id = service_id
-
-    def make_session_message(self, broadcast_id: str, level: int) -> Message:
-        data = {
-            FIELD_COMMAND: MonCommand.SESSION,
-            FIELD_BROADCAST_ID: broadcast_id,
-            FIELD_LEVEL: level,
-        }
-        return Message(self.my_node, self.service_id, data)
-
-    def make_push_message(self, broadcast_id: str, data: Any) -> Message:
-        data = {
-            FIELD_COMMAND: MonCommand.PUSH,
-            FIELD_BROADCAST_ID: broadcast_id,
-            FIELD_BROADCAST_DATA: data,
-        }
-        return Message(self.my_node, self.service_id, data)
+from unsserv.extreme.dissemination.mon.config import MON_FANOUT
+from unsserv.extreme.dissemination.mon.protocol import MonProtocol
+from unsserv.extreme.dissemination.mon.structs import Session, Broadcast
+from unsserv.extreme.dissemination.mon.typing import BroadcastID
 
 
 class Mon(DisseminationService):
-    _rpc: RPC
     _broadcast_handler: BroadcastHandler
-    _protocol: Optional[MonProtocol]
+    _protocol: MonProtocol
     _levels: Dict[BroadcastID, int]
     _children: Dict[BroadcastID, List[Node]]
     _parents: Dict[BroadcastID, List[Node]]
@@ -62,7 +28,7 @@ class Mon(DisseminationService):
         self.my_node = membership.my_node
         self.membership = membership
         self._broadcast_handler = None
-        self._rpc = RPCRegister.get_rpc(self.my_node)
+        self._protocol = MonProtocol(self.my_node)
 
         self._children = {}
         self._parents = {}
@@ -76,16 +42,14 @@ class Mon(DisseminationService):
             raise RuntimeError("Already running Dissemination")
         self._broadcast_handler = configuration["broadcast_handler"]
         self.service_id = service_id
-        self._protocol = MonProtocol(self.my_node, self.service_id)
-        await self._rpc.register_service(service_id, self._rpc_handler)
+        await self._initialize_protocol()
         self.running = True
 
     async def leave_broadcast(self) -> None:
         if not self.running:
             return
-        await self._rpc.unregister_service(self.service_id)
         self._broadcast_handler = None
-        self._protocol = None
+        await self._protocol.stop()
         self.running = False
 
     async def broadcast(self, data: bytes) -> None:
@@ -94,41 +58,6 @@ class Mon(DisseminationService):
         assert isinstance(data, bytes)
         broadcast_id = await self._build_dag()
         await self._disseminate(broadcast_id, data)
-
-    async def _rpc_handler(self, message: Message) -> Any:
-        command = message.data[FIELD_COMMAND]
-        broadcast_id = message.data[FIELD_BROADCAST_ID]
-        if command == MonCommand.SESSION:
-            first_time = broadcast_id not in self._levels
-            if first_time:
-                self._parents[broadcast_id] = [message.node]
-                self._levels[broadcast_id] = message.data[FIELD_LEVEL] + 1
-                candidate_children = list(
-                    set(self.membership.get_neighbours()) - {message.node}
-                )
-                self._children_ready_events[broadcast_id] = asyncio.Event()
-                asyncio.create_task(
-                    self._initialize_children(broadcast_id, candidate_children)
-                )
-            else:
-                if self._levels[broadcast_id] <= message.data[FIELD_LEVEL]:
-                    return False
-                if (
-                    message.node not in self._parents[broadcast_id]
-                ):  # just in case it is a duplicate
-                    self._parents[broadcast_id].append(message.node)
-            return True
-        elif command == MonCommand.PUSH:
-            broadcast_data = message.data[FIELD_BROADCAST_DATA]
-            if (
-                broadcast_id not in self._received_data
-            ):  # if already received data, ignores it
-                self._received_data[broadcast_id] = broadcast_data
-                asyncio.create_task(self._broadcast_handler(broadcast_data))
-                asyncio.create_task(self._disseminate(broadcast_id, broadcast_data))
-                # todo: decide how to cleanup all the data from already ended broadcast
-        else:
-            raise ValueError("Invalid MON protocol value")
 
     async def _build_dag(self) -> str:
         broadcast_id = get_random_id()
@@ -148,14 +77,12 @@ class Mon(DisseminationService):
     ):
         children: List[Node] = []
         fanout = min(len(neighbours), MON_FANOUT)
-        message = self._protocol.make_session_message(
-            broadcast_id, 0
-        )  # only generate once, bc it is the same every time
+        session = Session(broadcast_id=broadcast_id, level=0)
         while neighbours and len(children) <= fanout:
             child = random.choice(neighbours)
             neighbours.remove(child)
             try:
-                session_ok = await self._rpc.call_with_response(child, message)
+                session_ok = await self._protocol.session(child, session)
             except Exception:
                 continue
             if session_ok:
@@ -169,15 +96,46 @@ class Mon(DisseminationService):
         await self._children_ready_events[
             broadcast_id
         ].wait()  # wait children to initialize
-        message = self._protocol.make_push_message(
-            broadcast_id, data
-        )  # only generate once, bc it is the same every time
+        broadcast = Broadcast(id=broadcast_id, data=data)
         pushed_amount = 0
         for child in self._children[broadcast_id]:
             try:
-                await self._rpc.call_without_response(child, message)
+                await self._protocol.push(child, broadcast)
                 pushed_amount += 1
             except ConnectionError:
                 pass
         if pushed_amount == 0:
             raise ServiceError("Unable to peer with neighbours for disseminating")
+
+    async def _handler_session(self, sender: Node, session: Session):
+        first_time = session.broadcast_id not in self._levels
+        if first_time:
+            self._parents[session.broadcast_id] = [sender]
+            self._levels[session.broadcast_id] = session.level + 1
+            candidate_children = list(set(self.membership.get_neighbours()) - {sender})
+            self._children_ready_events[session.broadcast_id] = asyncio.Event()
+            asyncio.create_task(
+                self._initialize_children(session.broadcast_id, candidate_children)
+            )
+        else:
+            if self._levels[session.broadcast_id] <= session.level:
+                return False
+            if (
+                sender not in self._parents[session.broadcast_id]
+            ):  # just in case it is a duplicate
+                self._parents[session.broadcast_id].append(sender)
+        return True
+
+    async def _handler_push(self, sender: Node, broadcast: Broadcast):
+        if (
+            broadcast.id not in self._received_data
+        ):  # if already received data, ignores it
+            self._received_data[broadcast.id] = broadcast.data
+            asyncio.create_task(self._broadcast_handler(broadcast.data))
+            asyncio.create_task(self._disseminate(broadcast.id, broadcast.data))
+            # todo: decide how to cleanup all the data from already ended broadcast
+
+    async def _initialize_protocol(self):
+        self._protocol.set_handler_session(self._handler_session)
+        self._protocol.set_handler_push(self._handler_push)
+        await self._protocol.start(self.service_id)

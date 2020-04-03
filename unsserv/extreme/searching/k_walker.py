@@ -2,6 +2,7 @@ import asyncio
 import random
 from typing import Any, Dict, Optional
 
+from unsserv.common.data_structures import Node
 from unsserv.common.services_abc import SearchingService, MembershipService
 from unsserv.common.utils import get_random_id
 from unsserv.extreme.searching import config as config
@@ -94,7 +95,7 @@ class KWalker(SearchingService):
                 return result
         return result
 
-    async def _handler_walk(self, walk: Walk):
+    async def _handler_walk(self, sender: Node, walk: Walk):
         result = self._search_data.get(walk.data_id, None)
         if result or walk.ttl < 1:
             walk_result = WalkResult(walk_id=walk.id, result=result)
@@ -113,7 +114,7 @@ class KWalker(SearchingService):
             neighbour = random.choice(candidate_neighbours)
             asyncio.create_task(self._protocol.walk(neighbour, next_walk))
 
-    async def _handler_walk_result(self, walk_result: WalkResult):
+    async def _handler_walk_result(self, sender: Node, walk_result: WalkResult):
         self._walk_results[walk_result.walk_id] = walk_result.result
         self._walk_events[walk_result.walk_id].set()
 

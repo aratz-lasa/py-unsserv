@@ -7,7 +7,7 @@ from unsserv.common.data_structures import Node
 from unsserv.common.errors import ServiceError
 from unsserv.common.services_abc import MembershipService, SamplingService
 from unsserv.common.utils import get_random_id
-from unsserv.extreme.sampling.mrwb_config import (
+from unsserv.extreme.sampling.config import (
     ID_LENGTH,
     MRWB_DEGREE_REFRESH_FREQUENCY,
     SAMPLING_TIMEOUT,
@@ -121,7 +121,7 @@ class MRWB(SamplingService):
             await self._update_degree(neighbour)
         self._neighbours = new_neighbours
 
-    async def _handler_sample(self, sample: Sample):
+    async def _handler_sample(self, sender: Node, sample: Sample):
         ttl = sample.ttl
         while ttl > 0:
             next_hop = self._choose_neighbour()
@@ -137,16 +137,16 @@ class MRWB(SamplingService):
             self._protocol.sample_result(sample.origin_node, sample_result)
         )
 
-    async def _handler_sample_result(self, sample_result: SampleResult):
+    async def _handler_sample_result(self, sender: Node, sample_result: SampleResult):
         self._sampling_queue[sample_result.sample_id] = sample_result.result
         self._sampling_events[sample_result.sample_id].set()
         del self._sampling_events[sample_result.sample_id]
 
-    def handler_get_degree(self):
+    def _handler_get_degree(self, sender: Node):
         return len(self._neighbours)
 
     async def _initialize_protocol(self):
         self._protocol.set_handler_sample(self._handler_sample)
         self._protocol.set_handler_sample_result(self._handler_sample_result)
-        self._protocol.set_handler_get_degree(self.handler_get_degree)
+        self._protocol.set_handler_get_degree(self._handler_get_degree)
         await self._protocol.start(self.service_id)

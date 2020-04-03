@@ -1,0 +1,2 @@
+MON_TIMEOUT = 30  # seconds
+MON_FANOUT = 10
