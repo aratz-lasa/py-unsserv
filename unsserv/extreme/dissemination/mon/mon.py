@@ -2,7 +2,7 @@ import asyncio
 import random
 from typing import Any, List, Dict
 
-from unsserv.common.data_structures import Node
+from unsserv.common.structs import Node
 from unsserv.common.errors import ServiceError
 from unsserv.common.services_abc import DisseminationService, MembershipService
 from unsserv.common.typing import BroadcastHandler

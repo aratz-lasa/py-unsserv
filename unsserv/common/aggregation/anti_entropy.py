@@ -2,7 +2,7 @@ from enum import Enum, auto
 from statistics import mean
 from typing import Any, Callable, Dict, Tuple, Optional
 
-from unsserv.common.data_structures import Message
+from unsserv.common.structs import Message
 from unsserv.common.gossip.gossip import Gossip
 from unsserv.common.gossip.gossip_subcriber_abc import IGossipSubscriber
 from unsserv.common.services_abc import (

@@ -10,7 +10,7 @@ from unsserv.common.gossip.gossip_policies import (
     PeerSelectionPolicy,
     ViewPropagationPolicy,
 )
-from unsserv.common.data_structures import Message, Node
+from unsserv.common.structs import Message, Node
 from unsserv.common.gossip.gossip_config import (
     FIELD_VIEW,
     GOSSIPING_FREQUENCY,

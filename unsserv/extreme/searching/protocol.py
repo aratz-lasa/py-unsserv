@@ -2,7 +2,7 @@ from enum import IntEnum, auto
 from typing import Tuple, Sequence
 
 from unsserv.common.utils import parse_node
-from unsserv.common.data_structures import Message, Node
+from unsserv.common.structs import Message, Node
 from unsserv.common.rpc.protocol import AProtocol, ITranscoder, Command, Data, Handler
 from unsserv.extreme.searching.structs import WalkResult, Walk
 
@@ -66,11 +66,11 @@ class KWalkerProtocol(AProtocol):
 
     async def walk(self, destination: Node, walk: Walk):
         message = self._transcoder.encode(KWalkerCommand.WALK, walk)
-        await self._rpc.call_send_message(destination, message)
+        return await self._rpc.call_send_message(destination, message)
 
     async def walk_result(self, destination: Node, walk_result: WalkResult):
         message = self._transcoder.encode(KWalkerCommand.WALK_RESULT, walk_result)
-        await self._rpc.call_send_message(destination, message)
+        return await self._rpc.call_send_message(destination, message)
 
     def set_handler_walk(self, handler: Handler):
         self._handlers[KWalkerCommand.WALK] = handler

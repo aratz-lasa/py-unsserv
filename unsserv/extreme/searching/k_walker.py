@@ -2,7 +2,7 @@ import asyncio
 import random
 from typing import Any, Dict, Optional
 
-from unsserv.common.data_structures import Node
+from unsserv.common.structs import Node
 from unsserv.common.services_abc import SearchingService, MembershipService
 from unsserv.common.utils import get_random_id
 from unsserv.extreme.searching import config as config

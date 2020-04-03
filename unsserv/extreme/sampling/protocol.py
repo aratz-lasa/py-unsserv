@@ -2,7 +2,7 @@ from enum import IntEnum, auto
 from typing import Tuple, Sequence
 
 from unsserv.common.utils import parse_node
-from unsserv.common.data_structures import Message, Node
+from unsserv.common.structs import Message, Node
 from unsserv.common.rpc.protocol import AProtocol, ITranscoder, Command, Data, Handler
 from unsserv.extreme.sampling.structs import Sample, SampleResult
 
@@ -69,11 +69,11 @@ class MRWBProtocol(AProtocol):
 
     async def sample(self, destination: Node, sample: Sample):
         message = self._transcoder.encode(MRWBCommand.SAMPLE, sample)
-        await self._rpc.call_send_message(destination, message)
+        return await self._rpc.call_send_message(destination, message)
 
     async def sample_result(self, destination: Node, sample_result: SampleResult):
         message = self._transcoder.encode(MRWBCommand.SAMPLE_RESULT, sample_result)
-        await self._rpc.call_send_message(destination, message)
+        return await self._rpc.call_send_message(destination, message)
 
     async def get_degree(self, destination: Node) -> int:
         message = self._transcoder.encode(MRWBCommand.GET_DEGREE)

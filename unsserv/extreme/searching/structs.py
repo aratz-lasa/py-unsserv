@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from unsserv.common.data_structures import Node
+from unsserv.common.structs import Node
 
 
 @dataclass

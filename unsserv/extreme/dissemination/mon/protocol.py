@@ -1,7 +1,7 @@
 from enum import IntEnum, auto
 from typing import Tuple, Sequence
 
-from unsserv.common.data_structures import Message, Node
+from unsserv.common.structs import Message, Node
 from unsserv.common.rpc.protocol import AProtocol, ITranscoder, Command, Data, Handler
 from unsserv.extreme.dissemination.mon.structs import Session, Broadcast
 
@@ -63,7 +63,7 @@ class MonProtocol(AProtocol):
 
     async def push(self, destination: Node, broadcast: Broadcast):
         message = self._transcoder.encode(MonCommand.PUSH, broadcast)
-        await self._rpc.call_send_message(destination, message)
+        return await self._rpc.call_send_message(destination, message)
 
     def set_handler_session(self, handler: Handler):
         self._handlers[MonCommand.SESSION] = handler

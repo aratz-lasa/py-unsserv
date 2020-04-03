@@ -4,7 +4,7 @@ from collections import Counter
 from enum import IntEnum
 from typing import Any, Optional, Set, Counter as CounterType, Callable
 
-from unsserv.common.data_structures import Node, Message
+from unsserv.common.structs import Node, Message
 from unsserv.common.rpc.rpc import RPC, RPCRegister
 from unsserv.common.services_abc import MembershipService, ClusteringService
 from unsserv.common.typing import NeighboursCallback

@@ -2,8 +2,8 @@ import random
 import string
 from typing import List
 
-from unsserv.common.data_structures import Message
-from unsserv.common.data_structures import Node
+from unsserv.common.structs import Message
+from unsserv.common.structs import Node
 
 
 def parse_node(raw_node: List) -> Node:

@@ -1,5 +1,5 @@
 from typing import Any, Callable, Coroutine, Union
 
-from unsserv.common.data_structures import Message
+from unsserv.common.structs import Message
 
 RpcCallback = Callable[[Message], Coroutine[Any, Any, Union[None, Any]]]

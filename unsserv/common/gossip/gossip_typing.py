@@ -1,5 +1,5 @@
 from typing import Callable, Coroutine, Any, List
-from unsserv.common.data_structures import Node
+from unsserv.common.structs import Node
 from unsserv.common.services_abc import View
 
 

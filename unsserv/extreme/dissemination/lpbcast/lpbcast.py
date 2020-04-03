@@ -1,69 +1,28 @@
 import asyncio
 import random
 from collections import OrderedDict
-from enum import IntEnum, auto
-from typing import Any, List, Optional, Union
+from typing import Any, List, Union
 
-from unsserv.common.utils import parse_node, get_random_id
-from unsserv.common.data_structures import Message, Node
-from unsserv.common.rpc.rpc import RPCRegister, RPC
 from unsserv.common.services_abc import DisseminationService, MembershipService
+from unsserv.common.structs import Node
 from unsserv.common.typing import BroadcastHandler
-from unsserv.extreme.dissemination.lpbcast.lpbcast_config import (
-    FIELD_COMMAND,
+from unsserv.common.utils import get_random_id
+from unsserv.extreme.dissemination.lpbcast.config import (
     FANOUT,
-    FIELD_EVENT_ID,
-    FIELD_EVENT_DATA,
-    FIELD_EVENT_ORIGIN,
-    FIELD_DIGEST,
-    FIELD_RETRIEVE_EVENT,
     LPBCAST_THRESHOLD,
 )
-from unsserv.extreme.dissemination.lpbcast.lpbcast_typing import (
+from unsserv.extreme.dissemination.lpbcast.protocol import LpbcastProtocol
+from unsserv.extreme.dissemination.lpbcast.structs import Event
+from unsserv.extreme.dissemination.lpbcast.typing import (
     EventId,
     EventData,
     EventOrigin,
 )
 
 
-class LpbcastCommand(IntEnum):
-    PUSH_EVENT = auto()
-    RETRIEVE_EVENT = auto()
-
-
-class LpbcastProtocol:
-    def __init__(self, my_node: Node, service_id: Any):
-        self.my_node = my_node
-        self.service_id = service_id
-
-    def make_push_event_message(
-        self,
-        event_id: EventId,
-        event_data: EventData,
-        event_origin: Node,
-        digest: List[List[Union[EventId, EventOrigin]]],
-    ):
-        data = {
-            FIELD_COMMAND: LpbcastCommand.PUSH_EVENT,
-            FIELD_EVENT_ID: event_id,
-            FIELD_EVENT_DATA: event_data,
-            FIELD_EVENT_ORIGIN: event_origin,
-            FIELD_DIGEST: digest,
-        }
-        return Message(self.my_node, self.service_id, data)
-
-    def make_retrieve_event_message(self, retrieve_event: EventId):
-        data = {
-            FIELD_COMMAND: LpbcastCommand.RETRIEVE_EVENT,
-            FIELD_RETRIEVE_EVENT: retrieve_event,
-        }
-        return Message(self.my_node, self.service_id, data)
-
-
 class Lpbcast(DisseminationService):
-    _rpc: RPC
+    _protocol: LpbcastProtocol
     _broadcast_handler: BroadcastHandler
-    _protocol: Optional[LpbcastProtocol]
 
     _events: "OrderedDict[EventId, List[Union[EventData, EventOrigin]]]"
     _events_digest: "OrderedDict[EventId, EventOrigin]"
@@ -72,7 +31,7 @@ class Lpbcast(DisseminationService):
         self.my_node = membership.my_node
         self.membership = membership
         self._broadcast_handler = None
-        self._rpc = RPCRegister.get_rpc(self.my_node)
+        self._protocol = LpbcastProtocol(self.my_node)
 
         self._events = OrderedDict()
         self._events_digest = OrderedDict()
@@ -82,16 +41,14 @@ class Lpbcast(DisseminationService):
             raise RuntimeError("Already running Dissemination")
         self._broadcast_handler = configuration["broadcast_handler"]
         self.service_id = service_id
-        self._protocol = LpbcastProtocol(self.my_node, self.service_id)
-        await self._rpc.register_service(service_id, self._rpc_handler)
+        await self._initialize_protocol()
         self.running = True
 
     async def leave_broadcast(self) -> None:
         if not self.running:
             return
-        await self._rpc.unregister_service(self.service_id)
+        await self._protocol.stop()
         self._broadcast_handler = None
-        self._protocol = None
         self.running = False
 
     async def broadcast(self, data: bytes) -> None:
@@ -102,30 +59,6 @@ class Lpbcast(DisseminationService):
         await self._handle_new_event(
             event_id, data, self.my_node, broadcast_origin=True
         )
-
-    async def _rpc_handler(self, message: Message) -> Any:
-        command = message.data[FIELD_COMMAND]
-
-        if command == LpbcastCommand.PUSH_EVENT:
-            asyncio.create_task(
-                self._handle_new_event(
-                    message.data[FIELD_EVENT_ID],
-                    message.data[FIELD_EVENT_DATA],
-                    parse_node(message.data[FIELD_EVENT_ORIGIN]),
-                )
-            )
-            for message_id, message_origin in message.data[FIELD_DIGEST]:
-                if message_id not in self._events_digest:  # not the one received
-                    asyncio.create_task(
-                        self._retrieve_event(
-                            message.node, message_id, parse_node(message_origin)
-                        )
-                    )
-
-        elif command == LpbcastCommand.RETRIEVE_EVENT:
-            retrieve_event_id = message.data[FIELD_RETRIEVE_EVENT]
-            event = self._events.get(retrieve_event_id, None)
-            return event
 
     async def _handle_new_event(
         self,
@@ -151,13 +84,11 @@ class Lpbcast(DisseminationService):
         fanout = min(FANOUT, len(candidate_neighbours))
         for neighbour in random.choices(candidate_neighbours, k=fanout):
             try:
-                message = self._protocol.make_push_event_message(
-                    event_id,
-                    event_data,
-                    event_origin,
-                    list(map(lambda e: [e[0], e[1]], self._events_digest.items())),
+                digest = list(map(lambda e: (e[0], e[1]), self._events_digest.items()))
+                event = Event(
+                    id=event_id, data=event_data, origin=event_origin, digest=digest
                 )
-                await self._rpc.call_send_message(neighbour, message)
+                await self._protocol.push_event(neighbour, event)
             except Exception:
                 pass  # todo: log the error?
 
@@ -170,9 +101,9 @@ class Lpbcast(DisseminationService):
     async def _retrieve_event(
         self, event_source: Node, event_id: EventId, event_origin: EventOrigin,
     ):
-        message = self._protocol.make_retrieve_event_message(event_id)
+
         try:
-            event_data, _ = await self._rpc.call_send_message(event_source, message)
+            event_data, _ = await self._protocol.retrieve_event(event_source, event_id)
             assert isinstance(event_data, bytes)
             return await self._handle_new_event(event_id, event_data, event_origin)
         except Exception:
@@ -181,14 +112,32 @@ class Lpbcast(DisseminationService):
             candidate_neighbours = self.membership.get_neighbours()
             assert isinstance(candidate_neighbours, list)
             random_neighbour = random.choice(candidate_neighbours)
-            event_data, _ = await self._rpc.call_send_message(random_neighbour, message)
+            event_data, _ = await self._protocol.retrieve_event(
+                random_neighbour, event_id
+            )
             assert isinstance(event_data, bytes)
             return await self._handle_new_event(event_id, event_data, event_origin)
         except Exception:
             pass
         try:
-            event_data, _ = await self._rpc.call_send_message(event_origin, message)
+            event_data, _ = await self._protocol.retrieve_event(event_origin, event_id)
             assert isinstance(event_data, bytes)
             return await self._handle_new_event(event_id, event_data, event_origin)
         except Exception:
             pass
+
+    async def _handler_push_event(self, sender: Node, event: Event):
+        asyncio.create_task(self._handle_new_event(event.id, event.data, event.origin,))
+        for message_id, message_origin in event.digest:
+            if message_id not in self._events_digest:  # not the one received
+                asyncio.create_task(
+                    self._retrieve_event(sender, message_id, message_origin)
+                )
+
+    async def _handler_retrieve_event(self, sender: Node, event_id: str):
+        return self._events.get(event_id, None)
+
+    async def _initialize_protocol(self):
+        self._protocol.set_handler_push_event(self._handler_push_event)
+        self._protocol.set_handler_retrieve_event(self._handler_retrieve_event)
+        await self._protocol.start(self.service_id)

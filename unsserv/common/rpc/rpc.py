@@ -3,7 +3,7 @@ from typing import Any, Dict, List, Tuple
 
 from rpcudp.protocol import RPCProtocol
 
-from unsserv.common.data_structures import Message, Node
+from unsserv.common.structs import Message, Node
 from unsserv.common.gossip import gossip_config as config
 from unsserv.common.rpc.rpc_typing import RpcCallback
 from unsserv.common.utils import parse_message
@@ -71,7 +71,7 @@ class RPC(RPCProtocol):
         """
         If we get a response, returns it.
 
-        Otherwise raise error and remove the node from ILinkStore.
+        Otherwise raise error.
         """
         if not result[0]:
             raise ConnectionError(

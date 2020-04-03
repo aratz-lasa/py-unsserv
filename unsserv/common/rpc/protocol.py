@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 from enum import IntEnum
 from typing import Any, Tuple, Sequence, Dict, Callable
 
-from unsserv.common.data_structures import Node, Message
+from unsserv.common.structs import Node, Message
 from unsserv.common.rpc.rpc import RPCRegister, RPC
 
 Command = IntEnum

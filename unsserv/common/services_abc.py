@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Any, List, Union, Optional
 
-from unsserv.common.data_structures import Node
+from unsserv.common.structs import Node
 from unsserv.common.typing import (
     AggregateCallback,
     NeighboursCallback,

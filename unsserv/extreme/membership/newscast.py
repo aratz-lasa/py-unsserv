@@ -1,7 +1,7 @@
 from typing import Any, List, Union, Optional
 
 from unsserv.common.services_abc import MembershipService, NeighboursCallback
-from unsserv.common.data_structures import Node
+from unsserv.common.structs import Node
 from unsserv.common.gossip.gossip import Gossip, View
 
 

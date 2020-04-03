@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Any, Tuple
 
-from unsserv.common.data_structures import Message
+from unsserv.common.structs import Message
 
 
 class IGossipSubscriber(ABC):

@@ -3,7 +3,7 @@ import math
 import random
 from typing import Dict, List, Any
 
-from unsserv.common.data_structures import Node
+from unsserv.common.structs import Node
 from unsserv.common.errors import ServiceError
 from unsserv.common.services_abc import MembershipService, SamplingService
 from unsserv.common.utils import get_random_id

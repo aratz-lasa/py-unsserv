@@ -1,7 +1,7 @@
 from collections import Counter
 from typing import Any, Callable, Coroutine, List, Optional, Union
 
-from unsserv.common.data_structures import Node
+from unsserv.common.structs import Node
 
 View = Counter
 NeighboursCallback = Optional[

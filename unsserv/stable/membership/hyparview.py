@@ -5,7 +5,7 @@ from contextlib import contextmanager
 from enum import IntEnum, auto
 from typing import Union, List, Any, Optional, Set, Counter as CounterType
 
-from unsserv.common.data_structures import Node, Message
+from unsserv.common.structs import Node, Message
 from unsserv.common.gossip.gossip import Gossip
 from unsserv.common.rpc.rpc import RPC, RPCRegister
 from unsserv.common.services_abc import MembershipService
