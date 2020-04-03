@@ -5,7 +5,7 @@ from typing import Any, List, Tuple
 import pytest
 
 from tests.utils import get_random_nodes
-from unsserv.common.data_structures import Message, Node
+from unsserv.common.structs import Message, Node
 from unsserv.common.gossip import gossip, gossip_subcriber_abc
 from unsserv.common.gossip.gossip import LOCAL_VIEW_SIZE, View
 from unsserv.common.gossip.gossip_config import GOSSIPING_FREQUENCY

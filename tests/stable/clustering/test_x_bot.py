@@ -5,7 +5,7 @@ from math import ceil
 import pytest
 
 from functools import partial
-from unsserv.common.data_structures import Node
+from unsserv.common.structs import Node
 from unsserv.common.gossip.gossip_config import GOSSIPING_FREQUENCY, LOCAL_VIEW_SIZE
 from unsserv.stable.clustering.x_bot import XBot
 from unsserv.stable.clustering.x_bot_config import UNBIASED_NODES, ACTIVE_VIEW_SIZE

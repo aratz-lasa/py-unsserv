@@ -1,6 +1,6 @@
 import asyncio
 import pytest
-from unsserv.common.data_structures import Node
+from unsserv.common.structs import Node
 from unsserv.extreme.membership import newscast
 from unsserv.common.gossip.gossip_config import GOSSIPING_FREQUENCY
 
