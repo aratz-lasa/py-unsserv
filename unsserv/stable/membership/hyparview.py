@@ -149,7 +149,7 @@ class HyParView(MembershipService):
             for neighbour in list(
                 filter(lambda n: n != message.node, self._active_view)
             ):
-                asyncio.create_task(self._rpc.call_without_response(neighbour, message))
+                asyncio.create_task(self._rpc.call_send_message(neighbour, message))
         elif command == HyParViewCommand.FORWARD_JOIN:
             ttl = message.data[FIELD_TTL]
             origin_node = parse_node(message.data[FIELD_ORIGIN_NODE])
@@ -161,7 +161,7 @@ class HyParView(MembershipService):
                 ) or [self.my_node]
                 neighbour = random.choice(candidate_neighbours)
                 message = self._protocol.make_forward_join_message(origin_node, ttl - 1)
-                asyncio.create_task(self._rpc.call_without_response(neighbour, message))
+                asyncio.create_task(self._rpc.call_send_message(neighbour, message))
         elif command == HyParViewCommand.CONNECT:
             is_a_priority = message.data[FIELD_PRIORITY]
             if not is_a_priority and len(self._active_view) >= ACTIVE_VIEW_SIZE:
@@ -189,7 +189,7 @@ class HyParView(MembershipService):
             is_a_priority = len(self._active_view) == 0
             message = self._protocol.make_connect_message(is_a_priority)
             try:
-                is_connected = await self._rpc.call_with_response(node, message)
+                is_connected = await self._rpc.call_send_message(node, message)
                 if is_connected:
                     self._active_view.add(node)
             except ConnectionError:
@@ -202,7 +202,7 @@ class HyParView(MembershipService):
             candidate_node = bootstrap_nodes.pop(random.randrange(len(bootstrap_nodes)))
             with self._create_candidate_neighbour(candidate_node):
                 try:
-                    await self._rpc.call_without_response(candidate_node, message)
+                    await self._rpc.call_send_message(candidate_node, message)
                     self._active_view.add(candidate_node)
                     break
                 except ConnectionError:
@@ -211,7 +211,7 @@ class HyParView(MembershipService):
     async def _try_disconnect(self, node: Node):
         message = self._protocol.make_disconnect_message()
         try:
-            await self._rpc.call_without_response(node, message)
+            await self._rpc.call_send_message(node, message)
         except ConnectionError:
             pass
 
@@ -226,7 +226,7 @@ class HyParView(MembershipService):
         message = self._protocol.make_stay_connected_message()
         for node in self._active_view.copy():
             try:
-                is_still_connected = await self._rpc.call_with_response(node, message)
+                is_still_connected = await self._rpc.call_send_message(node, message)
                 if not is_still_connected:
                     inactive_nodes.add(node)
             except ConnectionError:

@@ -59,11 +59,11 @@ class MonProtocol(AProtocol):
 
     async def session(self, destination: Node, session: Session) -> bool:
         message = self._transcoder.encode(MonCommand.SESSION, session)
-        return await self._rpc.call_with_response(destination, message)
+        return await self._rpc.call_send_message(destination, message)
 
     async def push(self, destination: Node, broadcast: Broadcast):
         message = self._transcoder.encode(MonCommand.PUSH, broadcast)
-        await self._rpc.call_without_response(destination, message)
+        await self._rpc.call_send_message(destination, message)
 
     def set_handler_session(self, handler: Handler):
         self._handlers[MonCommand.SESSION] = handler

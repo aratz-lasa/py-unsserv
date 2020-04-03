@@ -69,15 +69,15 @@ class MRWBProtocol(AProtocol):
 
     async def sample(self, destination: Node, sample: Sample):
         message = self._transcoder.encode(MRWBCommand.SAMPLE, sample)
-        await self._rpc.call_without_response(destination, message)
+        await self._rpc.call_send_message(destination, message)
 
     async def sample_result(self, destination: Node, sample_result: SampleResult):
         message = self._transcoder.encode(MRWBCommand.SAMPLE_RESULT, sample_result)
-        await self._rpc.call_without_response(destination, message)
+        await self._rpc.call_send_message(destination, message)
 
     async def get_degree(self, destination: Node) -> int:
         message = self._transcoder.encode(MRWBCommand.GET_DEGREE)
-        return await self._rpc.call_with_response(destination, message)
+        return await self._rpc.call_send_message(destination, message)
 
     def set_handler_sample(self, handler: Handler):
         self._handlers[MRWBCommand.SAMPLE] = handler

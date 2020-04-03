@@ -66,11 +66,11 @@ class KWalkerProtocol(AProtocol):
 
     async def walk(self, destination: Node, walk: Walk):
         message = self._transcoder.encode(KWalkerCommand.WALK, walk)
-        await self._rpc.call_without_response(destination, message)
+        await self._rpc.call_send_message(destination, message)
 
     async def walk_result(self, destination: Node, walk_result: WalkResult):
         message = self._transcoder.encode(KWalkerCommand.WALK_RESULT, walk_result)
-        await self._rpc.call_without_response(destination, message)
+        await self._rpc.call_send_message(destination, message)
 
     def set_handler_walk(self, handler: Handler):
         self._handlers[KWalkerCommand.WALK] = handler

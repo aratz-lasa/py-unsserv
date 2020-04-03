@@ -28,21 +28,13 @@ class RPC(RPCProtocol):
         self.my_node = node
         self.registered_services = {}
 
-    async def call_with_response(self, destination: Node, message: Message) -> Any:
-        rpc_result = await self.with_response(destination.address_info, message)
+    async def call_send_message(self, destination: Node, message: Message) -> Any:
+        rpc_result = await self.send_message(destination.address_info, message)
         return self._handle_call_response(rpc_result)
 
-    async def rpc_with_response(self, node: Node, raw_message: List) -> Any:
+    async def rpc_send_message(self, node: Node, raw_message: List) -> Any:
         message = parse_message(raw_message)
         return await self.registered_services[message.service_id](message)
-
-    async def call_without_response(self, destination: Node, message: Message):
-        rpc_result = await self.without_response(destination.address_info, message)
-        self._handle_call_response(rpc_result)
-
-    async def rpc_without_response(self, node: Node, raw_message: List):
-        message = parse_message(raw_message)
-        await self.registered_services[message.service_id](message)
 
     async def register_service(self, service_id: Any, callback: RpcCallback):
         if service_id in self.registered_services:

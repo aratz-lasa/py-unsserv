@@ -157,7 +157,7 @@ class Lpbcast(DisseminationService):
                     event_origin,
                     list(map(lambda e: [e[0], e[1]], self._events_digest.items())),
                 )
-                await self._rpc.call_without_response(neighbour, message)
+                await self._rpc.call_send_message(neighbour, message)
             except Exception:
                 pass  # todo: log the error?
 
@@ -172,7 +172,7 @@ class Lpbcast(DisseminationService):
     ):
         message = self._protocol.make_retrieve_event_message(event_id)
         try:
-            event_data, _ = await self._rpc.call_with_response(event_source, message)
+            event_data, _ = await self._rpc.call_send_message(event_source, message)
             assert isinstance(event_data, bytes)
             return await self._handle_new_event(event_id, event_data, event_origin)
         except Exception:
@@ -181,15 +181,13 @@ class Lpbcast(DisseminationService):
             candidate_neighbours = self.membership.get_neighbours()
             assert isinstance(candidate_neighbours, list)
             random_neighbour = random.choice(candidate_neighbours)
-            event_data, _ = await self._rpc.call_with_response(
-                random_neighbour, message
-            )
+            event_data, _ = await self._rpc.call_send_message(random_neighbour, message)
             assert isinstance(event_data, bytes)
             return await self._handle_new_event(event_id, event_data, event_origin)
         except Exception:
             pass
         try:
-            event_data, _ = await self._rpc.call_with_response(event_origin, message)
+            event_data, _ = await self._rpc.call_send_message(event_origin, message)
             assert isinstance(event_data, bytes)
             return await self._handle_new_event(event_id, event_data, event_origin)
         except Exception:

@@ -156,7 +156,7 @@ class XBot(ClusteringService, HyParView):
                 self._try_call_callback()
                 reply_message = self._protocol.make_optimi_reply_message(True, old_node)
                 asyncio.create_task(
-                    self._rpc.call_without_response(message.node, reply_message)
+                    self._rpc.call_send_message(message.node, reply_message)
                 )
             else:
                 replace_node = list(
@@ -166,7 +166,7 @@ class XBot(ClusteringService, HyParView):
                     old_node, message.node
                 )
                 asyncio.create_task(
-                    self._rpc.call_without_response(replace_node, replace_message)
+                    self._rpc.call_send_message(replace_node, replace_message)
                 )
         elif command == XBotCommand.OPTIMIZATION_REPLY:
             result = message.data[FIELD_OPTIMIZATION_RESULT]
@@ -176,7 +176,7 @@ class XBot(ClusteringService, HyParView):
             if old_node in self._active_view:
                 disconnect_message = self._protocol.make_disconnect_message()
                 asyncio.create_task(
-                    self._rpc.call_without_response(old_node, disconnect_message)
+                    self._rpc.call_send_message(old_node, disconnect_message)
                 )
                 self._active_view.remove(old_node)
             self._active_view.add(message.node)
@@ -188,14 +188,14 @@ class XBot(ClusteringService, HyParView):
                     False, old_node, message.node
                 )
                 asyncio.create_task(
-                    self._rpc.call_without_response(message.node, replace_message)
+                    self._rpc.call_send_message(message.node, replace_message)
                 )
             else:
                 switch_message = self._protocol.make_switch_message(
                     message.data[FIELD_OPTIMIZATION_ORIGIN_NODE], message.node
                 )
                 asyncio.create_task(
-                    self._rpc.call_without_response(old_node, switch_message)
+                    self._rpc.call_send_message(old_node, switch_message)
                 )
         elif command == XBotCommand.REPLACE_REPLY:
             is_replaced = message.data[FIELD_REPLACE_RESULT]
@@ -209,7 +209,7 @@ class XBot(ClusteringService, HyParView):
                 is_replaced, old_node
             )
             asyncio.create_task(
-                self._rpc.call_without_response(optimization_node, reply_message)
+                self._rpc.call_send_message(optimization_node, reply_message)
             )
         elif command == XBotCommand.SWITCH:
             origin_node = parse_node(message.data[FIELD_OPTIMIZATION_ORIGIN_NODE])
@@ -224,9 +224,7 @@ class XBot(ClusteringService, HyParView):
             reply_message = self._protocol.make_switch_reply_message(
                 is_switched, origin_node, new_node
             )
-            asyncio.create_task(
-                self._rpc.call_without_response(pivot_node, reply_message)
-            )
+            asyncio.create_task(self._rpc.call_send_message(pivot_node, reply_message))
         elif command == XBotCommand.SWITCH_REPLY:
             is_switched = message.data[FIELD_SWITCH_RESULT]
             new_node = parse_node(message.data[FIELD_NEW_NODE])
@@ -239,9 +237,7 @@ class XBot(ClusteringService, HyParView):
             reply_message = self._protocol.make_replace_reply_message(
                 is_switched, message.node, origin_node
             )
-            asyncio.create_task(
-                self._rpc.call_without_response(new_node, reply_message)
-            )
+            asyncio.create_task(self._rpc.call_send_message(new_node, reply_message))
         else:
             raise ValueError("Invalid XBot protocol value")
         return None
@@ -278,7 +274,7 @@ class XBot(ClusteringService, HyParView):
             if self._get_the_best(candidate_node, old_node) == candidate_node:
                 message = self._protocol.make_optimization_message(old_node)
                 asyncio.create_task(
-                    self._rpc.call_without_response(candidate_node, message)
+                    self._rpc.call_send_message(candidate_node, message)
                 )
 
     def _get_the_best(self, node1: Node, node2: Node):

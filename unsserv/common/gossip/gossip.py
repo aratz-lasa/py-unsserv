@@ -106,7 +106,7 @@ class Gossip:
             push_message = Message(self.my_node, self.service_id, data)
             if self.view_propagation is ViewPropagationPolicy.PUSH:
                 try:
-                    await self.rpc.call_without_response(peer, push_message)
+                    await self.rpc.call_send_message(peer, push_message)
                 except ConnectionError:
                     try:
                         self.local_view.pop(peer)
@@ -116,7 +116,7 @@ class Gossip:
             else:
                 try:
                     push_message = parse_message(
-                        await self.rpc.call_with_response(peer, push_message)
+                        await self.rpc.call_send_message(peer, push_message)
                     )  # rpc.pushpull used for bot PULL and PUSHPULL
                 except ConnectionError:
                     try:
