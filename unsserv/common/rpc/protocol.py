@@ -8,7 +8,7 @@ from unsserv.common.rpc.rpc import RPCRegister, RPC
 
 Command = IntEnum
 Data = Any
-Handler = Callable[[Node, Any], Any]
+Handler = Callable[..., Any]
 
 
 class ITranscoder(ABC):

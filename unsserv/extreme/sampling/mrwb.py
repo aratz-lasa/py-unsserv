@@ -72,11 +72,11 @@ class MRWB(SamplingService):
         sample_id = get_random_id(ID_LENGTH)
         if not self._neighbours:
             raise ServiceError("Unable to peer with neighbours for sampling.")
-        node = random.choice(self._neighbours)  # random neighbour
-        sample = Sample(id=sample_id, origin_node=self.my_node, ttl=TTL)
-        await self._protocol.sample(node, sample)
         event = asyncio.Event()
         self._sampling_events[sample_id] = event
+        random_node = random.choice(self._neighbours)  # random neighbour
+        sample = Sample(id=sample_id, origin_node=self.my_node, ttl=TTL)
+        await self._protocol.sample(random_node, sample)
         try:
             await asyncio.wait_for(event.wait(), timeout=SAMPLING_TIMEOUT)
         except asyncio.TimeoutError:

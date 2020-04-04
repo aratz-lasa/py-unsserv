@@ -8,7 +8,7 @@ from functools import partial
 from unsserv.common.structs import Node
 from unsserv.common.gossip.gossip_config import GOSSIPING_FREQUENCY, LOCAL_VIEW_SIZE
 from unsserv.stable.clustering.x_bot import XBot
-from unsserv.stable.clustering.x_bot_config import UNBIASED_NODES, ACTIVE_VIEW_SIZE
+from unsserv.stable.clustering.config import UNBIASED_NODES, ACTIVE_VIEW_SIZE
 from tests.utils import init_extreme_membership
 
 init_extreme_membership = init_extreme_membership  # for flake8 compliance
