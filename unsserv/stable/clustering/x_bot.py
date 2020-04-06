@@ -5,6 +5,7 @@ from typing import Any, Callable, Union, List
 
 from unsserv.common.services_abc import MembershipService, ClusteringService
 from unsserv.common.structs import Node
+from unsserv.common.utils import stop_task
 from unsserv.common.typing import NeighboursCallback
 from unsserv.common.typing import View
 from unsserv.stable.clustering.config import (
@@ -50,11 +51,7 @@ class XBot(ClusteringService, IDoubleLayered):
         if not self.running:
             return
         if self._local_view_optimize_task:
-            self._local_view_optimize_task.cancel()
-            try:
-                await self._local_view_optimize_task
-            except asyncio.CancelledError:
-                pass
+            await stop_task(self._local_view_optimize_task)
         await self._protocol.stop()
         await self._stop_two_layered()
         self.running = False

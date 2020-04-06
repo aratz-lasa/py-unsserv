@@ -5,6 +5,7 @@ from collections import Counter
 from contextlib import contextmanager
 from typing import List, Set, Counter as CounterType
 
+from unsserv.common.utils import stop_task
 from unsserv.common.structs import Node
 from unsserv.stable.membership.double_layered.config import (
     ACTIVE_VIEW_SIZE,
@@ -36,11 +37,7 @@ class IDoubleLayered(ABC):
     async def _stop_two_layered(self):
         self._active_view = set()
         if self._local_view_maintenance_task:
-            self._local_view_maintenance_task.cancel()
-            try:
-                await self._local_view_maintenance_task
-            except asyncio.CancelledError:
-                pass
+            await stop_task(self._local_view_maintenance_task)
         await self._doble_layered_protocol.stop()
 
     async def _connect_to_node(self, node: Node):

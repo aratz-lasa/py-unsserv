@@ -3,6 +3,7 @@ import math
 import random
 from typing import Dict, List, Any
 
+from unsserv.common.utils import stop_task
 from unsserv.common.structs import Node
 from unsserv.common.errors import ServiceError
 from unsserv.common.services_abc import MembershipService, SamplingService
@@ -59,11 +60,7 @@ class MRWB(SamplingService):
         self._neighbours = []
         await self._protocol.stop()
         if self._degrees_update_task:  # stop degrees updater task
-            self._degrees_update_task.cancel()
-            try:
-                await self._degrees_update_task
-            except asyncio.CancelledError:
-                pass
+            await stop_task(self._degrees_update_task)
         self.running = False
 
     async def get_sample(self) -> Node:
