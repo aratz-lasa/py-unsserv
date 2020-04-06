@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Tuple
 from rpcudp.protocol import RPCProtocol
 
 from unsserv.common.structs import Message, Node
-from unsserv.common.gossip import gossip_config as config
+from unsserv.common.gossip import config as config
 from unsserv.common.rpc.rpc_typing import RpcCallback
 from unsserv.common.utils import parse_message
 

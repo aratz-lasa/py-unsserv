@@ -6,7 +6,7 @@ from unsserv.common.aggregation.anti_entropy import (
     AntiEntropy,
     aggregate_functions,
 )
-from unsserv.common.gossip.gossip_config import GOSSIPING_FREQUENCY
+from unsserv.common.gossip.config import GOSSIPING_FREQUENCY
 from tests.utils import init_extreme_membership
 
 init_extreme_membership = init_extreme_membership  # for flake8 compliance

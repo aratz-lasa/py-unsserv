@@ -2,7 +2,7 @@ import asyncio
 import pytest
 from unsserv.common.structs import Node
 from unsserv.extreme.membership import newscast
-from unsserv.common.gossip.gossip_config import GOSSIPING_FREQUENCY
+from unsserv.common.gossip.config import GOSSIPING_FREQUENCY
 
 first_port = 7771
 node = Node(("127.0.0.1", first_port))

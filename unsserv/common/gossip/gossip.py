@@ -2,32 +2,34 @@ import asyncio
 import math
 import random
 from collections import Counter
-from typing import Any, Dict, List, Optional, Union
+from contextlib import contextmanager
+from typing import Any, Dict, List, Optional
 
-from unsserv.common.utils import parse_message
-from unsserv.common.gossip.gossip_policies import (
+from unsserv.common.gossip.config import (
+    GOSSIPING_FREQUENCY,
+    LOCAL_VIEW_SIZE,
+)
+from unsserv.common.gossip.policies import (
     ViewSelectionPolicy,
     PeerSelectionPolicy,
     ViewPropagationPolicy,
 )
-from unsserv.common.structs import Message, Node
-from unsserv.common.gossip.gossip_config import (
-    FIELD_VIEW,
-    GOSSIPING_FREQUENCY,
-    LOCAL_VIEW_SIZE,
-)
-from unsserv.common.gossip.gossip_subcriber_abc import IGossipSubscriber
-from unsserv.common.gossip.gossip_typing import (
+from unsserv.common.gossip.protocol import GossipProtocol
+from unsserv.common.gossip.structs import PushData
+from unsserv.common.gossip.subcriber_abc import IGossipSubscriber
+from unsserv.common.gossip.typing import (
     ExternalViewSource,
     CustomSelectionRanking,
     LocalViewCallback,
 )
-from unsserv.common.rpc.rpc import RPCRegister, RPC
+from unsserv.common.gossip.typing import Payload
 from unsserv.common.services_abc import View
+from unsserv.common.structs import Node
+from unsserv.common.utils import stop_task
 
 
 class Gossip:
-    rpc: RPC
+    _protocol: GossipProtocol
     my_node: Node
     local_view: View
     running: bool = False
@@ -62,27 +64,23 @@ class Gossip:
 
         self.local_view_size = local_view_size
         self.gossiping_frequency = gossiping_frequency
-        self.rpc = RPCRegister.get_rpc(self.my_node)
+        self._protocol = GossipProtocol(self.my_node)
 
         self.subscribers: List[IGossipSubscriber] = []
 
     async def start(self):
         if self.running:
             raise RuntimeError("Already running Gossip")
-        await self.rpc.register_service(self.service_id, self._reactive_process)
-        self._proactive_task = asyncio.create_task(self._proactive_process())
+        await self._initialize_protocol()
+        self._gossip_task = asyncio.create_task(self._gossip_loop())
         self.running = True
 
     async def stop(self):
         if not self.running:
             return
-        await self.rpc.unregister_service(self.service_id)
-        if self._proactive_task:
-            self._proactive_task.cancel()
-            try:
-                await self._proactive_task
-            except asyncio.CancelledError:
-                pass
+        await self._protocol.stop()
+        if self._gossip_task:
+            await stop_task(self._gossip_task)
         self.running = False
 
     def subscribe(self, subscriber: IGossipSubscriber):
@@ -91,70 +89,32 @@ class Gossip:
     def unsubscribe(self, subscriber: IGossipSubscriber):
         self.subscribers.remove(subscriber)
 
-    async def _proactive_process(self):
+    async def _gossip_loop(self):
         while True:
             await asyncio.sleep(self.gossiping_frequency)
             peer = self._select_peer(self.local_view)
             if not peer:  # Empty Local view
                 continue
-            push_view = Counter()  # if PULL, empty view
-            if self.view_propagation is not ViewPropagationPolicy.PULL:
-                my_descriptor = Counter({self.my_node: 0})
-                push_view = self._merge_views(my_descriptor, self.local_view)
             subscribers_data = await self._get_data_from_subscribers()
-            data = {FIELD_VIEW: push_view, **subscribers_data}
-            push_message = Message(self.my_node, self.service_id, data)
             if self.view_propagation is ViewPropagationPolicy.PUSH:
-                try:
-                    await self.rpc.call_send_message(peer, push_message)
-                except ConnectionError:
-                    try:
-                        self.local_view.pop(peer)
-                    except KeyError:
-                        pass
-                    continue
-            else:
-                try:
-                    push_message = parse_message(
-                        await self.rpc.call_send_message(peer, push_message)
-                    )  # rpc.pushpull used for bot PULL and PUSHPULL
-                except ConnectionError:
-                    try:
-                        self.local_view.pop(peer)
-                    except KeyError:
-                        pass
-                    continue
-                view = _decode_view(push_message.data[FIELD_VIEW])
-                view = self._increase_hop_count(view)
-                buffer = self._merge_views(view, self.local_view)
-                if self.get_external_view:
-                    buffer = self._merge_views(view, self.get_external_view())
-                new_view = self._select_view(buffer)
-                await self._try_call_callback(new_view)
-                self.local_view = new_view
-
-    async def _reactive_process(self, message: Message) -> Union[None, Message]:
-        view = _decode_view(message.data[FIELD_VIEW])
-        view = self._increase_hop_count(view)
-        pull_return_message = None
-        if self.view_propagation is not ViewPropagationPolicy.PUSH:
-            my_descriptor = Counter({self.my_node: 0})
-            subscribers_data = await self._get_data_from_subscribers()
-            data = {
-                FIELD_VIEW: self._merge_views(my_descriptor, self.local_view),
-                **subscribers_data,
-            }
-            pull_return_message = Message(self.my_node, self.service_id, data)
-        buffer = self._merge_views(view, self.local_view)
-        if self.get_external_view:
-            buffer = self._merge_views(view, self.get_external_view())
-
-        new_view = self._select_view(buffer)
-        await self._try_call_callback(new_view)
-        self.local_view = new_view
-
-        await self._deliver_message_to_subscribers(message)
-        return pull_return_message
+                push_view = self._merge_views(
+                    Counter({self.my_node: 0}), self.local_view
+                )
+                with self._pop_on_connection_error(peer):
+                    push_data = PushData(view=push_view, payload=subscribers_data)
+                    await self._protocol.push(peer, push_data)
+            elif self.view_propagation is ViewPropagationPolicy.PULL:
+                with self._pop_on_connection_error(peer):
+                    pull_response = await self._protocol.pull(peer, subscribers_data)
+                    await self._handler_push(peer, pull_response)
+            elif self.view_propagation is ViewPropagationPolicy.PUSHPULL:
+                push_view = self._merge_views(
+                    Counter({self.my_node: 0}), self.local_view
+                )
+                with self._pop_on_connection_error(peer):
+                    push_data = PushData(view=push_view, payload=subscribers_data)
+                    pull_response = await self._protocol.pushpull(peer, push_data)
+                    await self._handler_push(peer, pull_response)
 
     def _select_peer(self, view: View) -> Optional[Node]:
         if self.custom_selection_ranking:
@@ -170,6 +130,7 @@ class Gossip:
         raise AttributeError("Invalid Peer Selection policy")
 
     def _select_view(self, view: View) -> View:
+        # todo: document what happens here
         if self.my_node in view:
             view.pop(self.my_node)
         remove_amount = max(len(view) - self.local_view_size, 0)
@@ -215,15 +176,47 @@ class Gossip:
             data[key] = value
         return data
 
-    async def _deliver_message_to_subscribers(self, message: Message):
+    async def _deliver_message_to_subscribers(self, gossip_payload: Payload):
         for subscriber in self.subscribers:
-            await subscriber.new_message(message)
+            await subscriber.new_message(gossip_payload)
 
     async def _try_call_callback(self, new_view):
         if set(new_view.keys()) != set(self.local_view.keys()):
             if self.local_view_callback:
                 await self.local_view_callback(new_view)
 
+    async def _handler_push(self, sender: Node, push_data: PushData):
+        view = self._increase_hop_count(push_data.view)
+        buffer = self._merge_views(view, self.local_view)
+        if self.get_external_view:
+            buffer = self._merge_views(view, self.get_external_view())
+        new_view = self._select_view(buffer)
+        await self._try_call_callback(new_view)
+        self.local_view = new_view
+        await self._deliver_message_to_subscribers(push_data.payload)
 
-def _decode_view(raw_view: dict) -> View:
-    return Counter(dict(map(lambda n: (Node(*n[0]), n[1]), raw_view.items())))
+    async def _handler_pull(self, sender: Node, payload: Payload) -> PushData:
+        my_descriptor = Counter({self.my_node: 0})
+        subscribers_data = await self._get_data_from_subscribers()
+        # todo: deliver message to subscribers
+        view = self._merge_views(my_descriptor, self.local_view)
+        return PushData(view=view, payload=subscribers_data)
+
+    async def _handler_pushpull(self, sender: Node, push_data: PushData):
+        pull_response = await self._handler_pull(sender, push_data.payload)
+        await self._handler_push(sender, push_data)
+        return pull_response
+
+    async def _initialize_protocol(self):
+        self._protocol.set_handler_push(self._handler_push)
+        self._protocol.set_handler_pull(self._handler_pull)
+        self._protocol.set_handler_pushpull(self._handler_pushpull)
+        await self._protocol.start(self.service_id)
+
+    @contextmanager
+    def _pop_on_connection_error(self, node: Node):
+        try:
+            yield
+        except ConnectionError:
+            if node in self.local_view:
+                self.local_view.pop(node)

@@ -2,7 +2,7 @@ import asyncio
 
 import pytest
 
-from unsserv.common.gossip.gossip_config import GOSSIPING_FREQUENCY
+from unsserv.common.gossip.config import GOSSIPING_FREQUENCY
 from unsserv.extreme.sampling.mrwb import MRWB
 
 from tests.utils import init_extreme_membership

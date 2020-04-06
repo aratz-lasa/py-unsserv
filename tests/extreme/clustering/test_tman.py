@@ -6,7 +6,7 @@ import pytest
 
 from functools import partial
 from unsserv.common.structs import Node
-from unsserv.common.gossip.gossip_config import GOSSIPING_FREQUENCY, LOCAL_VIEW_SIZE
+from unsserv.common.gossip.config import GOSSIPING_FREQUENCY, LOCAL_VIEW_SIZE
 from unsserv.extreme.clustering.t_man import TMan
 from tests.utils import init_extreme_membership
 

@@ -4,7 +4,7 @@ from math import ceil
 
 import pytest
 
-from unsserv.common.gossip.gossip_config import GOSSIPING_FREQUENCY, LOCAL_VIEW_SIZE
+from unsserv.common.gossip.config import GOSSIPING_FREQUENCY, LOCAL_VIEW_SIZE
 from tests.utils import init_extreme_membership
 from unsserv.extreme.searching.k_walker import KWalker
 from unsserv.common.utils import get_random_id

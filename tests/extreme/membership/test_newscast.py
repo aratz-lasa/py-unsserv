@@ -6,7 +6,7 @@ import pytest
 
 from tests.utils import get_random_nodes
 from unsserv.common.structs import Node
-from unsserv.common.gossip.gossip_config import GOSSIPING_FREQUENCY, LOCAL_VIEW_SIZE
+from unsserv.common.gossip.config import GOSSIPING_FREQUENCY, LOCAL_VIEW_SIZE
 from unsserv.extreme.membership import newscast
 
 node = Node(("127.0.0.1", 7771))

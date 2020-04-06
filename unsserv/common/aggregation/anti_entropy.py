@@ -2,9 +2,9 @@ from enum import Enum, auto
 from statistics import mean
 from typing import Any, Callable, Dict, Tuple, Optional
 
-from unsserv.common.structs import Message
+from unsserv.common.gossip.typing import Payload
 from unsserv.common.gossip.gossip import Gossip
-from unsserv.common.gossip.gossip_subcriber_abc import IGossipSubscriber
+from unsserv.common.gossip.subcriber_abc import IGossipSubscriber
 from unsserv.common.services_abc import (
     AggregateCallback,
     AggregationService,
@@ -76,10 +76,10 @@ class AntiEntropy(AggregationService, IGossipSubscriber):
             raise RuntimeError("Aggregation service not running")
         self._callback = callback
 
-    async def new_message(self, message: Message):
+    async def new_message(self, payload: Payload):
         """IGossipSubscriber implementation."""
         assert callable(self._aggregate_func)
-        neighbor_aggregate = message.data.get(self.service_id, None)
+        neighbor_aggregate = payload.get(self.service_id, None)
         self._aggregate_value = self._aggregate_func(
             [self._aggregate_value, neighbor_aggregate]
         )

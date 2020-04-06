@@ -1,3 +1,4 @@
+import asyncio
 import random
 import string
 from typing import List
@@ -20,3 +21,11 @@ def parse_message(raw_message: List) -> Message:
 def get_random_id(size: int = 10) -> str:
     id_characters = string.ascii_letters + string.digits + string.punctuation
     return "".join(random.choice(id_characters) for _ in range(size))
+
+
+async def stop_task(task: asyncio.Task):
+    task.cancel()
+    try:
+        await task
+    except asyncio.CancelledError:
+        pass

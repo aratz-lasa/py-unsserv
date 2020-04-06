@@ -5,7 +5,7 @@ from typing import Any, Dict
 import pytest
 
 from unsserv.common.structs import Node
-from unsserv.common.gossip.gossip_config import GOSSIPING_FREQUENCY
+from unsserv.common.gossip.config import GOSSIPING_FREQUENCY
 from unsserv.extreme.dissemination.mon.mon import Mon
 from tests.utils import init_extreme_membership
 
