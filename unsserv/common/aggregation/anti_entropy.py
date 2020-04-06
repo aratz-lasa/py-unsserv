@@ -61,9 +61,9 @@ class AntiEntropy(AggregationService, IGossipSubscriber):
     async def leave_aggregation(self) -> None:
         if not self.running:
             return
+        self._gossip.unsubscribe(self)
         self._aggregate_type = None
         self._aggregate_value = None
-        self._gossip.unsubscribe(self)
         self.running = False
 
     async def get_aggregate(self) -> Any:
@@ -80,10 +80,13 @@ class AntiEntropy(AggregationService, IGossipSubscriber):
         """IGossipSubscriber implementation."""
         assert callable(self._aggregate_func)
         neighbor_aggregate = payload.get(self.service_id, None)
+        if not neighbor_aggregate:
+            return
         self._aggregate_value = self._aggregate_func(
             [self._aggregate_value, neighbor_aggregate]
         )
-        await self._callback(self._aggregate_value)
+        if self._callback:
+            await self._callback(self._aggregate_value)
 
     async def get_payload(self) -> Tuple[Any, Any]:
         """IGossipSubscriber implementation."""
