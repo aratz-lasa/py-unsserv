@@ -76,7 +76,7 @@ class AntiEntropy(AggregationService, IGossipSubscriber):
             raise RuntimeError("Aggregation service not running")
         self._callback = callback
 
-    async def new_message(self, payload: Payload):
+    async def receive_payload(self, payload: Payload):
         """IGossipSubscriber implementation."""
         assert callable(self._aggregate_func)
         neighbor_aggregate = payload.get(self.service_id, None)
@@ -85,6 +85,6 @@ class AntiEntropy(AggregationService, IGossipSubscriber):
         )
         await self._callback(self._aggregate_value)
 
-    async def get_data(self) -> Tuple[Any, Any]:
+    async def get_payload(self) -> Tuple[Any, Any]:
         """IGossipSubscriber implementation."""
         return self.service_id, self._aggregate_value

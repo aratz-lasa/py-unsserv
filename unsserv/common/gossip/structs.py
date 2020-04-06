@@ -1,4 +1,6 @@
 from dataclasses import dataclass
+from typing import Dict, Any
+
 from unsserv.common.gossip.typing import Payload, View
 
 
@@ -6,3 +8,6 @@ from unsserv.common.gossip.typing import Payload, View
 class PushData:
     view: View
     payload: Payload
+
+    def encode(self) -> Dict[str, Any]:
+        return {"view": self.view, "payload": self.payload}

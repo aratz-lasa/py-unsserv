@@ -1,6 +1,6 @@
 from collections import Counter
 from enum import IntEnum, auto
-from typing import Tuple, Sequence
+from typing import Tuple, Sequence, Dict, Any
 
 from unsserv.common.gossip.structs import PushData
 from unsserv.common.gossip.typing import Payload
@@ -73,11 +73,13 @@ class GossipProtocol(AProtocol):
 
     async def pull(self, destination: Node, payload: Payload) -> PushData:
         message = self._transcoder.encode(GossipCommand.PULL, payload)
-        return await self._rpc.call_send_message(destination, message)
+        encoded_push_data = await self._rpc.call_send_message(destination, message)
+        return _parse_push_data(encoded_push_data)
 
     async def pushpull(self, destination: Node, push_data: PushData) -> PushData:
         message = self._transcoder.encode(GossipCommand.PUSHPULL, push_data)
-        return await self._rpc.call_send_message(destination, message)
+        encoded_push_data = await self._rpc.call_send_message(destination, message)
+        return _parse_push_data(encoded_push_data)
 
     def set_handler_push(self, handler: Handler):
         self._handlers[GossipCommand.PUSH] = handler
@@ -89,5 +91,11 @@ class GossipProtocol(AProtocol):
         self._handlers[GossipCommand.PUSHPULL] = handler
 
 
-def _parse_view(raw_view: dict) -> View:
+def _parse_view(raw_view: Dict[Any, Any]) -> View:
     return Counter(dict(map(lambda n: (Node(*n[0]), n[1]), raw_view.items())))
+
+
+def _parse_push_data(raw_push_data: Dict[str, Any]) -> PushData:
+    return PushData(
+        view=_parse_view(raw_push_data["view"]), payload=raw_push_data["payload"]
+    )

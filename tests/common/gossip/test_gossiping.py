@@ -10,6 +10,7 @@ from unsserv.common.gossip.config import GOSSIPING_FREQUENCY
 from unsserv.common.gossip.gossip import LOCAL_VIEW_SIZE, View
 from unsserv.common.gossip.typing import Payload
 from unsserv.common.structs import Node
+from unsserv.common.utils import parse_node
 
 node = Node(("127.0.0.1", 7771))
 SERVICE_ID = "gossip"
@@ -102,26 +103,32 @@ async def test_subscriber():
         def __init__(self, my_node, expected_node):
             self.my_node = my_node
             self.expected_node = expected_node
+            self.is_payload_received = False
 
-        async def new_message(self, payload: Payload):
-            node = Node(*payload[Subscriber.service_id])
+        async def receive_payload(self, payload: Payload):
+            node = parse_node(payload[Subscriber.service_id])
             assert node == self.expected_node
+            self.is_payload_received = True
 
-        async def get_data(self) -> Tuple[Any, Any]:
+        async def get_payload(self) -> Tuple[Any, Any]:
             return Subscriber.service_id, self.my_node
 
     r_node = get_random_nodes(1, first_port=7772)[0]
     gsp = gossip.Gossip(node, SERVICE_ID)
-    sub = Subscriber(node, r_node)
-    gsp.subscribe(sub)
-    await gsp.start()
+    sub_gsp = Subscriber(node, r_node)
+    gsp.subscribe(sub_gsp)
 
     r_gsp = gossip.Gossip(r_node, SERVICE_ID, [node])
-    sub = Subscriber(r_node, node)
-    gsp.subscribe(sub)
+    sub_r_gsp = Subscriber(r_node, node)
+    r_gsp.subscribe(sub_r_gsp)
+
+    await gsp.start()
     await r_gsp.start()
 
     await asyncio.sleep(GOSSIPING_FREQUENCY * 3)
+
+    assert sub_gsp.is_payload_received
+    assert sub_r_gsp.is_payload_received
 
     await gsp.stop()
     await r_gsp.stop()

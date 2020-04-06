@@ -1,10 +1,11 @@
 import asyncio
 from abc import ABC, abstractmethod
+from dataclasses import is_dataclass, asdict
 from enum import IntEnum
 from typing import Any, Tuple, Sequence, Dict, Callable
 
-from unsserv.common.structs import Node, Message
 from unsserv.common.rpc.rpc import RPCRegister, RPC
+from unsserv.common.structs import Node, Message
 
 Command = IntEnum
 Data = Any
@@ -61,9 +62,22 @@ class AProtocol:
         command, data = self._transcoder.decode(message)
         handler = self._handlers[command]
         if asyncio.iscoroutinefunction(handler):
-            return await handler(message.node, *data)
+            response = await handler(message.node, *data)
+            return self._encode_response(response)
         else:
-            return handler(message.node, *data)
+            response = handler(message.node, *data)
+            return self._encode_response(response)
+
+    def _encode_response(self, response: Any) -> Any:
+        if isinstance(response, list):
+            return [self._encode_response(response_item) for response_item in response]
+        elif isinstance(response, tuple):
+            return (self._encode_response(response_item) for response_item in response)
+        elif hasattr(response, "encode"):
+            return response.encode()
+        elif is_dataclass(response):
+            return asdict(response)
+        return response
 
     @abstractmethod
     def _get_new_transcoder(self):

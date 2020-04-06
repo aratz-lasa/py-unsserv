@@ -100,8 +100,8 @@ class Gossip:
                 push_view = self._merge_views(
                     Counter({self.my_node: 0}), self.local_view
                 )
+                push_data = PushData(view=push_view, payload=subscribers_data)
                 with self._pop_on_connection_error(peer):
-                    push_data = PushData(view=push_view, payload=subscribers_data)
                     await self._protocol.push(peer, push_data)
             elif self.view_propagation is ViewPropagationPolicy.PULL:
                 with self._pop_on_connection_error(peer):
@@ -111,8 +111,8 @@ class Gossip:
                 push_view = self._merge_views(
                     Counter({self.my_node: 0}), self.local_view
                 )
+                push_data = PushData(view=push_view, payload=subscribers_data)
                 with self._pop_on_connection_error(peer):
-                    push_data = PushData(view=push_view, payload=subscribers_data)
                     pull_response = await self._protocol.pushpull(peer, push_data)
                     await self._handler_push(peer, pull_response)
 
@@ -172,13 +172,13 @@ class Gossip:
     async def _get_data_from_subscribers(self):
         data: Dict = {}
         for subscriber in self.subscribers:
-            key, value = await subscriber.get_data()
+            key, value = await subscriber.get_payload()
             data[key] = value
         return data
 
     async def _deliver_message_to_subscribers(self, gossip_payload: Payload):
         for subscriber in self.subscribers:
-            await subscriber.new_message(gossip_payload)
+            await subscriber.receive_payload(gossip_payload)
 
     async def _try_call_callback(self, new_view):
         if set(new_view.keys()) != set(self.local_view.keys()):
