@@ -4,6 +4,7 @@ from typing import Any, List, Dict
 
 from unsserv.common.structs import Node
 from unsserv.common.errors import ServiceError
+from unsserv.common.service_properties import Property
 from unsserv.common.services_abc import DisseminationService, MembershipService
 from unsserv.common.typing import BroadcastHandler
 from unsserv.common.utils import get_random_id
@@ -14,6 +15,7 @@ from unsserv.extreme.dissemination.mon.typing import BroadcastID
 
 
 class Mon(DisseminationService):
+    properties = {Property.EXTREME, Property.ONE_TO_MANY}
     _broadcast_handler: BroadcastHandler
     _protocol: MonProtocol
     _levels: Dict[BroadcastID, int]

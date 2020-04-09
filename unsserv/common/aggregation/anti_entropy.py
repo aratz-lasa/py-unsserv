@@ -2,6 +2,7 @@ from enum import Enum, auto
 from statistics import mean
 from typing import Any, Callable, Dict, Tuple, Optional
 
+from unsserv.common.service_properties import Property
 from unsserv.common.gossip.typing import Payload
 from unsserv.common.gossip.gossip import Gossip
 from unsserv.common.gossip.subcriber_abc import IGossipSubscriber
@@ -28,7 +29,8 @@ aggregate_functions: Dict[AggregateType, Callable] = {
 class AntiEntropy(AggregationService, IGossipSubscriber):
     """Aggregation Anti-Entropy service."""
 
-    _gossip: Gossip
+    properties = {Property.EXTREME, Property.STABLE, Property.HAS_GOSSIP}
+    gossip: Gossip
     _aggregate_value: Any
     _aggregate_type: Optional[AggregateType]
     _aggregate_func: Optional[Callable]
@@ -36,13 +38,13 @@ class AntiEntropy(AggregationService, IGossipSubscriber):
 
     def __init__(self, membership: MembershipService):
         self.my_node = membership.my_node
-        if not hasattr(membership, "_gossip"):
+        if Property.HAS_GOSSIP not in membership.properties:
             raise ValueError(
                 "Invalid membership service. "
-                "Membership must contain a '_gossip' attribute"
+                "Membership must contain a 'gossip' attribute"
             )
         self.membership = membership
-        self._gossip = getattr(membership, "_gossip")
+        self.gossip = getattr(membership, "gossip")
         self._aggregate_value = None
         self._aggregate_type = None
         self._aggregate_func = None
@@ -55,13 +57,13 @@ class AntiEntropy(AggregationService, IGossipSubscriber):
         self._aggregate_value = configuration["aggregate_value"]
         self.service_id = service_id
         self._aggregate_func = aggregate_functions[self._aggregate_type]
-        self._gossip.subscribe(self)
+        self.gossip.subscribe(self)
         self.running = True
 
     async def leave_aggregation(self) -> None:
         if not self.running:
             return
-        self._gossip.unsubscribe(self)
+        self.gossip.unsubscribe(self)
         self._aggregate_type = None
         self._aggregate_value = None
         self.running = False

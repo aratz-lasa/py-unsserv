@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
-from typing import Any, List, Union, Optional
+from typing import Any, List, Union, Optional, Set
 
+from unsserv.common.service_properties import Property
 from unsserv.common.structs import Node
 from unsserv.common.typing import (
     AggregateCallback,
@@ -21,6 +22,7 @@ class IService(ABC):
     my_node: Node
     service_id: Any
     running: bool = False
+    properties: Set[Property]
 
 
 class ISubService(IService):

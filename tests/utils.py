@@ -2,12 +2,14 @@ import asyncio
 import pytest
 from unsserv.common.structs import Node
 from unsserv.extreme.membership import newscast
+from unsserv.stable.membership import hyparview
 from unsserv.common.gossip.config import GOSSIPING_FREQUENCY
 
 first_port = 7771
 node = Node(("127.0.0.1", first_port))
 
 NEWSCAST_SERVICE_ID = "newscast"
+HYPARVIEW_SERVICE_ID = "hyparview"
 
 
 def get_random_nodes(amount, first_port=7772, host="127.0.0.1"):
@@ -37,4 +39,32 @@ async def init_extreme_membership():
     finally:
         await newc.leave()
         for r_newc in r_newcs:
+            await r_newc.leave()
+
+
+@pytest.mark.asyncio
+@pytest.fixture
+async def init_stable_membership():
+    hypa = None
+    r_hypas = []
+
+    async def get_memberships(amount):
+        nonlocal hypa, r_hypas
+        hypa = hyparview.HyParView(node)
+        await hypa.join(HYPARVIEW_SERVICE_ID)
+        r_nodes = get_random_nodes(amount, first_port=first_port + 1)
+        for i, r_node in enumerate(r_nodes):
+            r_hypa = newscast.Newscast(r_node)
+            await r_hypa.join(
+                HYPARVIEW_SERVICE_ID, bootstrap_nodes=[node] + r_nodes[:i]
+            )
+            r_hypas.append(r_hypa)
+        await asyncio.sleep(GOSSIPING_FREQUENCY * 7)
+        return hypa, r_hypas
+
+    try:
+        yield get_memberships
+    finally:
+        await hypa.leave()
+        for r_newc in r_hypas:
             await r_newc.leave()

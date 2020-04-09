@@ -3,6 +3,7 @@ import random
 from collections import OrderedDict
 from typing import Any, List, Union
 
+from unsserv.common.service_properties import Property
 from unsserv.common.services_abc import DisseminationService, MembershipService
 from unsserv.common.structs import Node
 from unsserv.common.typing import BroadcastHandler
@@ -21,6 +22,7 @@ from unsserv.extreme.dissemination.lpbcast.typing import (
 
 
 class Lpbcast(DisseminationService):
+    properties = {Property.EXTREME, Property.MANY_TO_MANY}
     _protocol: LpbcastProtocol
     _broadcast_handler: BroadcastHandler
 

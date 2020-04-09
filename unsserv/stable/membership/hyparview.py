@@ -3,19 +3,21 @@ from typing import Union, List, Any, Optional
 
 from unsserv.common.gossip.gossip import Gossip
 from unsserv.common.services_abc import MembershipService
+from unsserv.common.service_properties import Property
 from unsserv.common.structs import Node
 from unsserv.common.typing import NeighboursCallback, View
 from unsserv.stable.membership.double_layered.double_layered import IDoubleLayered
 
 
 class HyParView(MembershipService, IDoubleLayered):
-    _gossip: Optional[Gossip]
+    properties = {Property.STABLE, Property.SYMMETRIC, Property.HAS_GOSSIP}
+    gossip: Optional[Gossip]
     _callback: NeighboursCallback
     _callback_raw_format: bool
 
     def __init__(self, my_node: Node):
         super().__init__(my_node)
-        self._gossip = None
+        self.gossip = None
         self._callback = None
         self._callback_raw_format = False
 
@@ -23,20 +25,20 @@ class HyParView(MembershipService, IDoubleLayered):
         if self.running:
             raise RuntimeError("Already running Membership")
         self.service_id = service_id
-        self._gossip = Gossip(
+        self.gossip = Gossip(
             my_node=self.my_node,
             service_id=f"gossip-{service_id}",
             local_view_nodes=configuration.get("bootstrap_nodes", None),
             local_view_callback=self._local_view_callback,
         )
-        await self._gossip.start()
+        await self.gossip.start()
         await self._start_two_layered(f"double_layered-{service_id}")
         self.running = True
 
     async def leave(self) -> None:
         if not self.running:
             return
-        await self._gossip.stop()
+        await self.gossip.stop()
         await self._stop_two_layered()
         self.running = False
 
@@ -63,4 +65,4 @@ class HyParView(MembershipService, IDoubleLayered):
                 await self._callback(list(local_view.keys()))
 
     def _get_passive_view_nodes(self):
-        return list(self._gossip.local_view.keys())
+        return list(self.gossip.local_view.keys())

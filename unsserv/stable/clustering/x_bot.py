@@ -3,6 +3,7 @@ import random
 from collections import Counter
 from typing import Any, Callable, Union, List
 
+from unsserv.common.service_properties import Property
 from unsserv.common.services_abc import MembershipService, ClusteringService
 from unsserv.common.structs import Node
 from unsserv.common.utils import stop_task
@@ -22,6 +23,7 @@ RankingFunction = Callable[[Node], Any]
 
 
 class XBot(ClusteringService, IDoubleLayered):
+    properties = {Property.STABLE, Property.SYMMETRIC}
     _protocol: XBotProtocol
     _callback: NeighboursCallback
     _callback_raw_format: bool

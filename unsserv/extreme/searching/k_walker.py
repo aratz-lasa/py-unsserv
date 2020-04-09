@@ -3,6 +3,7 @@ import random
 from typing import Any, Dict, Optional
 
 from unsserv.common.structs import Node
+from unsserv.common.service_properties import Property
 from unsserv.common.services_abc import SearchingService, MembershipService
 from unsserv.common.utils import get_random_id
 from unsserv.extreme.searching import config as config
@@ -11,6 +12,7 @@ from unsserv.extreme.searching.protocol import KWalkerProtocol
 
 
 class KWalker(SearchingService):
+    properties = {Property.EXTREME}
     _search_data: Dict[str, bytes]
     _walk_events: Dict[str, asyncio.Event]
     _walk_results: Dict[str, bytes]

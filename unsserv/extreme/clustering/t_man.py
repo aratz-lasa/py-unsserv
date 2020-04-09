@@ -1,6 +1,7 @@
 from functools import partial
 from typing import Any, Callable, List, Union, Optional
 
+from unsserv.common.service_properties import Property
 from unsserv.common.services_abc import (
     ClusteringService,
     MembershipService,
@@ -16,6 +17,8 @@ RankingFunction = Callable[[Node], Any]
 
 
 class TMan(ClusteringService):
+    properties = {Property.EXTREME, Property.HAS_GOSSIP, Property.NON_SYMMETRIC}
+
     _callback: NeighboursCallback
     _callback_raw_format: bool
     _gossip: Optional[Gossip]
