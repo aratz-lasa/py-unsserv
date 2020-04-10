@@ -54,7 +54,7 @@ async def init_stable_membership():
         await hypa.join(HYPARVIEW_SERVICE_ID)
         r_nodes = get_random_nodes(amount, first_port=first_port + 1)
         for i, r_node in enumerate(r_nodes):
-            r_hypa = newscast.Newscast(r_node)
+            r_hypa = hyparview.HyParView(r_node)
             await r_hypa.join(
                 HYPARVIEW_SERVICE_ID, bootstrap_nodes=[node] + r_nodes[:i]
             )
@@ -66,5 +66,5 @@ async def init_stable_membership():
         yield get_memberships
     finally:
         await hypa.leave()
-        for r_newc in r_hypas:
-            await r_newc.leave()
+        for r_hypa in r_hypas:
+            await r_hypa.leave()

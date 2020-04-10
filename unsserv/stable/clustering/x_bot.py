@@ -26,7 +26,6 @@ class XBot(ClusteringService, IDoubleLayered):
     properties = {Property.STABLE, Property.SYMMETRIC}
     _protocol: XBotProtocol
     _callback: NeighboursCallback
-    _callback_raw_format: bool
     _local_view_optimize_task: asyncio.Task
 
     def __init__(self, membership: MembershipService):
@@ -34,7 +33,6 @@ class XBot(ClusteringService, IDoubleLayered):
         self.membership = membership
         self._protocol = XBotProtocol(membership.my_node)
         self._callback = None
-        self._callback_raw_format = False
         self._ranking_function: RankingFunction
 
     async def join(self, service_id: Any, **configuration: Any):
@@ -65,34 +63,22 @@ class XBot(ClusteringService, IDoubleLayered):
             Counter(self._active_view) if local_view_format else list(self._active_view)
         )
 
-    def set_neighbours_callback(
-        self, callback: NeighboursCallback, local_view_format: bool = False
-    ) -> None:
+    def set_neighbours_callback(self, callback: NeighboursCallback) -> None:
         if not self.running:
             raise RuntimeError("Memberhsip service not running")
         self._callback = callback
-        self._callback_raw_format = local_view_format
-
-    async def _local_view_callback(self, local_view: View):
-        if self._callback:
-            if self._callback_raw_format:
-                await self._callback(local_view)
-            else:
-                await self._callback(list(local_view.keys()))
 
     def _get_passive_view_nodes(self):
         return self.membership.get_neighbours()
 
     async def _optimize_active_view_loop(self):
         await asyncio.sleep(ACTIVE_VIEW_MAINTAIN_FREQUENCY)
-        old_active_view = self._active_view.copy()
         while True:
+            old_active_view = self._active_view.copy()
             await asyncio.sleep(ACTIVE_VIEW_MAINTAIN_FREQUENCY)
             if len(self._active_view) >= ACTIVE_VIEW_SIZE:
                 await self._optimize_active_view()  # todo: create task instead?
-            if old_active_view != self._active_view:
-                self._try_call_callback()
-                old_active_view = self._active_view.copy()
+            self._call_callback_if_view_changed(old_active_view)
 
     async def _optimize_active_view(self):
         candidate_neighbours = self.membership.get_neighbours()
@@ -119,7 +105,6 @@ class XBot(ClusteringService, IDoubleLayered):
             asyncio.create_task(self._doble_layered_protocol.disconnect(old_node))
             self._active_view.remove(old_node)
         self._active_view.add(new_node)
-        self._try_call_callback()
 
     def _get_the_best(self, node1: Node, node2: Node):
         return (
@@ -128,13 +113,9 @@ class XBot(ClusteringService, IDoubleLayered):
             else node2
         )
 
-    def _try_call_callback(self):
-        asyncio.create_task(self._local_view_callback(Counter(list(self._active_view))))
-
     async def _handler_optimization(self, sender: Node, old_node: Node):
         if len(self._active_view) < ACTIVE_VIEW_SIZE:
             self._active_view.add(sender)
-            self._try_call_callback()
             return True
 
         replace_node = list(sorted(self._active_view, key=self._ranking_function))[-1]
@@ -144,7 +125,6 @@ class XBot(ClusteringService, IDoubleLayered):
         if is_replaced:
             self._active_view.remove(replace_node)
             self._active_view.add(sender)
-            self._try_call_callback()
             return True
         return False
 
@@ -159,7 +139,6 @@ class XBot(ClusteringService, IDoubleLayered):
                 if sender in self._active_view:
                     self._active_view.remove(sender)
                 self._active_view.add(replace.old_node)
-                self._try_call_callback()
                 return True
             return False
 
@@ -167,7 +146,6 @@ class XBot(ClusteringService, IDoubleLayered):
         if origin_node in self._active_view:
             self._active_view.remove(origin_node)
             self._active_view.add(sender)
-            self._try_call_callback()
             return True
         return False
 

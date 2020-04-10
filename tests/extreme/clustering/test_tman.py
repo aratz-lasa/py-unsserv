@@ -114,11 +114,11 @@ async def test_tman_callback(init_extreme_membership, init_tman, amount):
     callback_event = asyncio.Event()
 
     async def callback(local_view):
-        assert isinstance(local_view, Counter)
+        assert isinstance(local_view, list)
         nonlocal callback_event
         callback_event.set()
 
-    tman.set_neighbours_callback(callback, local_view_format=True)
+    tman.set_neighbours_callback(callback)
 
     await asyncio.sleep(GOSSIPING_FREQUENCY * 15)
     assert callback_event.is_set()

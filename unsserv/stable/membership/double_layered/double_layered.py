@@ -1,12 +1,13 @@
-from abc import ABC, abstractmethod
 import asyncio
 import random
+from abc import ABC, abstractmethod
 from collections import Counter
 from contextlib import contextmanager
 from typing import List, Set, Counter as CounterType
 
-from unsserv.common.utils import stop_task
+from unsserv.common.services_abc import NeighboursCallback
 from unsserv.common.structs import Node
+from unsserv.common.utils import stop_task
 from unsserv.stable.membership.double_layered.config import (
     ACTIVE_VIEW_SIZE,
     ACTIVE_VIEW_MAINTAIN_FREQUENCY,
@@ -17,6 +18,7 @@ from unsserv.stable.membership.double_layered.structs import ForwardJoin
 
 
 class IDoubleLayered(ABC):
+    _callback: NeighboursCallback
     _doble_layered_protocol: DoubleLayeredProtocol
     _active_view: Set[Node]
     _candidate_neighbours: CounterType[Node]
@@ -59,8 +61,10 @@ class IDoubleLayered(ABC):
     async def _maintain_active_view_loop(self):
         await self._join_first_time()
         while True:
+            old_active_view = self._active_view.copy()
             await asyncio.sleep(ACTIVE_VIEW_MAINTAIN_FREQUENCY)
             await self._update_active_view()
+            self._call_callback_if_view_changed(old_active_view)
 
     async def _update_active_view(self):
         inactive_nodes = set()
@@ -111,6 +115,12 @@ class IDoubleLayered(ABC):
             self._active_view.remove(random_neighbour)  # randomly remove
             asyncio.create_task(self._try_disconnect(random_neighbour))
         self._active_view.add(node)
+
+    def _call_callback_if_view_changed(self, old_local_view: Set):
+        if old_local_view == self._active_view:
+            return
+        if self._callback:
+            asyncio.create_task(self._callback(list(self._active_view)))
 
     @contextmanager
     def _create_candidate_neighbour(self, node: Node):

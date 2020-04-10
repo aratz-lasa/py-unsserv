@@ -20,7 +20,6 @@ class TMan(ClusteringService):
     properties = {Property.EXTREME, Property.HAS_GOSSIP, Property.NON_SYMMETRIC}
 
     _callback: NeighboursCallback
-    _callback_raw_format: bool
     _gossip: Optional[Gossip]
 
     def __init__(self, membership: MembershipService):
@@ -28,7 +27,6 @@ class TMan(ClusteringService):
         self.membership = membership
         self._callback = None
         self._ranking_function: RankingFunction
-        self._callback_raw_format = False
         self._gossip = None
 
     async def join(self, service_id: Any, **configuration: Any) -> None:
@@ -66,20 +64,14 @@ class TMan(ClusteringService):
             return self._gossip.local_view
         return list(self._gossip.local_view.keys())
 
-    def set_neighbours_callback(
-        self, callback: NeighboursCallback, local_view_format: bool = False
-    ) -> None:
+    def set_neighbours_callback(self, callback: NeighboursCallback) -> None:
         if not self.running:
             raise RuntimeError("Clustering service not running")
         self._callback = callback
-        self._callback_raw_format = local_view_format
 
     async def _local_view_callback(self, local_view: View):
         if self._callback:
-            if self._callback_raw_format:
-                await self._callback(local_view)
-            else:
-                await self._callback(list(local_view.keys()))
+            await self._callback(list(local_view.keys()))
 
     def _selection_ranking(self, view: View) -> List[Node]:
         return sorted(view.keys(), key=self._ranking_function)

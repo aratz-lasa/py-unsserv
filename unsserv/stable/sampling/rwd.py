@@ -55,10 +55,10 @@ class RWD(SamplingService):
             self._weights_maintenance_loop()
         )  # stop degrees updater task
         # initialize RPC
-        await self._initialize_protocol()
         self.membership.set_neighbours_callback(
             self._membership_neighbours_callback  # type: ignore
         )
+        await self._initialize_protocol()
         self.running = True
 
     async def leave_sampling(self) -> None:
@@ -92,9 +92,9 @@ class RWD(SamplingService):
         return sample_result
 
     def _choose_next_hop(self) -> Node:
-        neighbours, weights = zip(*self._neighbour_weights)
+        neighbours, weights = zip(*self._neighbour_weights.items())
         next_hop = random.choices(
-            neighbours + [self.my_node], weights + [self._my_weight]
+            neighbours + (self.my_node,), weights=weights + (self._my_weight,)
         )[0]
         return next_hop
 
@@ -109,13 +109,14 @@ class RWD(SamplingService):
     def _initialize_weights(self):
         for neighbour in self._neighbours:
             self._neighbour_weights[neighbour] = 1 / MORE_THAN_MAXIMUM
+        self._my_weight = 1 - (len(self._neighbours) / MORE_THAN_MAXIMUM)
 
     async def _distribute_weights(self):
         neighbours = self._neighbours.copy()
         while self._my_weight >= QUANTUM and neighbours:
             neighbour = random.choice(neighbours)
             is_increased = await self._protocol.increase(neighbour)
-            if is_increased:
+            if is_increased and neighbour in self._neighbour_weights:
                 self._neighbour_weights[neighbour] += QUANTUM
                 self._my_weight -= QUANTUM
             else:

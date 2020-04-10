@@ -99,11 +99,11 @@ async def test_hyparview_callback(init_hyparview, amount):
     callback_event = asyncio.Event()
 
     async def callback(local_view):
-        assert isinstance(local_view, Counter)
+        assert isinstance(local_view, list)
         nonlocal callback_event
         callback_event.set()
 
-    hyparview.set_neighbours_callback(callback, local_view_format=True)
+    hyparview.set_neighbours_callback(callback)
 
     await asyncio.sleep(GOSSIPING_FREQUENCY * 15)
     assert callback_event.is_set()

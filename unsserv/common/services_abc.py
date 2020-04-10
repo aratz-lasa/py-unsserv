@@ -73,9 +73,7 @@ class MembershipService(IService):
         pass
 
     @abstractmethod
-    def set_neighbours_callback(
-        self, callback: NeighboursCallback, local_view_format: bool = False
-    ) -> None:
+    def set_neighbours_callback(self, callback: NeighboursCallback) -> None:
         """
         Set the callback that is executed when neighbours change.
 

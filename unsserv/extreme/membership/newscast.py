@@ -14,7 +14,6 @@ class Newscast(MembershipService):
     def __init__(self, node: Node):
         self.my_node = node
         self._callback = None
-        self._callback_raw_format = False
         self.gossip = None
 
     async def join(self, service_id: Any, **configuration: Any):
@@ -46,17 +45,11 @@ class Newscast(MembershipService):
             return self.gossip.local_view
         return list(self.gossip.local_view.keys())
 
-    def set_neighbours_callback(
-        self, callback: NeighboursCallback, local_view_format: bool = False
-    ) -> None:
+    def set_neighbours_callback(self, callback: NeighboursCallback) -> None:
         if not self.running:
             raise RuntimeError("Membership service not running")
         self._callback = callback
-        self._callback_raw_format = local_view_format
 
     async def _local_view_callback(self, local_view: View):
         if self._callback:
-            if self._callback_raw_format:
-                await self._callback(local_view)
-            else:
-                await self._callback(list(local_view.keys()))
+            await self._callback(list(local_view.keys()))

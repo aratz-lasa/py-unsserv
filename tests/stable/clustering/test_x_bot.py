@@ -115,11 +115,11 @@ async def test_xbot_callback(init_extreme_membership, init_xbot, amount):
     callback_event = asyncio.Event()
 
     async def callback(local_view):
-        assert isinstance(local_view, Counter)
+        assert isinstance(local_view, list)
         nonlocal callback_event
         callback_event.set()
 
-    xbot.set_neighbours_callback(callback, local_view_format=True)
+    xbot.set_neighbours_callback(callback)
 
     await asyncio.sleep(GOSSIPING_FREQUENCY * 15)
     assert callback_event.is_set()
