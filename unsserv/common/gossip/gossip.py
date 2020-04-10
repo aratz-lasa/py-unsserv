@@ -3,7 +3,7 @@ import math
 import random
 from collections import Counter
 from contextlib import contextmanager
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Set
 
 from unsserv.common.gossip.config import (
     GOSSIPING_FREQUENCY,
@@ -55,11 +55,11 @@ class Gossip:
             if local_view_nodes
             else []
         )
-        self.local_view_callback = local_view_callback
+        self._callback = local_view_callback
         self.get_external_view = external_view_source
-        self.view_selection = view_selection
-        self.peer_selection = peer_selection
-        self.view_propagation = view_propagation
+        self.view_selection_policy = view_selection
+        self.peer_selection_policy = peer_selection
+        self.view_propagation_policy = view_propagation
         self.custom_selection_ranking = custom_selection_ranking
 
         self.local_view_size = local_view_size
@@ -91,41 +91,42 @@ class Gossip:
 
     async def _gossip_loop(self):
         while True:
+            old_neighbours = set(self.local_view.keys())
             await asyncio.sleep(self.gossiping_frequency)
-            peer = self._select_peer(self.local_view)
-            if not peer:  # Empty Local view
-                continue
-            subscribers_data = await self._get_data_from_subscribers()
-            if self.view_propagation is ViewPropagationPolicy.PUSH:
-                push_view = self._merge_views(
-                    Counter({self.my_node: 0}), self.local_view
-                )
-                push_data = PushData(view=push_view, payload=subscribers_data)
-                with self._pop_on_connection_error(peer):
-                    await self._protocol.push(peer, push_data)
-            elif self.view_propagation is ViewPropagationPolicy.PULL:
-                with self._pop_on_connection_error(peer):
-                    pull_response = await self._protocol.pull(peer, subscribers_data)
-                    await self._handler_push(peer, pull_response)
-            elif self.view_propagation is ViewPropagationPolicy.PUSHPULL:
-                push_view = self._merge_views(
-                    Counter({self.my_node: 0}), self.local_view
-                )
-                push_data = PushData(view=push_view, payload=subscribers_data)
-                with self._pop_on_connection_error(peer):
-                    pull_response = await self._protocol.pushpull(peer, push_data)
-                    await self._handler_push(peer, pull_response)
+            await self._exchange_with_peer()
+            self._call_callback_if_view_changed(old_neighbours)
+
+    async def _exchange_with_peer(self):
+        peer = self._select_peer(self.local_view)
+        if not peer:  # Empty Local view
+            return
+        subscribers_data = await self._get_data_from_subscribers()
+        if self.view_propagation_policy is ViewPropagationPolicy.PUSH:
+            push_view = self._merge_views(Counter({self.my_node: 0}), self.local_view)
+            push_data = PushData(view=push_view, payload=subscribers_data)
+            with self._pop_on_connection_error(peer):
+                await self._protocol.push(peer, push_data)
+        elif self.view_propagation_policy is ViewPropagationPolicy.PULL:
+            with self._pop_on_connection_error(peer):
+                pull_response = await self._protocol.pull(peer, subscribers_data)
+                await self._handler_push(peer, pull_response)
+        elif self.view_propagation_policy is ViewPropagationPolicy.PUSHPULL:
+            push_view = self._merge_views(Counter({self.my_node: 0}), self.local_view)
+            push_data = PushData(view=push_view, payload=subscribers_data)
+            with self._pop_on_connection_error(peer):
+                pull_response = await self._protocol.pushpull(peer, push_data)
+                await self._handler_push(peer, pull_response)
 
     def _select_peer(self, view: View) -> Optional[Node]:
         if self.custom_selection_ranking:
             ordered_nodes = self.custom_selection_ranking(view)
         else:
             ordered_nodes = list(map(lambda n: n[0], reversed(view.most_common())))
-        if self.peer_selection is PeerSelectionPolicy.RAND:
+        if self.peer_selection_policy is PeerSelectionPolicy.RAND:
             return random.choice(ordered_nodes) if view else None
-        elif self.peer_selection is PeerSelectionPolicy.HEAD:
+        elif self.peer_selection_policy is PeerSelectionPolicy.HEAD:
             return ordered_nodes[0] if view else None
-        elif self.peer_selection is PeerSelectionPolicy.TAIL:
+        elif self.peer_selection_policy is PeerSelectionPolicy.TAIL:
             return ordered_nodes[-1] if view else None
         raise AttributeError("Invalid Peer Selection policy")
 
@@ -142,13 +143,13 @@ class Gossip:
             ordered_nodes = list(map(lambda n: n[0], reversed(view.most_common())))
 
         new_view = view.copy()
-        if self.view_selection is ViewSelectionPolicy.RAND:
+        if self.view_selection_policy is ViewSelectionPolicy.RAND:
             for node in random.sample(ordered_nodes, remove_amount):
                 new_view.pop(node)
-        elif self.view_selection is ViewSelectionPolicy.HEAD:
+        elif self.view_selection_policy is ViewSelectionPolicy.HEAD:
             for node in ordered_nodes[-remove_amount:]:
                 new_view.pop(node)
-        elif self.view_selection is ViewSelectionPolicy.TAIL:
+        elif self.view_selection_policy is ViewSelectionPolicy.TAIL:
             for node in ordered_nodes[:remove_amount]:
                 new_view.pop(node)
         else:
@@ -180,10 +181,12 @@ class Gossip:
         for subscriber in self.subscribers:
             await subscriber.receive_payload(gossip_payload)
 
-    async def _try_call_callback(self, new_view):
-        if set(new_view.keys()) != set(self.local_view.keys()):
-            if self.local_view_callback:
-                await self.local_view_callback(new_view)
+    def _call_callback_if_view_changed(self, old_neighbours: Set):
+        current_neighbours = set(self.local_view.keys())
+        if old_neighbours == current_neighbours:
+            return
+        if self._callback:
+            asyncio.create_task(self._callback(self.local_view))
 
     async def _handler_push(self, sender: Node, push_data: PushData):
         view = self._increase_hop_count(push_data.view)
@@ -191,7 +194,6 @@ class Gossip:
         if self.get_external_view:
             buffer = self._merge_views(view, self.get_external_view())
         new_view = self._select_view(buffer)
-        await self._try_call_callback(new_view)
         self.local_view = new_view
         await self._deliver_message_to_subscribers(push_data.payload)
 
