@@ -95,8 +95,7 @@ class IDoubleLayered(ABC):
                     node, is_a_priority
                 )
                 if is_connected:
-                    self._make_space_in_active_view()
-                    self._active_view.add(node)
+                    self._force_add_neighbour(node)
             except ConnectionError:
                 pass
 
@@ -106,11 +105,12 @@ class IDoubleLayered(ABC):
         except ConnectionError:
             pass
 
-    def _make_space_in_active_view(self):
+    def _force_add_neighbour(self, node: Node):
         while len(self._active_view) >= ACTIVE_VIEW_SIZE:
             random_neighbour = random.choice(list(self._active_view))
             self._active_view.remove(random_neighbour)  # randomly remove
             asyncio.create_task(self._try_disconnect(random_neighbour))
+        self._active_view.add(node)
 
     @contextmanager
     def _create_candidate_neighbour(self, node: Node):
@@ -124,8 +124,7 @@ class IDoubleLayered(ABC):
             )  # remove zero and negative counts
 
     async def _handler_join(self, sender: Node):
-        self._make_space_in_active_view()
-        self._active_view.add(sender)
+        self._force_add_neighbour(sender)
         forward_join = ForwardJoin(origin_node=sender, ttl=TTL)
         for neighbour in list(filter(lambda n: n != sender, self._active_view)):
             asyncio.create_task(
@@ -134,7 +133,6 @@ class IDoubleLayered(ABC):
 
     async def _handler_forward_join(self, sender: Node, forward_join: ForwardJoin):
         if forward_join.ttl == 0:
-            self._make_space_in_active_view()
             asyncio.create_task(self._connect_to_node(forward_join.origin_node))
         else:
             candidate_neighbours = list(
@@ -151,8 +149,7 @@ class IDoubleLayered(ABC):
     async def _handler_connect(self, sender: Node, is_a_priority: bool):
         if not is_a_priority and len(self._active_view) >= ACTIVE_VIEW_SIZE:
             return False
-        self._make_space_in_active_view()
-        self._active_view.add(sender)
+        self._force_add_neighbour(sender)
         return True
 
     async def _handler_disconnect(self, sender: Node):
