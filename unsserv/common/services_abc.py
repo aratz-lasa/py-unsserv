@@ -51,7 +51,7 @@ class MembershipService(IService):
         pass
 
     @abstractmethod
-    async def leave(self) -> None:
+    async def leave(self):
         """
         Leave/stop membership service.
 
@@ -73,13 +73,22 @@ class MembershipService(IService):
         pass
 
     @abstractmethod
-    def set_neighbours_callback(self, callback: NeighboursCallback) -> None:
+    def add_neighbours_callback(self, callback: NeighboursCallback):
         """
-        Set the callback that is executed when neighbours change.
+        Add a callback that is executed when neighbours change.
 
         :param callback: function that will be called.
-        :param local_view_format: boolean for getting the neighbours
         as a list or a View.
+        :return:
+        """
+        pass
+
+    @abstractmethod
+    def remove_neighbours_callback(self, callback: NeighboursCallback):
+        """
+        Remove the callback that is executed when neighbours change.
+
+        :param callback: callback that will be removed.
         :return:
         """
         pass
@@ -95,7 +104,7 @@ class AggregationService(ISubService):
     """Aggregation service."""
 
     @abstractmethod
-    async def join_aggregation(self, service_id: str, **configuration: Any) -> None:
+    async def join_aggregation(self, service_id: str, **configuration: Any):
         """
         Join/start aggregation service.
 
@@ -106,7 +115,7 @@ class AggregationService(ISubService):
         pass
 
     @abstractmethod
-    async def leave_aggregation(self) -> None:
+    async def leave_aggregation(self):
         """
         Leave/stop aggregation service.
 
@@ -124,7 +133,7 @@ class AggregationService(ISubService):
         pass
 
     @abstractmethod
-    def set_aggregate_callback(self, callback: AggregateCallback) -> None:
+    def set_aggregate_callback(self, callback: AggregateCallback):
         """
         Set the callback that is executed when aggregate value change.
 
@@ -138,7 +147,7 @@ class SamplingService(ISubService):
     """Sampling service."""
 
     @abstractmethod
-    async def join_sampling(self, service_id: str, **configuration: Any) -> None:
+    async def join_sampling(self, service_id: str, **configuration: Any):
         """
         Join/start sampling service.
 
@@ -149,7 +158,7 @@ class SamplingService(ISubService):
         pass
 
     @abstractmethod
-    async def leave_sampling(self) -> None:
+    async def leave_sampling(self):
         """
         Leave/stop sampling service.
 
@@ -169,7 +178,7 @@ class SamplingService(ISubService):
 
 class DisseminationService(ISubService):
     @abstractmethod
-    async def join_broadcast(self, service_id: str, **configuration: Any) -> None:
+    async def join_broadcast(self, service_id: str, **configuration: Any):
         """
         Join/start dissemination service. Duplicates must handle the user.
 
@@ -180,7 +189,7 @@ class DisseminationService(ISubService):
         pass
 
     @abstractmethod
-    async def leave_broadcast(self) -> None:
+    async def leave_broadcast(self):
         """
         Leave/stop dissemination service.
 
@@ -189,7 +198,7 @@ class DisseminationService(ISubService):
         pass
 
     @abstractmethod
-    async def broadcast(self, data: bytes) -> None:
+    async def broadcast(self, data: bytes):
         """
         Disseminates/brodcasts data.
 
@@ -201,7 +210,7 @@ class DisseminationService(ISubService):
 
 class SearchingService(ISubService):
     @abstractmethod
-    async def join_searching(self, service_id: str, **configuration: Any) -> None:
+    async def join_searching(self, service_id: str, **configuration: Any):
         """
         Join/start search service.
 
@@ -212,7 +221,7 @@ class SearchingService(ISubService):
         pass
 
     @abstractmethod
-    async def leave_searching(self) -> None:
+    async def leave_searching(self):
         """
         Leave/stop search service.
 
@@ -221,7 +230,7 @@ class SearchingService(ISubService):
         pass
 
     @abstractmethod
-    async def publish(self, data_id: str, data: bytes) -> None:
+    async def publish(self, data_id: str, data: bytes):
         """
         Publish data that can be found when searching.
 
@@ -232,7 +241,7 @@ class SearchingService(ISubService):
         pass
 
     @abstractmethod
-    async def unpublish(self, data_id: str) -> None:
+    async def unpublish(self, data_id: str):
         """
         Unpublish data so that cannot be found when searching.
 

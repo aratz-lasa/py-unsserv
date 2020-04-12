@@ -47,7 +47,7 @@ class XBot(ClusteringService, IDoubleLayered):
         )
         self.running = True
 
-    async def leave(self) -> None:
+    async def leave(self):
         if not self.running:
             return
         if self._local_view_optimize_task:
@@ -63,10 +63,15 @@ class XBot(ClusteringService, IDoubleLayered):
             Counter(self._active_view) if local_view_format else list(self._active_view)
         )
 
-    def set_neighbours_callback(self, callback: NeighboursCallback) -> None:
+    def add_neighbours_callback(self, callback: NeighboursCallback):
         if not self.running:
-            raise RuntimeError("Memberhsip service not running")
-        self._callback = callback
+            raise RuntimeError("Membership service not running")
+        self._callbacks.append(callback)
+
+    def remove_neighbours_callback(self, callback: NeighboursCallback):
+        if callback not in self._callbacks:
+            raise ValueError("Callback not found")
+        self._callbacks.remove(callback)
 
     def _get_passive_view_nodes(self):
         return self.membership.get_neighbours()

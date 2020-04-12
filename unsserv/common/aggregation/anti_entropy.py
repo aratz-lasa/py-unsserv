@@ -50,7 +50,7 @@ class AntiEntropy(AggregationService, IGossipSubscriber):
         self._aggregate_func = None
         self._callback = None
 
-    async def join_aggregation(self, service_id: str, **configuration: Any) -> None:
+    async def join_aggregation(self, service_id: str, **configuration: Any):
         if self.running:
             raise RuntimeError("Already running Aggregation")
         self._aggregate_type = configuration["aggregate_type"]
@@ -60,7 +60,7 @@ class AntiEntropy(AggregationService, IGossipSubscriber):
         self.gossip.subscribe(self)
         self.running = True
 
-    async def leave_aggregation(self) -> None:
+    async def leave_aggregation(self):
         if not self.running:
             return
         self.gossip.unsubscribe(self)
@@ -73,7 +73,7 @@ class AntiEntropy(AggregationService, IGossipSubscriber):
             raise RuntimeError("Aggregation service not running")
         return self._aggregate_value
 
-    def set_aggregate_callback(self, callback: AggregateCallback) -> None:
+    def set_aggregate_callback(self, callback: AggregateCallback):
         if not self.running:
             raise RuntimeError("Aggregation service not running")
         self._callback = callback

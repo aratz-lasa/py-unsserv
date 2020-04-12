@@ -38,7 +38,7 @@ class Lpbcast(DisseminationService):
         self._events = OrderedDict()
         self._events_digest = OrderedDict()
 
-    async def join_broadcast(self, service_id: str, **configuration: Any) -> None:
+    async def join_broadcast(self, service_id: str, **configuration: Any):
         if self.running:
             raise RuntimeError("Already running Dissemination")
         self._broadcast_handler = configuration["broadcast_handler"]
@@ -46,14 +46,14 @@ class Lpbcast(DisseminationService):
         await self._initialize_protocol()
         self.running = True
 
-    async def leave_broadcast(self) -> None:
+    async def leave_broadcast(self):
         if not self.running:
             return
         await self._protocol.stop()
         self._broadcast_handler = None
         self.running = False
 
-    async def broadcast(self, data: bytes) -> None:
+    async def broadcast(self, data: bytes):
         if not self.running:
             raise RuntimeError("Dissemination service not running")
         assert isinstance(data, bytes)

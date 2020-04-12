@@ -19,17 +19,17 @@ RankingFunction = Callable[[Node], Any]
 class TMan(ClusteringService):
     properties = {Property.EXTREME, Property.HAS_GOSSIP, Property.NON_SYMMETRIC}
 
-    _callback: NeighboursCallback
+    _callbacks: List[NeighboursCallback]
     _gossip: Optional[Gossip]
 
     def __init__(self, membership: MembershipService):
         self.my_node = membership.my_node
         self.membership = membership
-        self._callback = None
+        self._callbacks = []
         self._ranking_function: RankingFunction
         self._gossip = None
 
-    async def join(self, service_id: Any, **configuration: Any) -> None:
+    async def join(self, service_id: Any, **configuration: Any):
         if self.running:
             raise RuntimeError("Already running Clustering")
         self.service_id = service_id
@@ -48,7 +48,7 @@ class TMan(ClusteringService):
         await self._gossip.start()
         self.running = True
 
-    async def leave(self) -> None:
+    async def leave(self):
         if not self.running:
             return
         await self._gossip.stop()
@@ -64,14 +64,19 @@ class TMan(ClusteringService):
             return self._gossip.local_view
         return list(self._gossip.local_view.keys())
 
-    def set_neighbours_callback(self, callback: NeighboursCallback) -> None:
+    def add_neighbours_callback(self, callback: NeighboursCallback):
         if not self.running:
-            raise RuntimeError("Clustering service not running")
-        self._callback = callback
+            raise RuntimeError("Service not running")
+        self._callbacks.append(callback)
+
+    def remove_neighbours_callback(self, callback: NeighboursCallback):
+        if callback not in self._callbacks:
+            raise ValueError("Callback not found")
+        self._callbacks.remove(callback)
 
     async def _local_view_callback(self, local_view: View):
-        if self._callback:
-            await self._callback(list(local_view.keys()))
+        for callback in self._callbacks:
+            await callback(list(local_view.keys()))
 
     def _selection_ranking(self, view: View) -> List[Node]:
         return sorted(view.keys(), key=self._ranking_function)

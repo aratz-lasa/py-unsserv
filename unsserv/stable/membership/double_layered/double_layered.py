@@ -18,7 +18,7 @@ from unsserv.stable.membership.double_layered.structs import ForwardJoin
 
 
 class IDoubleLayered(ABC):
-    _callback: NeighboursCallback
+    _callbacks: List[NeighboursCallback]
     _doble_layered_protocol: DoubleLayeredProtocol
     _active_view: Set[Node]
     _candidate_neighbours: CounterType[Node]
@@ -26,6 +26,7 @@ class IDoubleLayered(ABC):
 
     def __init__(self, my_node: Node):
         self.my_node = my_node
+        self._callbacks = []
         self._doble_layered_protocol = DoubleLayeredProtocol(my_node)
         self._active_view = set()
         self._candidate_neighbours = Counter()
@@ -119,8 +120,8 @@ class IDoubleLayered(ABC):
     def _call_callback_if_view_changed(self, old_local_view: Set):
         if old_local_view == self._active_view:
             return
-        if self._callback:
-            asyncio.create_task(self._callback(list(self._active_view)))
+        for callback in self._callbacks:
+            asyncio.create_task(callback(list(self._active_view)))
 
     @contextmanager
     def _create_candidate_neighbour(self, node: Node):

@@ -28,9 +28,7 @@ class KWalker(SearchingService):
         self._walk_results = {}
         self._walk_events = {}
 
-    async def join_searching(
-        self, service_id: str, **kwalker_configuration: Any
-    ) -> None:
+    async def join_searching(self, service_id: str, **kwalker_configuration: Any):
         if self.running:
             raise RuntimeError("Already running Searching service")
         self.service_id = service_id
@@ -43,13 +41,13 @@ class KWalker(SearchingService):
         await self._initialize_protocol()
         self.running = True
 
-    async def leave_searching(self) -> None:
+    async def leave_searching(self):
         if not self.running:
             return
         await self._protocol.stop()
         self.running = False
 
-    async def publish(self, data_id: str, data: bytes) -> None:
+    async def publish(self, data_id: str, data: bytes):
         if not self.running:
             raise RuntimeError("Searching service not running")
         if data_id in self._search_data:
@@ -61,7 +59,7 @@ class KWalker(SearchingService):
 
         self._search_data[data_id] = data
 
-    async def unpublish(self, data_id: str) -> None:
+    async def unpublish(self, data_id: str):
         if not self.running:
             raise RuntimeError("Searching service not running")
         if data_id not in self._search_data:

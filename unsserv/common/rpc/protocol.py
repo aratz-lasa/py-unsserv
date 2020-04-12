@@ -77,6 +77,8 @@ class AProtocol:
             return response.encode()
         elif is_dataclass(response):
             return asdict(response)
+        elif isinstance(response, set):
+            return list(response)
         return response
 
     @abstractmethod
