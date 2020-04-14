@@ -2,16 +2,12 @@ from enum import Enum, auto
 from statistics import mean
 from typing import Any, Callable, Dict, Tuple, Optional
 
-from unsserv.common.gossip.gossip import Gossip
-from unsserv.common.gossip.subcriber_abc import IGossipSubscriber
+from unsserv.common.gossip.gossip import Gossip, IGossipSubscriber
 from unsserv.common.gossip.typing import Payload
 from unsserv.common.utils import HandlerManager
-from unsserv.common.service_properties import Property
+from unsserv.common.structs import Property
 from unsserv.common.typing import Handler
-from unsserv.common.services_abc import (
-    AggregationService,
-    MembershipService,
-)
+from unsserv.common.services_abc import IAggregationService, IMembershipService
 
 
 class AggregateType(Enum):
@@ -27,7 +23,7 @@ aggregate_functions: Dict[AggregateType, Callable] = {
 }
 
 
-class AntiEntropy(AggregationService, IGossipSubscriber):
+class AntiEntropy(IAggregationService, IGossipSubscriber):
     """Aggregation Anti-Entropy service."""
 
     properties = {Property.EXTREME, Property.STABLE, Property.HAS_GOSSIP}
@@ -37,7 +33,7 @@ class AntiEntropy(AggregationService, IGossipSubscriber):
     _aggregate_func: Optional[Callable]
     _handler_manager: HandlerManager
 
-    def __init__(self, membership: MembershipService):
+    def __init__(self, membership: IMembershipService):
         self.my_node = membership.my_node
         if Property.HAS_GOSSIP not in membership.properties:
             raise ValueError(
@@ -65,6 +61,7 @@ class AntiEntropy(AggregationService, IGossipSubscriber):
         if not self.running:
             return
         self.gossip.unsubscribe(self)
+        self._handler_manager.remove_all_handlers()
         self._aggregate_type = None
         self._aggregate_value = None
         self.running = False

@@ -108,18 +108,18 @@ async def test_leave_xbot(init_extreme_membership, init_xbot, amount):
     [(LOCAL_VIEW_SIZE * 2) + 1, (LOCAL_VIEW_SIZE * 2) + 5, (LOCAL_VIEW_SIZE * 2) + 100],
 )  # very high neighbours amount,
 # to assure neighbours will change, because it is initailzied by Newscast
-async def test_xbot_callback(init_extreme_membership, init_xbot, amount):
+async def test_xbot_handler(init_extreme_membership, init_xbot, amount):
     newc, r_newcs = await init_extreme_membership(amount)
     xbot, r_xbots = await init_xbot(newc, r_newcs)
 
-    callback_event = asyncio.Event()
+    handler_event = asyncio.Event()
 
-    async def callback(local_view):
+    async def handler(local_view):
         assert isinstance(local_view, list)
-        nonlocal callback_event
-        callback_event.set()
+        nonlocal handler_event
+        handler_event.set()
 
-    xbot.add_neighbours_handler(callback)
+    xbot.add_neighbours_handler(handler)
 
     await asyncio.sleep(GOSSIPING_FREQUENCY * 15)
-    assert callback_event.is_set()
+    assert handler_event.is_set()

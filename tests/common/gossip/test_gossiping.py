@@ -4,8 +4,10 @@ from typing import Any, List, Tuple
 
 import pytest
 
+import unsserv.common.gossip.gossip
+import unsserv.common.gossip.structs
 from tests.utils import get_random_nodes
-from unsserv.common.gossip import gossip, subcriber_abc
+from unsserv.common.gossip import gossip
 from unsserv.common.gossip.config import GOSSIPING_FREQUENCY
 from unsserv.common.gossip.gossip import LOCAL_VIEW_SIZE, View
 from unsserv.common.gossip.typing import Payload
@@ -21,10 +23,10 @@ def test_view_selection():
     view = Counter(dict(map(lambda n: (n[1], n[0] + 1), enumerate(r_nodes))))
     gsp = gossip.Gossip(node, SERVICE_ID)
 
-    gsp.view_selection_policy = gossip.ViewSelectionPolicy.HEAD
+    gsp.view_selection_policy = unsserv.common.gossip.structs.ViewSelectionPolicy.HEAD
     assert set(r_nodes[:LOCAL_VIEW_SIZE]) == set(gsp._select_view(view).keys())
 
-    gsp.view_selection_policy = gossip.ViewSelectionPolicy.TAIL
+    gsp.view_selection_policy = unsserv.common.gossip.structs.ViewSelectionPolicy.TAIL
     assert set(r_nodes[LOCAL_VIEW_SIZE:]) == set(gsp._select_view(view).keys())
 
     def ranking(node: Node):
@@ -33,7 +35,7 @@ def test_view_selection():
     def selection_ranking(view: View) -> List[Node]:
         return sorted(view.keys(), key=ranking)
 
-    gsp.view_selection_policy = gossip.ViewSelectionPolicy.HEAD
+    gsp.view_selection_policy = unsserv.common.gossip.structs.ViewSelectionPolicy.HEAD
     gsp.custom_selection_ranking = selection_ranking
     assert set(sorted(r_nodes, key=ranking)[:LOCAL_VIEW_SIZE]) == set(
         gsp._select_view(view).keys()
@@ -45,10 +47,10 @@ def test_peer_selection():
     view = Counter(dict(map(lambda n: (n[1], n[0] + 1), enumerate(r_nodes))))
     gsp = gossip.Gossip(node, SERVICE_ID)
 
-    gsp.peer_selection_policy = gossip.PeerSelectionPolicy.HEAD
+    gsp.peer_selection_policy = unsserv.common.gossip.structs.PeerSelectionPolicy.HEAD
     assert r_nodes[0] == gsp._select_peer(view)
 
-    gsp.peer_selection_policy = gossip.PeerSelectionPolicy.TAIL
+    gsp.peer_selection_policy = unsserv.common.gossip.structs.PeerSelectionPolicy.TAIL
     assert r_nodes[-1] == gsp._select_peer(view)
 
 
@@ -97,7 +99,7 @@ async def test_gossiping(amount):
 
 @pytest.mark.asyncio
 async def test_subscriber():
-    class Subscriber(subcriber_abc.IGossipSubscriber):
+    class Subscriber(unsserv.common.gossip.gossip.IGossipSubscriber):
         service_id = "sub"
 
         def __init__(self, my_node, expected_node):

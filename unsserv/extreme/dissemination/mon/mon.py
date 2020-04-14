@@ -2,10 +2,9 @@ import asyncio
 import random
 from typing import Any, List, Dict
 
-from unsserv.common.structs import Node
+from unsserv.common.structs import Node, Property
 from unsserv.common.errors import ServiceError
-from unsserv.common.service_properties import Property
-from unsserv.common.services_abc import DisseminationService, MembershipService
+from unsserv.common.services_abc import IDisseminationService, IMembershipService
 from unsserv.common.typing import Handler
 from unsserv.common.utils import get_random_id, HandlerManager
 from unsserv.extreme.dissemination.mon.config import MON_FANOUT
@@ -14,7 +13,7 @@ from unsserv.extreme.dissemination.mon.structs import Session, Broadcast
 from unsserv.extreme.dissemination.mon.typing import BroadcastID
 
 
-class Mon(DisseminationService):
+class Mon(IDisseminationService):
     properties = {Property.EXTREME, Property.ONE_TO_MANY}
     _handler_manager: HandlerManager
     _protocol: MonProtocol
@@ -26,7 +25,7 @@ class Mon(DisseminationService):
     ]  # stores the data received from each broadcast (for avoiding duplicates)
     _children_ready_events: Dict[BroadcastID, asyncio.Event]
 
-    def __init__(self, membership: MembershipService):
+    def __init__(self, membership: IMembershipService):
         self.my_node = membership.my_node
         self.membership = membership
         self._handler_manager = HandlerManager()

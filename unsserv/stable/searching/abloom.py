@@ -3,9 +3,8 @@ import asyncio
 from functools import reduce
 from typing import Optional, Any, List, Dict, Set
 
-from unsserv.common.service_properties import Property
-from unsserv.common.services_abc import SearchingService, MembershipService
-from unsserv.common.structs import Node
+from unsserv.common.services_abc import ISearchingService, IMembershipService
+from unsserv.common.structs import Node, Property
 from unsserv.common.utils import get_random_id, stop_task
 from unsserv.stable.searching.config import (
     BLOOM_FILTER_DEPTH,
@@ -17,7 +16,7 @@ from unsserv.stable.searching.structs import Search, SearchResult, DataChange
 from unsserv.stable.searching.typing import DataID, SearchID
 
 
-class ABloom(SearchingService):
+class ABloom(ISearchingService):
     properties = {Property.STABLE}
     _protocol: ABloomProtocol
     _neighbours: List[Node]
@@ -27,7 +26,7 @@ class ABloom(SearchingService):
     _search_events: Dict[SearchID, asyncio.Event]
     _search_results: Dict[SearchID, bytes]
 
-    def __init__(self, membership: MembershipService):
+    def __init__(self, membership: IMembershipService):
         self.my_node = membership.my_node
         self.membership = membership
         self._init_structs()

@@ -96,16 +96,16 @@ async def test_newscast_leave(init_newscast, amount):
     "amount",
     [(LOCAL_VIEW_SIZE * 2) + 1, (LOCAL_VIEW_SIZE * 2) + 5, (LOCAL_VIEW_SIZE * 2) + 100],
 )
-async def test_newscast_callback(init_newscast, amount):
+async def test_newscast_handler(init_newscast, amount):
     newc, r_newcs, r_nodes = await init_newscast(amount)
 
-    callback_event = asyncio.Event()
+    handler_event = asyncio.Event()
 
-    async def callback(neighbours):
-        nonlocal callback_event
-        callback_event.set()
+    async def handler(neighbours):
+        nonlocal handler_event
+        handler_event.set()
 
-    newc.add_neighbours_handler(callback)
+    newc.add_neighbours_handler(handler)
 
     await asyncio.sleep(GOSSIPING_FREQUENCY * 7)
-    assert callback_event.is_set()
+    assert handler_event.is_set()

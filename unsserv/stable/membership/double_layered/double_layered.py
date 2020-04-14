@@ -64,7 +64,7 @@ class IDoubleLayered(ABC):
             old_active_view = self._active_view.copy()
             await asyncio.sleep(ACTIVE_VIEW_MAINTAIN_FREQUENCY)
             await self._update_active_view()
-            self._call_callback_if_view_changed(old_active_view)
+            self._call_handler_if_view_changed(old_active_view)
 
     async def _update_active_view(self):
         inactive_nodes = set()
@@ -116,7 +116,7 @@ class IDoubleLayered(ABC):
             asyncio.create_task(self._try_disconnect(random_neighbour))
         self._active_view.add(node)
 
-    def _call_callback_if_view_changed(self, old_local_view: Set):
+    def _call_handler_if_view_changed(self, old_local_view: Set):
         if old_local_view == self._active_view:
             return
         self._handler_manager.call_handlers(list(self._active_view))

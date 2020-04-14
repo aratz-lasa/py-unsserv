@@ -1,9 +1,8 @@
-from typing import Callable, Coroutine, Any, List, Dict
+from typing import Callable, Any, List, Dict
+
+from unsserv.common.typing import View
 from unsserv.common.structs import Node
-from unsserv.common.services_abc import View
 
-
-LocalViewCallback = Callable[[View], Coroutine[Any, Any, None]]
 CustomSelectionRanking = Callable[[View], List[Node]]
 ExternalViewSource = Callable
 Payload = Dict[Any, Any]

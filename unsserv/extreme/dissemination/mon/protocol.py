@@ -1,7 +1,8 @@
 from enum import IntEnum, auto
 from typing import Tuple, Sequence
 
-from unsserv.common.structs import Message, Node
+from unsserv.common.structs import Node
+from unsserv.common.rpc.structs import Message
 from unsserv.common.rpc.protocol import AProtocol, ITranscoder, Command, Data, Handler
 from unsserv.extreme.dissemination.mon.structs import Session, Broadcast
 

@@ -3,7 +3,7 @@ import random
 import string
 from typing import List
 
-from unsserv.common.structs import Message
+from unsserv.common.rpc.structs import Message
 from unsserv.common.structs import Node
 from unsserv.common.typing import Handler, SyncHandler
 

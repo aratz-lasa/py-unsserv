@@ -1,9 +1,8 @@
 from abc import ABC, abstractmethod
-from typing import Any, List, Union, Optional, Set
+from typing import Any, List, Optional, Set
 
-from unsserv.common.service_properties import Property
-from unsserv.common.structs import Node
-from unsserv.common.typing import Handler, View
+from unsserv.common.structs import Node, Property
+from unsserv.common.typing import Handler
 
 
 class IService(ABC):
@@ -49,20 +48,17 @@ class ISubService(IService):
     :ivar membership: Membership service underlying (from the layer below) the service.
     """
 
-    membership: "MembershipService"
+    membership: "IMembershipService"
 
 
-class MembershipService(IService):
+class IMembershipService(IService):
     """Membership service interface."""
 
     @abstractmethod
-    def get_neighbours(
-        self, local_view_format: bool = False
-    ) -> Union[List[Node], View]:
+    def get_neighbours(self) -> List[Node]:
         """
         Get the neighbours to which the service is connected.
 
-        :param local_view_format: boolean for getting the neighbours
         as a list or a View.
         :return: neighbours to which the service is connected.
         """
@@ -71,7 +67,7 @@ class MembershipService(IService):
     @abstractmethod
     def add_neighbours_handler(self, handler: Handler):
         """
-        Add a callback that is executed when neighbours change.
+        Add a handler that is executed when neighbours change.
 
         :param handler: function that will be called.
         as a list or a View.
@@ -82,21 +78,21 @@ class MembershipService(IService):
     @abstractmethod
     def remove_neighbours_handler(self, handler: Handler):
         """
-        Remove the callback that is executed when neighbours change.
+        Remove the handler that is executed when neighbours change.
 
-        :param handler: callback that will be removed.
+        :param handler: handler that will be removed.
         :return:
         """
         pass
 
 
-class ClusteringService(ISubService, MembershipService):
+class IClusteringService(ISubService, IMembershipService):
     """Clustering service for having bias when selecting neighbours."""
 
     pass
 
 
-class AggregationService(ISubService):
+class IAggregationService(ISubService):
     """Aggregation service."""
 
     @abstractmethod
@@ -117,7 +113,7 @@ class AggregationService(ISubService):
         pass
 
 
-class SamplingService(ISubService):
+class ISamplingService(ISubService):
     """Sampling service."""
 
     @abstractmethod
@@ -130,7 +126,7 @@ class SamplingService(ISubService):
         pass
 
 
-class DisseminationService(ISubService):
+class IDisseminationService(ISubService):
     @abstractmethod
     async def broadcast(self, data: bytes):
         """
@@ -150,7 +146,7 @@ class DisseminationService(ISubService):
         pass
 
 
-class SearchingService(ISubService):
+class ISearchingService(ISubService):
     @abstractmethod
     async def publish(self, data_id: str, data: bytes):
         """

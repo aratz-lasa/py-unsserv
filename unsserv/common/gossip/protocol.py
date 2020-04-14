@@ -5,7 +5,8 @@ from typing import Tuple, Sequence, Dict, Any
 from unsserv.common.gossip.structs import PushData
 from unsserv.common.gossip.typing import Payload
 from unsserv.common.rpc.protocol import AProtocol, ITranscoder, Command, Data, Handler
-from unsserv.common.structs import Message, Node
+from unsserv.common.structs import Node
+from unsserv.common.rpc.structs import Message
 from unsserv.common.typing import View
 
 FIELD_COMMAND = "gossip-command"

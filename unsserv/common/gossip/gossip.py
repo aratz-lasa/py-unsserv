@@ -1,31 +1,37 @@
 import asyncio
 import math
 import random
+from abc import ABC, abstractmethod
 from collections import Counter
 from contextlib import contextmanager
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 from unsserv.common.gossip.config import (
     GOSSIPING_FREQUENCY,
     LOCAL_VIEW_SIZE,
 )
-from unsserv.common.gossip.policies import (
+from unsserv.common.gossip.protocol import GossipProtocol
+from unsserv.common.gossip.structs import (
+    PushData,
     ViewSelectionPolicy,
     PeerSelectionPolicy,
     ViewPropagationPolicy,
 )
-from unsserv.common.gossip.protocol import GossipProtocol
-from unsserv.common.gossip.structs import PushData
-from unsserv.common.gossip.subcriber_abc import IGossipSubscriber
-from unsserv.common.gossip.typing import (
-    ExternalViewSource,
-    CustomSelectionRanking,
-    LocalViewCallback,
-)
-from unsserv.common.gossip.typing import Payload
-from unsserv.common.services_abc import View
+from unsserv.common.gossip.typing import ExternalViewSource, CustomSelectionRanking
+from unsserv.common.gossip.typing import Payload, View
 from unsserv.common.structs import Node
+from unsserv.common.typing import Handler
 from unsserv.common.utils import stop_task, HandlerManager
+
+
+class IGossipSubscriber(ABC):
+    @abstractmethod
+    async def receive_payload(self, payload: Payload):
+        pass
+
+    @abstractmethod
+    async def get_payload(self) -> Tuple[Any, Any]:
+        pass
 
 
 class Gossip:
@@ -40,8 +46,8 @@ class Gossip:
         my_node: Node,
         service_id: Any,
         local_view_nodes: List[Node] = None,
-        local_view_callback: LocalViewCallback = None,
-        external_view_source: ExternalViewSource = None,
+        local_view_handler: Handler = None,
+        external_nodes_source: ExternalViewSource = None,
         view_selection=ViewSelectionPolicy.HEAD,
         peer_selection=PeerSelectionPolicy.RAND,
         view_propagation=ViewPropagationPolicy.PUSHPULL,
@@ -56,7 +62,7 @@ class Gossip:
             if local_view_nodes
             else []
         )
-        self.get_external_view = external_view_source
+        self.get_external_nodes = external_nodes_source
         self.view_selection_policy = view_selection
         self.peer_selection_policy = peer_selection
         self.view_propagation_policy = view_propagation
@@ -68,8 +74,8 @@ class Gossip:
 
         self.subscribers: List[IGossipSubscriber] = []
         self._handler_manager = HandlerManager()
-        if local_view_callback:
-            self._handler_manager.add_handler(local_view_callback)
+        if local_view_handler:
+            self._handler_manager.add_handler(local_view_handler)
 
     async def start(self):
         if self.running:
@@ -97,7 +103,7 @@ class Gossip:
             old_neighbours = set(self.local_view.keys())
             await asyncio.sleep(self.gossiping_frequency)
             await self._exchange_with_peer()
-            self._call_callback_if_view_changed(old_neighbours)
+            self._call_handler_if_view_changed(old_neighbours)
 
     async def _exchange_with_peer(self):
         peer = self._select_peer(self.local_view)
@@ -184,7 +190,7 @@ class Gossip:
         for subscriber in self.subscribers:
             await subscriber.receive_payload(gossip_payload)
 
-    def _call_callback_if_view_changed(self, old_neighbours: Set):
+    def _call_handler_if_view_changed(self, old_neighbours: Set):
         current_neighbours = set(self.local_view.keys())
         if old_neighbours == current_neighbours:
             return
@@ -193,8 +199,8 @@ class Gossip:
     async def _handler_push(self, sender: Node, push_data: PushData):
         view = self._increase_hop_count(push_data.view)
         buffer = self._merge_views(view, self.local_view)
-        if self.get_external_view:
-            buffer = self._merge_views(view, self.get_external_view())
+        if self.get_external_nodes:
+            buffer = self._merge_views(view, Counter(self.get_external_nodes()))
         new_view = self._select_view(buffer)
         self.local_view = new_view
         await self._deliver_message_to_subscribers(push_data.payload)

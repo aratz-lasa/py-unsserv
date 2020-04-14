@@ -4,10 +4,9 @@ import random
 from typing import Dict, List, Any
 
 from unsserv.common.utils import stop_task
-from unsserv.common.structs import Node
+from unsserv.common.structs import Node, Property
 from unsserv.common.errors import ServiceError
-from unsserv.common.service_properties import Property
-from unsserv.common.services_abc import MembershipService, SamplingService
+from unsserv.common.services_abc import IMembershipService, ISamplingService
 from unsserv.common.utils import get_random_id
 from unsserv.extreme.sampling.config import (
     ID_LENGTH,
@@ -19,7 +18,7 @@ from unsserv.extreme.sampling.protocol import MRWBProtocol
 from unsserv.extreme.sampling.structs import Sample, SampleResult
 
 
-class MRWB(SamplingService):
+class MRWB(ISamplingService):
     properties = {Property.EXTREME}
     _neighbours: List[Node]
     _neighbour_degrees: Dict[Node, int]
@@ -27,7 +26,7 @@ class MRWB(SamplingService):
     _sampling_queue: Dict[str, Node]
     _sampling_events: Dict[str, asyncio.Event]
 
-    def __init__(self, membership: MembershipService):
+    def __init__(self, membership: IMembershipService):
         self.my_node = membership.my_node
         self.membership = membership
         self._neighbours = []
@@ -51,7 +50,7 @@ class MRWB(SamplingService):
         # initialize RPC
         await self._initialize_protocol()
         self.membership.add_neighbours_handler(
-            self._membership_neighbours_callback  # type: ignore
+            self._membership_neighbours_handler  # type: ignore
         )
         self.running = True
 
@@ -108,7 +107,7 @@ class MRWB(SamplingService):
         except ConnectionError:
             pass  # let membership to decide whether to remove the node or not
 
-    async def _membership_neighbours_callback(self, new_neighbours: List[Node]):
+    async def _membership_neighbours_handler(self, new_neighbours: List[Node]):
         old_neighbours = set(self._neighbours)
         new_neighbours_set = set(new_neighbours)
         for neighbour in old_neighbours - new_neighbours_set:

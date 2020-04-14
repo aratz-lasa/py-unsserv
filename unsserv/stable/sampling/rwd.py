@@ -3,9 +3,8 @@ import random
 from typing import Dict, List, Any
 
 from unsserv.common.errors import ServiceError
-from unsserv.common.service_properties import Property
-from unsserv.common.services_abc import MembershipService, SamplingService
-from unsserv.common.structs import Node
+from unsserv.common.services_abc import IMembershipService, ISamplingService
+from unsserv.common.structs import Node, Property
 from unsserv.common.utils import get_random_id
 from unsserv.common.utils import stop_task
 from unsserv.stable.sampling.config import (
@@ -19,7 +18,7 @@ from unsserv.stable.sampling.protocol import RWDProtocol
 from unsserv.stable.sampling.structs import Sample, SampleResult
 
 
-class RWD(SamplingService):
+class RWD(ISamplingService):
     properties = {Property.STABLE}
     _neighbours: List[Node]
     _neighbour_weights: Dict[Node, float]
@@ -29,7 +28,7 @@ class RWD(SamplingService):
     _sampling_events: Dict[str, asyncio.Event]
     _new_neighbours_event: asyncio.Event
 
-    def __init__(self, membership: MembershipService):
+    def __init__(self, membership: IMembershipService):
         self.my_node = membership.my_node
 
         self.membership = membership
@@ -56,7 +55,7 @@ class RWD(SamplingService):
         )  # stop degrees updater task
         # initialize RPC
         self.membership.add_neighbours_handler(
-            self._membership_neighbours_callback  # type: ignore
+            self._membership_neighbours_handler  # type: ignore
         )
         await self._initialize_protocol()
         self.running = True
@@ -122,7 +121,7 @@ class RWD(SamplingService):
             else:
                 neighbours.remove(neighbour)
 
-    async def _membership_neighbours_callback(self, new_neighbours: List[Node]):
+    async def _membership_neighbours_handler(self, new_neighbours: List[Node]):
         old_neighbours = set(self._neighbours)
         new_neighbours_set = set(new_neighbours)
         for neighbour in old_neighbours - new_neighbours_set:

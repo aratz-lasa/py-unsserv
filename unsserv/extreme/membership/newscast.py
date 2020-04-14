@@ -1,14 +1,13 @@
-from typing import Any, List, Union, Optional
+from typing import Any, List, Optional
 
-from unsserv.common.service_properties import Property
-from unsserv.common.services_abc import MembershipService
-from unsserv.common.typing import Handler
-from unsserv.common.structs import Node
 from unsserv.common.gossip.gossip import Gossip, View
+from unsserv.common.services_abc import IMembershipService
+from unsserv.common.structs import Node, Property
+from unsserv.common.typing import Handler
 from unsserv.common.utils import HandlerManager
 
 
-class Newscast(MembershipService):
+class Newscast(IMembershipService):
     properties = {Property.EXTREME, Property.HAS_GOSSIP, Property.NON_SYMMETRIC}
     gossip: Optional[Gossip]
     _handler_manager: HandlerManager
@@ -26,7 +25,7 @@ class Newscast(MembershipService):
             my_node=self.my_node,
             service_id=service_id,
             local_view_nodes=configuration.get("bootstrap_nodes", None),
-            local_view_callback=self._local_view_callback,
+            local_view_handler=self._gossip_local_view_handler,
         )
         await self.gossip.start()
         self.running = True
@@ -38,13 +37,9 @@ class Newscast(MembershipService):
         self.gossip = None
         self.running = False
 
-    def get_neighbours(
-        self, local_view_format: bool = False
-    ) -> Union[List[Node], View]:
+    def get_neighbours(self) -> List[Node]:
         if not self.running:
             raise RuntimeError("Membership service not running")
-        if local_view_format:
-            return self.gossip.local_view
         return list(self.gossip.local_view.keys())
 
     def add_neighbours_handler(self, handler: Handler):
@@ -53,5 +48,5 @@ class Newscast(MembershipService):
     def remove_neighbours_handler(self, handler: Handler):
         self._handler_manager.remove_handler(handler)
 
-    async def _local_view_callback(self, local_view: View):
+    async def _gossip_local_view_handler(self, local_view: View):
         self._handler_manager.call_handlers(list(local_view.keys()))

@@ -3,9 +3,8 @@ import random
 from collections import OrderedDict
 from typing import Any, List, Union
 
-from unsserv.common.service_properties import Property
-from unsserv.common.services_abc import DisseminationService, MembershipService
-from unsserv.common.structs import Node
+from unsserv.common.services_abc import IDisseminationService, IMembershipService
+from unsserv.common.structs import Node, Property
 from unsserv.common.typing import Handler
 from unsserv.common.utils import get_random_id, HandlerManager
 from unsserv.extreme.dissemination.lpbcast.config import (
@@ -21,7 +20,7 @@ from unsserv.extreme.dissemination.lpbcast.typing import (
 )
 
 
-class Lpbcast(DisseminationService):
+class Lpbcast(IDisseminationService):
     properties = {Property.EXTREME, Property.MANY_TO_MANY}
     _protocol: LpbcastProtocol
     _handler_manager: HandlerManager
@@ -29,7 +28,7 @@ class Lpbcast(DisseminationService):
     _events: "OrderedDict[EventId, List[Union[EventData, EventOrigin]]]"
     _events_digest: "OrderedDict[EventId, EventOrigin]"
 
-    def __init__(self, membership: MembershipService):
+    def __init__(self, membership: IMembershipService):
         self.my_node = membership.my_node
         self.membership = membership
         self._handler_manager = HandlerManager()

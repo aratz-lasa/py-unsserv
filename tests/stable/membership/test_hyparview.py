@@ -93,17 +93,17 @@ async def test_leave_hyparview(init_hyparview, amount):
     [(LOCAL_VIEW_SIZE * 2) + 1, (LOCAL_VIEW_SIZE * 2) + 5, (LOCAL_VIEW_SIZE * 2) + 100],
 )  # very high neighbours amount,
 # to assure neighbours will change, because it is initailzied by Newscast
-async def test_hyparview_callback(init_hyparview, amount):
+async def test_hyparview_handler(init_hyparview, amount):
     hyparview, r_hyparviews = await init_hyparview(amount)
 
-    callback_event = asyncio.Event()
+    handler_event = asyncio.Event()
 
-    async def callback(local_view):
+    async def handler(local_view):
         assert isinstance(local_view, list)
-        nonlocal callback_event
-        callback_event.set()
+        nonlocal handler_event
+        handler_event.set()
 
-    hyparview.add_neighbours_handler(callback)
+    hyparview.add_neighbours_handler(handler)
 
     await asyncio.sleep(GOSSIPING_FREQUENCY * 15)
-    assert callback_event.is_set()
+    assert handler_event.is_set()

@@ -3,9 +3,10 @@ from typing import Any, Dict, List, Tuple
 
 from rpcudp.protocol import RPCProtocol
 
-from unsserv.common.structs import Message, Node
+from unsserv.common.rpc.structs import Message
+from unsserv.common.structs import Node
 from unsserv.common.gossip import config as config
-from unsserv.common.rpc.rpc_typing import RpcCallback
+from unsserv.common.typing import Handler
 from unsserv.common.utils import parse_message
 
 
@@ -21,7 +22,7 @@ class RPCRegister:
 
 class RPC(RPCProtocol):
     my_node: Node
-    registered_services: Dict[Node, RpcCallback]
+    registered_services: Dict[Node, Handler]
 
     def __init__(self, node: Node):
         RPCProtocol.__init__(self, config.RPC_TIMEOUT)
@@ -36,10 +37,10 @@ class RPC(RPCProtocol):
         message = parse_message(raw_message)
         return await self.registered_services[message.service_id](message)
 
-    async def register_service(self, service_id: Any, callback: RpcCallback):
+    async def register_service(self, service_id: Any, handler: Handler):
         if service_id in self.registered_services:
             raise ValueError("Service ID already registered")
-        self.registered_services[service_id] = callback
+        self.registered_services[service_id] = handler
 
         if (
             len(self.registered_services) == 1
@@ -78,7 +79,3 @@ class RPC(RPCProtocol):
                 "RPC protocol error. Connection failed or invalid value received"
             )
         return result[1]
-
-
-# todo: improve encoding decoding
-# todo: search/implement better rpcs

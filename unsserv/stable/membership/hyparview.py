@@ -1,15 +1,13 @@
-from collections import Counter
-from typing import Union, List, Any, Optional
+from typing import List, Any, Optional
 
 from unsserv.common.gossip.gossip import Gossip
-from unsserv.common.service_properties import Property
-from unsserv.common.services_abc import MembershipService
-from unsserv.common.structs import Node
-from unsserv.common.typing import Handler, View
+from unsserv.common.services_abc import IMembershipService
+from unsserv.common.structs import Node, Property
+from unsserv.common.typing import Handler
 from unsserv.stable.membership.double_layered.double_layered import IDoubleLayered
 
 
-class HyParView(MembershipService, IDoubleLayered):
+class HyParView(IMembershipService, IDoubleLayered):
     properties = {Property.STABLE, Property.SYMMETRIC, Property.HAS_GOSSIP}
     gossip: Optional[Gossip]
 
@@ -37,12 +35,8 @@ class HyParView(MembershipService, IDoubleLayered):
         await self._stop_two_layered()
         self.running = False
 
-    def get_neighbours(
-        self, local_view_format: bool = False
-    ) -> Union[List[Node], View]:
-        return (
-            Counter(self._active_view) if local_view_format else list(self._active_view)
-        )
+    def get_neighbours(self) -> List[Node]:
+        return list(self._active_view)
 
     def add_neighbours_handler(self, handler: Handler):
         if not self.running:

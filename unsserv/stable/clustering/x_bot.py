@@ -1,12 +1,10 @@
 import asyncio
 import random
-from collections import Counter
-from typing import Any, Callable, Union, List
+from typing import Any, Callable, List
 
-from unsserv.common.service_properties import Property
-from unsserv.common.services_abc import MembershipService, ClusteringService
-from unsserv.common.structs import Node
-from unsserv.common.typing import View, Handler
+from unsserv.common.services_abc import IMembershipService, IClusteringService
+from unsserv.common.structs import Node, Property
+from unsserv.common.typing import Handler
 from unsserv.common.utils import stop_task
 from unsserv.stable.clustering.config import (
     ACTIVE_VIEW_SIZE,
@@ -21,12 +19,12 @@ from unsserv.stable.membership.double_layered.double_layered import IDoubleLayer
 RankingFunction = Callable[[Node], Any]
 
 
-class XBot(ClusteringService, IDoubleLayered):
+class XBot(IClusteringService, IDoubleLayered):
     properties = {Property.STABLE, Property.SYMMETRIC}
     _protocol: XBotProtocol
     _local_view_optimize_task: asyncio.Task
 
-    def __init__(self, membership: MembershipService):
+    def __init__(self, membership: IMembershipService):
         super().__init__(membership.my_node)
         self.membership = membership
         self._protocol = XBotProtocol(membership.my_node)
@@ -53,12 +51,8 @@ class XBot(ClusteringService, IDoubleLayered):
         await self._stop_two_layered()
         self.running = False
 
-    def get_neighbours(
-        self, local_view_format: bool = False
-    ) -> Union[List[Node], View]:
-        return (
-            Counter(self._active_view) if local_view_format else list(self._active_view)
-        )
+    def get_neighbours(self) -> List[Node]:
+        return list(self._active_view)
 
     def add_neighbours_handler(self, handler: Handler):
         if not self.running:
@@ -78,7 +72,7 @@ class XBot(ClusteringService, IDoubleLayered):
             await asyncio.sleep(ACTIVE_VIEW_MAINTAIN_FREQUENCY)
             if len(self._active_view) >= ACTIVE_VIEW_SIZE:
                 await self._optimize_active_view()  # todo: create task instead?
-            self._call_callback_if_view_changed(old_active_view)
+            self._call_handler_if_view_changed(old_active_view)
 
     async def _optimize_active_view(self):
         candidate_neighbours = self.membership.get_neighbours()

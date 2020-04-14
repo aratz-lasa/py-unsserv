@@ -102,13 +102,13 @@ async def test_aggregate_handler(init_extreme_membership, init_anti_entropy, amo
     newc, r_newcs = await init_extreme_membership(amount)
     anti, r_antis = await init_anti_entropy(newc, r_newcs)
 
-    callback_event = asyncio.Event()
+    handler_event = asyncio.Event()
 
-    async def callback(neighbours):
-        nonlocal callback_event
-        callback_event.set()
+    async def handler(neighbours):
+        nonlocal handler_event
+        handler_event.set()
 
-    anti.add_aggregate_handler(callback)
+    anti.add_aggregate_handler(handler)
 
     await asyncio.sleep(GOSSIPING_FREQUENCY * 7)
-    assert callback_event.is_set()
+    assert handler_event.is_set()

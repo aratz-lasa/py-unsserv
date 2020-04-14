@@ -2,16 +2,15 @@ import asyncio
 import random
 from typing import Any, Dict, Optional
 
-from unsserv.common.structs import Node
-from unsserv.common.service_properties import Property
-from unsserv.common.services_abc import SearchingService, MembershipService
+from unsserv.common.structs import Node, Property
+from unsserv.common.services_abc import ISearchingService, IMembershipService
 from unsserv.common.utils import get_random_id
 from unsserv.extreme.searching import config as config
 from unsserv.extreme.searching.structs import Walk, WalkResult
 from unsserv.extreme.searching.protocol import KWalkerProtocol
 
 
-class KWalker(SearchingService):
+class KWalker(ISearchingService):
     properties = {Property.EXTREME}
     _search_data: Dict[str, bytes]
     _walk_events: Dict[str, asyncio.Event]
@@ -20,7 +19,7 @@ class KWalker(SearchingService):
     _ttl: int
     _fanout: int
 
-    def __init__(self, membership: MembershipService):
+    def __init__(self, membership: IMembershipService):
         self.membership = membership
         self.my_node = membership.my_node
         self._search_data = {}

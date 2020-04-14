@@ -5,7 +5,8 @@ from enum import IntEnum
 from typing import Any, Tuple, Sequence, Dict, Callable
 
 from unsserv.common.rpc.rpc import RPCRegister, RPC
-from unsserv.common.structs import Node, Message
+from unsserv.common.rpc.structs import Message
+from unsserv.common.structs import Node
 
 Command = IntEnum
 Data = Any
