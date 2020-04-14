@@ -5,6 +5,7 @@ from unsserv.common.services_abc import IMembershipService
 from unsserv.common.structs import Node, Property
 from unsserv.common.typing import Handler
 from unsserv.stable.membership.double_layered.double_layered import IDoubleLayered
+from unsserv.stable.membership.double_layered.config import DoubleLayeredConfig
 
 
 class HyParView(IMembershipService, IDoubleLayered):
@@ -14,6 +15,7 @@ class HyParView(IMembershipService, IDoubleLayered):
     def __init__(self, my_node: Node):
         super().__init__(my_node)
         self.gossip = None
+        self._config = DoubleLayeredConfig()
 
     async def join(self, service_id: Any, **configuration: Any):
         if self.running:

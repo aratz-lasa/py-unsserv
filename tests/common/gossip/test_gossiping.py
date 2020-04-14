@@ -4,12 +4,13 @@ from typing import Any, List, Tuple
 
 import pytest
 
+import unsserv.common.gossip.config
 import unsserv.common.gossip.gossip
 import unsserv.common.gossip.structs
 from tests.utils import get_random_nodes
 from unsserv.common.gossip import gossip
-from unsserv.common.gossip.config import GOSSIPING_FREQUENCY
-from unsserv.common.gossip.gossip import LOCAL_VIEW_SIZE, View
+from unsserv.common.gossip.config import GossipConfig
+from unsserv.common.gossip.gossip import View
 from unsserv.common.gossip.typing import Payload
 from unsserv.common.structs import Node
 from unsserv.common.utils import parse_node
@@ -19,15 +20,19 @@ SERVICE_ID = "gossip"
 
 
 def test_view_selection():
-    r_nodes = get_random_nodes(LOCAL_VIEW_SIZE * 2, first_port=7772)
+    r_nodes = get_random_nodes(GossipConfig.LOCAL_VIEW_SIZE * 2, first_port=7772)
     view = Counter(dict(map(lambda n: (n[1], n[0] + 1), enumerate(r_nodes))))
     gsp = gossip.Gossip(node, SERVICE_ID)
 
-    gsp.view_selection_policy = unsserv.common.gossip.structs.ViewSelectionPolicy.HEAD
-    assert set(r_nodes[:LOCAL_VIEW_SIZE]) == set(gsp._select_view(view).keys())
+    gsp._config.VIEW_SELECTION = unsserv.common.gossip.config.ViewSelectionPolicy.HEAD
+    assert set(r_nodes[: GossipConfig.LOCAL_VIEW_SIZE]) == set(
+        gsp._select_view(view).keys()
+    )
 
-    gsp.view_selection_policy = unsserv.common.gossip.structs.ViewSelectionPolicy.TAIL
-    assert set(r_nodes[LOCAL_VIEW_SIZE:]) == set(gsp._select_view(view).keys())
+    gsp._config.VIEW_SELECTION = unsserv.common.gossip.config.ViewSelectionPolicy.TAIL
+    assert set(r_nodes[GossipConfig.LOCAL_VIEW_SIZE :]) == set(
+        gsp._select_view(view).keys()
+    )
 
     def ranking(node: Node):
         return node.address_info[1] % 2
@@ -35,27 +40,27 @@ def test_view_selection():
     def selection_ranking(view: View) -> List[Node]:
         return sorted(view.keys(), key=ranking)
 
-    gsp.view_selection_policy = unsserv.common.gossip.structs.ViewSelectionPolicy.HEAD
+    gsp._config.VIEW_SELECTION = unsserv.common.gossip.config.ViewSelectionPolicy.HEAD
     gsp.custom_selection_ranking = selection_ranking
-    assert set(sorted(r_nodes, key=ranking)[:LOCAL_VIEW_SIZE]) == set(
+    assert set(sorted(r_nodes, key=ranking)[: GossipConfig.LOCAL_VIEW_SIZE]) == set(
         gsp._select_view(view).keys()
     )
 
 
 def test_peer_selection():
-    r_nodes = get_random_nodes(LOCAL_VIEW_SIZE, first_port=7772)
+    r_nodes = get_random_nodes(GossipConfig.LOCAL_VIEW_SIZE, first_port=7772)
     view = Counter(dict(map(lambda n: (n[1], n[0] + 1), enumerate(r_nodes))))
     gsp = gossip.Gossip(node, SERVICE_ID)
 
-    gsp.peer_selection_policy = unsserv.common.gossip.structs.PeerSelectionPolicy.HEAD
+    gsp._config.PEER_SELECTION = unsserv.common.gossip.config.PeerSelectionPolicy.HEAD
     assert r_nodes[0] == gsp._select_peer(view)
 
-    gsp.peer_selection_policy = unsserv.common.gossip.structs.PeerSelectionPolicy.TAIL
+    gsp._config.PEER_SELECTION = unsserv.common.gossip.config.PeerSelectionPolicy.TAIL
     assert r_nodes[-1] == gsp._select_peer(view)
 
 
 def test_increase_hop_count():
-    r_nodes = get_random_nodes(LOCAL_VIEW_SIZE, first_port=7772)
+    r_nodes = get_random_nodes(GossipConfig.LOCAL_VIEW_SIZE, first_port=7772)
     view = Counter(dict(map(lambda n: (n[1], n[0] + 1), enumerate(r_nodes))))
     gsp = gossip.Gossip(node, SERVICE_ID)
 
@@ -63,7 +68,7 @@ def test_increase_hop_count():
 
 
 def test_merge():
-    r_nodes = get_random_nodes(LOCAL_VIEW_SIZE, first_port=7772)
+    r_nodes = get_random_nodes(GossipConfig.LOCAL_VIEW_SIZE, first_port=7772)
     view1 = Counter(dict(map(lambda n: (n[1], n[0] + 1), enumerate(r_nodes))))
     gsp = gossip.Gossip(node, SERVICE_ID)
 
@@ -87,10 +92,10 @@ async def test_gossiping(amount):
         await r_gsp.start()
         r_gsps.append(r_gsp)
 
-    await asyncio.sleep(GOSSIPING_FREQUENCY * 15)
+    await asyncio.sleep(GossipConfig.GOSSIPING_FREQUENCY * 15)
 
     for r_gsp in r_gsps:
-        assert min(amount, LOCAL_VIEW_SIZE) <= len(r_gsp.local_view)
+        assert min(amount, GossipConfig.LOCAL_VIEW_SIZE) <= len(r_gsp.local_view)
 
     await gsp.stop()
     for r_gsp in r_gsps:
@@ -127,7 +132,7 @@ async def test_subscriber():
     await gsp.start()
     await r_gsp.start()
 
-    await asyncio.sleep(GOSSIPING_FREQUENCY * 3)
+    await asyncio.sleep(GossipConfig.GOSSIPING_FREQUENCY * 3)
 
     assert sub_gsp.is_payload_received
     assert sub_r_gsp.is_payload_received

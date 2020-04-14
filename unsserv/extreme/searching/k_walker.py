@@ -2,42 +2,40 @@ import asyncio
 import random
 from typing import Any, Dict, Optional
 
-from unsserv.common.structs import Node, Property
 from unsserv.common.services_abc import ISearchingService, IMembershipService
+from unsserv.common.structs import Node, Property
 from unsserv.common.utils import get_random_id
-from unsserv.extreme.searching import config as config
-from unsserv.extreme.searching.structs import Walk, WalkResult
+from unsserv.extreme.searching.config import KWalkerConfig
 from unsserv.extreme.searching.protocol import KWalkerProtocol
+from unsserv.extreme.searching.structs import Walk, WalkResult
 
 
 class KWalker(ISearchingService):
     properties = {Property.EXTREME}
+    _protocol: KWalkerProtocol
+    _config: KWalkerConfig
+
     _search_data: Dict[str, bytes]
     _walk_events: Dict[str, asyncio.Event]
     _walk_results: Dict[str, bytes]
-    _protocol: KWalkerProtocol
-    _ttl: int
-    _fanout: int
 
     def __init__(self, membership: IMembershipService):
         self.membership = membership
         self.my_node = membership.my_node
-        self._search_data = {}
         self._protocol = KWalkerProtocol(self.my_node)
+        self._config = KWalkerConfig()
+
+        self._search_data = {}
         self._walk_results = {}
         self._walk_events = {}
 
-    async def join(self, service_id: str, **kwalker_configuration: Any):
+    async def join(self, service_id: str, **configuration: Any):
         if self.running:
             raise RuntimeError("Already running Searching service")
         self.service_id = service_id
-        self._search_data = {}
-        self._ttl = kwalker_configuration.get("ttl", None) or config.DEFAULT_TTL
-        self._fanout = (
-            kwalker_configuration.get("fanout", None) or config.DEFAULT_FANOUT
-        )
-
         await self._initialize_protocol()
+        self._config.load_from_dict(configuration)
+        self._search_data = {}
         self.running = True
 
     async def leave(self):
@@ -68,17 +66,17 @@ class KWalker(ISearchingService):
     async def search(self, data_id: str) -> Optional[bytes]:
         candidate_neighbours = self.membership.get_neighbours()
         assert isinstance(candidate_neighbours, list)
-        fanout = min(self._fanout, len(candidate_neighbours))
+        fanout = min(self._config.FANOUT, len(candidate_neighbours))
         walk_id = get_random_id()
         walk = Walk(
-            id=walk_id, data_id=data_id, origin_node=self.my_node, ttl=self._ttl
+            id=walk_id, data_id=data_id, origin_node=self.my_node, ttl=self._config.TTL
         )
         self._walk_events[walk_id] = asyncio.Event()
         for neighbour in random.sample(candidate_neighbours, fanout):
             await self._protocol.walk(neighbour, walk)
         try:
             return await asyncio.wait_for(
-                self._get_walk_result(fanout, walk_id), timeout=config.TIMEOUT
+                self._get_walk_result(fanout, walk_id), timeout=self._config.TIMEOUT
             )
         except asyncio.TimeoutError:
             return None

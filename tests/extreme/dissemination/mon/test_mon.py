@@ -4,10 +4,10 @@ from typing import Any, Dict
 
 import pytest
 
-from unsserv.common.structs import Node
-from unsserv.common.gossip.config import GOSSIPING_FREQUENCY
-from unsserv.extreme.dissemination.mon.mon import Mon
 from tests.utils import init_extreme_membership
+from unsserv.common.gossip.config import GossipConfig
+from unsserv.common.structs import Node
+from unsserv.extreme.dissemination.mon.mon import Mon
 
 init_extreme_membership = init_extreme_membership  # for flake8 compliance
 
@@ -42,7 +42,7 @@ async def init_mon():
                 broadcast_handler=partial(dissemination_handler, r_mon.my_node),
             )
             r_mons.append(r_mon)
-        await asyncio.sleep(GOSSIPING_FREQUENCY * 7)
+        await asyncio.sleep(GossipConfig.GOSSIPING_FREQUENCY * 7)
         return mon, r_mons
 
     try:
@@ -68,7 +68,7 @@ async def test_broadcast(init_extreme_membership, init_mon, amount):
 
     data = b"data"
     await mon.broadcast(data)
-    await asyncio.sleep(GOSSIPING_FREQUENCY * 15)
+    await asyncio.sleep(GossipConfig.GOSSIPING_FREQUENCY * 15)
 
     mon_events_received = [mon_events[r_mon.my_node].is_set() for r_mon in r_mons]
     assert int(amount * 0.75) <= sum(mon_events_received)

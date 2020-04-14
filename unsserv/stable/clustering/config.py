@@ -1,10 +1,14 @@
 from math import ceil
+from typing import Dict, Any
+
+from unsserv.stable.membership.double_layered.config import DoubleLayeredConfig
 
 
-ACTIVE_VIEW_SIZE = 6
-UNBIASED_PERCENT = 0.2
-UNBIASED_NODES = ceil(ACTIVE_VIEW_SIZE * UNBIASED_PERCENT)
-PASSIVE_SCAN_LENGTH = ACTIVE_VIEW_SIZE
-TTL = 10
-ID_LENGTH = 10
-ACTIVE_VIEW_MAINTAIN_FREQUENCY = 1
+class XBotConfig(DoubleLayeredConfig):
+    UNBIASED_NODES = ceil(DoubleLayeredConfig.ACTIVE_VIEW_SIZE * 0.2)
+
+    def load_from_dict(self, config_dict: Dict[str, Any]):
+        super().load_from_dict(config_dict)
+        self.UNBIASED_NODES = config_dict.get(
+            "unbiased_nodes", XBotConfig.UNBIASED_NODES
+        )

@@ -2,10 +2,9 @@ import asyncio
 
 import pytest
 
-from unsserv.common.gossip.config import GOSSIPING_FREQUENCY
-from unsserv.extreme.sampling.mrwb import MRWB
-
 from tests.utils import init_extreme_membership
+from unsserv.common.gossip.config import GossipConfig
+from unsserv.extreme.sampling.mrwb import MRWB
 
 init_extreme_membership = init_extreme_membership  # for flake8 compliance
 
@@ -26,7 +25,7 @@ async def init_mrwb():
             r_sampl = MRWB(r_newc)
             await r_sampl.join(AGGREGATION_SERVICE_ID)
             r_sampls.append(r_sampl)
-        await asyncio.sleep(GOSSIPING_FREQUENCY * 7)
+        await asyncio.sleep(GossipConfig.GOSSIPING_FREQUENCY * 7)
         return r_sampls, sampl
 
     try:

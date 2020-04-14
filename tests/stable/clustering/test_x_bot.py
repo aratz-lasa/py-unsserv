@@ -1,15 +1,15 @@
 import asyncio
 from collections import Counter
+from functools import partial
 from math import ceil
 
 import pytest
 
-from functools import partial
-from unsserv.common.structs import Node
-from unsserv.common.gossip.config import GOSSIPING_FREQUENCY, LOCAL_VIEW_SIZE
-from unsserv.stable.clustering.x_bot import XBot
-from unsserv.stable.clustering.config import UNBIASED_NODES, ACTIVE_VIEW_SIZE
 from tests.utils import init_extreme_membership
+from unsserv.common.gossip.config import GossipConfig
+from unsserv.common.structs import Node
+from unsserv.stable.clustering.config import XBotConfig
+from unsserv.stable.clustering.x_bot import XBot
 
 init_extreme_membership = init_extreme_membership  # for flake8 compliance
 
@@ -35,7 +35,7 @@ async def init_xbot():
                 ranking_function=partial(port_distance, r_xbot.my_node),
             )
             r_xbots.append(r_xbot)
-        await asyncio.sleep(GOSSIPING_FREQUENCY * 7)
+        await asyncio.sleep(GossipConfig.GOSSIPING_FREQUENCY * 7)
         return xbot, r_xbots
 
     try:
@@ -52,26 +52,27 @@ def port_distance(my_node: Node, ranked_node: Node):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "amount", [LOCAL_VIEW_SIZE * 2 + 1, LOCAL_VIEW_SIZE * 2 + 5, 100]
+    "amount",
+    [GossipConfig.LOCAL_VIEW_SIZE * 2 + 1, GossipConfig.LOCAL_VIEW_SIZE * 2 + 5, 100],
 )
 async def test_join_xbot(init_extreme_membership, init_xbot, amount):
     newc, r_newcs = await init_extreme_membership(amount)
     xbot, r_xbots = await init_xbot(newc, r_newcs)
 
-    await asyncio.sleep(GOSSIPING_FREQUENCY * 40)
+    await asyncio.sleep(GossipConfig.GOSSIPING_FREQUENCY * 40)
 
     cluster_nodes = [xbot] + r_xbots
     satisfy_ideal_neighbours = []
     for cluster in cluster_nodes:
-        neighbours = set(cluster.get_neighbours()[UNBIASED_NODES:])
+        neighbours = set(cluster.get_neighbours()[XBotConfig.UNBIASED_NODES :])
         key_function = partial(port_distance, cluster.my_node)
         ideal_neighbours = set(
             sorted(map(lambda c_n: c_n.my_node, cluster_nodes), key=key_function)[
-                1 : (ACTIVE_VIEW_SIZE - UNBIASED_NODES) + 1
+                1 : (XBotConfig.ACTIVE_VIEW_SIZE - XBotConfig.UNBIASED_NODES) + 1
             ]
         )
         satisfies_half_ideal_neighbours = min(
-            amount, (ACTIVE_VIEW_SIZE - UNBIASED_NODES)
+            amount, (XBotConfig.ACTIVE_VIEW_SIZE - XBotConfig.UNBIASED_NODES)
         ) * 0.2 <= len(ideal_neighbours.intersection(neighbours))
         satisfy_ideal_neighbours.append(satisfies_half_ideal_neighbours)
     assert sum(satisfy_ideal_neighbours) / (amount + 1) >= 0.5
@@ -79,7 +80,12 @@ async def test_join_xbot(init_extreme_membership, init_xbot, amount):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "amount", [LOCAL_VIEW_SIZE + 1, LOCAL_VIEW_SIZE + 5, LOCAL_VIEW_SIZE + 100]
+    "amount",
+    [
+        GossipConfig.LOCAL_VIEW_SIZE + 1,
+        GossipConfig.LOCAL_VIEW_SIZE + 5,
+        GossipConfig.LOCAL_VIEW_SIZE + 100,
+    ],
 )
 async def test_leave_xbot(init_extreme_membership, init_xbot, amount):
     newc, r_newcs = await init_extreme_membership(amount)
@@ -87,7 +93,7 @@ async def test_leave_xbot(init_extreme_membership, init_xbot, amount):
 
     await xbot.leave()
     await newc.leave()
-    await asyncio.sleep(GOSSIPING_FREQUENCY * 40)
+    await asyncio.sleep(GossipConfig.GOSSIPING_FREQUENCY * 40)
 
     all_nodes = Counter(
         [
@@ -105,7 +111,11 @@ async def test_leave_xbot(init_extreme_membership, init_xbot, amount):
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     "amount",
-    [(LOCAL_VIEW_SIZE * 2) + 1, (LOCAL_VIEW_SIZE * 2) + 5, (LOCAL_VIEW_SIZE * 2) + 100],
+    [
+        (GossipConfig.LOCAL_VIEW_SIZE * 2) + 1,
+        (GossipConfig.LOCAL_VIEW_SIZE * 2) + 5,
+        (GossipConfig.LOCAL_VIEW_SIZE * 2) + 100,
+    ],
 )  # very high neighbours amount,
 # to assure neighbours will change, because it is initailzied by Newscast
 async def test_xbot_handler(init_extreme_membership, init_xbot, amount):
@@ -121,5 +131,5 @@ async def test_xbot_handler(init_extreme_membership, init_xbot, amount):
 
     xbot.add_neighbours_handler(handler)
 
-    await asyncio.sleep(GOSSIPING_FREQUENCY * 15)
+    await asyncio.sleep(GossipConfig.GOSSIPING_FREQUENCY * 15)
     assert handler_event.is_set()

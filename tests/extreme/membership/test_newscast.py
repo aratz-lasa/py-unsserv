@@ -5,8 +5,8 @@ from math import ceil
 import pytest
 
 from tests.utils import get_random_nodes
+from unsserv.common.gossip.config import GossipConfig
 from unsserv.common.structs import Node
-from unsserv.common.gossip.config import GOSSIPING_FREQUENCY, LOCAL_VIEW_SIZE
 from unsserv.extreme.membership import newscast
 
 node = Node(("127.0.0.1", 7771))
@@ -44,7 +44,7 @@ async def init_newscast():
 @pytest.mark.parametrize("amount", [1, 5, 100])
 async def test_newscast_join(init_newscast, amount):
     newc, r_newcs, r_nodes = await init_newscast(amount)
-    await asyncio.sleep(GOSSIPING_FREQUENCY * 7)
+    await asyncio.sleep(GossipConfig.GOSSIPING_FREQUENCY * 7)
 
     all_nodes = set(
         [
@@ -56,27 +56,32 @@ async def test_newscast_join(init_newscast, amount):
     assert amount * 0.9 < len(all_nodes)
 
     neighbours = newc.get_neighbours()
-    assert min(amount, LOCAL_VIEW_SIZE) <= len(neighbours)
+    assert min(amount, GossipConfig.LOCAL_VIEW_SIZE) <= len(neighbours)
     for neighbour in neighbours:
         assert neighbour in r_nodes
 
     for r_newc in r_newcs:
         r_neighbours = r_newc.get_neighbours()
-        assert min(amount, LOCAL_VIEW_SIZE) <= len(r_neighbours)
+        assert min(amount, GossipConfig.LOCAL_VIEW_SIZE) <= len(r_neighbours)
         for r_neighbour in r_neighbours:
             assert r_neighbour in r_nodes or r_neighbour == node
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "amount", [LOCAL_VIEW_SIZE + 1, LOCAL_VIEW_SIZE + 5, LOCAL_VIEW_SIZE + 100]
+    "amount",
+    [
+        GossipConfig.LOCAL_VIEW_SIZE + 1,
+        GossipConfig.LOCAL_VIEW_SIZE + 5,
+        GossipConfig.LOCAL_VIEW_SIZE + 100,
+    ],
 )
 async def test_newscast_leave(init_newscast, amount):
     newc, r_newcs, r_nodes = await init_newscast(amount)
-    await asyncio.sleep(GOSSIPING_FREQUENCY * 7)
+    await asyncio.sleep(GossipConfig.GOSSIPING_FREQUENCY * 7)
 
     await newc.leave()
-    await asyncio.sleep(GOSSIPING_FREQUENCY * 40)
+    await asyncio.sleep(GossipConfig.GOSSIPING_FREQUENCY * 40)
 
     all_nodes = Counter(
         [
@@ -94,7 +99,11 @@ async def test_newscast_leave(init_newscast, amount):
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     "amount",
-    [(LOCAL_VIEW_SIZE * 2) + 1, (LOCAL_VIEW_SIZE * 2) + 5, (LOCAL_VIEW_SIZE * 2) + 100],
+    [
+        (GossipConfig.LOCAL_VIEW_SIZE * 2) + 1,
+        (GossipConfig.LOCAL_VIEW_SIZE * 2) + 5,
+        (GossipConfig.LOCAL_VIEW_SIZE * 2) + 100,
+    ],
 )
 async def test_newscast_handler(init_newscast, amount):
     newc, r_newcs, r_nodes = await init_newscast(amount)
@@ -107,5 +116,5 @@ async def test_newscast_handler(init_newscast, amount):
 
     newc.add_neighbours_handler(handler)
 
-    await asyncio.sleep(GOSSIPING_FREQUENCY * 7)
+    await asyncio.sleep(GossipConfig.GOSSIPING_FREQUENCY * 7)
     assert handler_event.is_set()

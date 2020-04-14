@@ -1,13 +1,14 @@
 import asyncio
 
 import pytest
+
+from tests.utils import init_extreme_membership
 from unsserv.common.aggregation.anti_entropy import (
-    AggregateType,
     AntiEntropy,
     aggregate_functions,
 )
-from unsserv.common.gossip.config import GOSSIPING_FREQUENCY, LOCAL_VIEW_SIZE
-from tests.utils import init_extreme_membership
+from unsserv.common.aggregation.config import AggregateType
+from unsserv.common.gossip.config import GossipConfig
 
 init_extreme_membership = init_extreme_membership  # for flake8 compliance
 
@@ -36,7 +37,7 @@ async def init_anti_entropy():
                 aggregate_value=r_newc.my_node.address_info[1],
             )
             r_antis.append(r_anti)
-        await asyncio.sleep(GOSSIPING_FREQUENCY * 7)
+        await asyncio.sleep(GossipConfig.GOSSIPING_FREQUENCY * 7)
         return anti, r_antis
 
     try:
@@ -96,7 +97,11 @@ async def test_aggregate(
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     "amount",
-    [(LOCAL_VIEW_SIZE * 2) + 1, (LOCAL_VIEW_SIZE * 2) + 5, (LOCAL_VIEW_SIZE * 2) + 100],
+    [
+        (GossipConfig.LOCAL_VIEW_SIZE * 2) + 1,
+        (GossipConfig.LOCAL_VIEW_SIZE * 2) + 5,
+        (GossipConfig.LOCAL_VIEW_SIZE * 2) + 100,
+    ],
 )
 async def test_aggregate_handler(init_extreme_membership, init_anti_entropy, amount):
     newc, r_newcs = await init_extreme_membership(amount)
@@ -110,5 +115,5 @@ async def test_aggregate_handler(init_extreme_membership, init_anti_entropy, amo
 
     anti.add_aggregate_handler(handler)
 
-    await asyncio.sleep(GOSSIPING_FREQUENCY * 7)
+    await asyncio.sleep(GossipConfig.GOSSIPING_FREQUENCY * 7)
     assert handler_event.is_set()

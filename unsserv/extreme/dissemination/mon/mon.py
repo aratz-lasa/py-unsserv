@@ -2,12 +2,12 @@ import asyncio
 import random
 from typing import Any, List, Dict
 
-from unsserv.common.structs import Node, Property
 from unsserv.common.errors import ServiceError
 from unsserv.common.services_abc import IDisseminationService, IMembershipService
+from unsserv.common.structs import Node, Property
 from unsserv.common.typing import Handler
 from unsserv.common.utils import get_random_id, HandlerManager
-from unsserv.extreme.dissemination.mon.config import MON_FANOUT
+from unsserv.extreme.dissemination.mon.config import MonConfig
 from unsserv.extreme.dissemination.mon.protocol import MonProtocol
 from unsserv.extreme.dissemination.mon.structs import Session, Broadcast
 from unsserv.extreme.dissemination.mon.typing import BroadcastID
@@ -15,8 +15,10 @@ from unsserv.extreme.dissemination.mon.typing import BroadcastID
 
 class Mon(IDisseminationService):
     properties = {Property.EXTREME, Property.ONE_TO_MANY}
-    _handler_manager: HandlerManager
     _protocol: MonProtocol
+    _handler_manager: HandlerManager
+    _config: MonConfig
+
     _levels: Dict[BroadcastID, int]
     _children: Dict[BroadcastID, List[Node]]
     _parents: Dict[BroadcastID, List[Node]]
@@ -28,8 +30,9 @@ class Mon(IDisseminationService):
     def __init__(self, membership: IMembershipService):
         self.my_node = membership.my_node
         self.membership = membership
-        self._handler_manager = HandlerManager()
         self._protocol = MonProtocol(self.my_node)
+        self._handler_manager = HandlerManager()
+        self._config = MonConfig()
 
         self._children = {}
         self._parents = {}
@@ -41,9 +44,10 @@ class Mon(IDisseminationService):
     async def join(self, service_id: str, **configuration: Any):
         if self.running:
             raise RuntimeError("Already running Dissemination")
-        self._handler_manager.add_handler(configuration["broadcast_handler"])
         self.service_id = service_id
         await self._initialize_protocol()
+        self._handler_manager.add_handler(configuration["broadcast_handler"])
+        self._config.load_from_dict(configuration)
         self.running = True
 
     async def leave(self):
@@ -83,7 +87,7 @@ class Mon(IDisseminationService):
         self, broadcast_id: str, neighbours: list, broadcast_origin=False
     ):
         children: List[Node] = []
-        fanout = min(len(neighbours), MON_FANOUT)
+        fanout = min(len(neighbours), self._config.FANOUT)
         session = Session(broadcast_id=broadcast_id, level=0)
         while neighbours and len(children) <= fanout:
             child = random.choice(neighbours)

@@ -4,10 +4,10 @@ from math import ceil
 
 import pytest
 
-from unsserv.common.gossip.config import GOSSIPING_FREQUENCY, LOCAL_VIEW_SIZE
 from tests.utils import init_extreme_membership
-from unsserv.extreme.searching.k_walker import KWalker
+from unsserv.common.gossip.config import GossipConfig
 from unsserv.common.utils import get_random_id
+from unsserv.extreme.searching.k_walker import KWalker
 
 init_extreme_membership = init_extreme_membership  # for flake8 compliance
 
@@ -28,7 +28,7 @@ async def init_kwalker():
             r_tman = KWalker(r_newc)
             await r_tman.join(SAMPLING_SERVICE_ID)
             r_kwalkers.append(r_tman)
-        await asyncio.sleep(GOSSIPING_FREQUENCY * 7)
+        await asyncio.sleep(GossipConfig.GOSSIPING_FREQUENCY * 7)
         return kwalker, r_kwalkers
 
     try:
@@ -72,7 +72,11 @@ async def test_publish_unpublish(init_extreme_membership, init_kwalker):
     "amount,replication_percent",
     [
         (amount, repl_percent)
-        for amount in [LOCAL_VIEW_SIZE + 1, LOCAL_VIEW_SIZE + 5, LOCAL_VIEW_SIZE + 100]
+        for amount in [
+            GossipConfig.LOCAL_VIEW_SIZE + 1,
+            GossipConfig.LOCAL_VIEW_SIZE + 5,
+            GossipConfig.LOCAL_VIEW_SIZE + 100,
+        ]
         for repl_percent in [0.3, 0.6, 0.9]
     ],
 )
@@ -85,10 +89,10 @@ async def test_search(
     data = b"data"
     replication_amount = ceil(amount * replication_percent)
 
-    await asyncio.sleep(GOSSIPING_FREQUENCY * 10)
+    await asyncio.sleep(GossipConfig.GOSSIPING_FREQUENCY * 10)
     for r_kwalker in random.sample(r_kwalkers, replication_amount):
         await r_kwalker.publish(data_id, data)
-    await asyncio.sleep(GOSSIPING_FREQUENCY * 5)
+    await asyncio.sleep(GossipConfig.GOSSIPING_FREQUENCY * 5)
 
     found_data = None
     random_walks_amount = 0

@@ -5,8 +5,8 @@ from math import ceil
 import pytest
 
 from tests.utils import get_random_nodes
+from unsserv.common.gossip.config import GossipConfig
 from unsserv.common.structs import Node
-from unsserv.common.gossip.config import GOSSIPING_FREQUENCY, LOCAL_VIEW_SIZE
 from unsserv.stable.membership.hyparview import HyParView
 
 MEMBERSHIP_SERVICE_ID = "hyparview"
@@ -44,7 +44,7 @@ async def init_hyparview():
 @pytest.mark.parametrize("amount", [1, 5, 100])
 async def test_join_hyparview(init_hyparview, amount):
     hyparview, r_hyparviews = await init_hyparview(amount)
-    await asyncio.sleep(GOSSIPING_FREQUENCY * 15)
+    await asyncio.sleep(GossipConfig.GOSSIPING_FREQUENCY * 15)
 
     all_nodes = set(
         [
@@ -65,14 +65,19 @@ async def test_join_hyparview(init_hyparview, amount):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "amount", [LOCAL_VIEW_SIZE + 1, LOCAL_VIEW_SIZE + 5, LOCAL_VIEW_SIZE + 100]
+    "amount",
+    [
+        GossipConfig.LOCAL_VIEW_SIZE + 1,
+        GossipConfig.LOCAL_VIEW_SIZE + 5,
+        GossipConfig.LOCAL_VIEW_SIZE + 100,
+    ],
 )
 async def test_leave_hyparview(init_hyparview, amount):
     hyparview, r_hyparviews = await init_hyparview(amount)
-    await asyncio.sleep(GOSSIPING_FREQUENCY * 7)
+    await asyncio.sleep(GossipConfig.GOSSIPING_FREQUENCY * 7)
 
     await hyparview.leave()
-    await asyncio.sleep(GOSSIPING_FREQUENCY * 40)
+    await asyncio.sleep(GossipConfig.GOSSIPING_FREQUENCY * 40)
 
     all_nodes = Counter(
         [
@@ -90,7 +95,11 @@ async def test_leave_hyparview(init_hyparview, amount):
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     "amount",
-    [(LOCAL_VIEW_SIZE * 2) + 1, (LOCAL_VIEW_SIZE * 2) + 5, (LOCAL_VIEW_SIZE * 2) + 100],
+    [
+        (GossipConfig.LOCAL_VIEW_SIZE * 2) + 1,
+        (GossipConfig.LOCAL_VIEW_SIZE * 2) + 5,
+        (GossipConfig.LOCAL_VIEW_SIZE * 2) + 100,
+    ],
 )  # very high neighbours amount,
 # to assure neighbours will change, because it is initailzied by Newscast
 async def test_hyparview_handler(init_hyparview, amount):
@@ -105,5 +114,5 @@ async def test_hyparview_handler(init_hyparview, amount):
 
     hyparview.add_neighbours_handler(handler)
 
-    await asyncio.sleep(GOSSIPING_FREQUENCY * 15)
+    await asyncio.sleep(GossipConfig.GOSSIPING_FREQUENCY * 15)
     assert handler_event.is_set()

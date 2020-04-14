@@ -3,36 +3,34 @@ import math
 import random
 from typing import Dict, List, Any
 
-from unsserv.common.utils import stop_task
-from unsserv.common.structs import Node, Property
 from unsserv.common.errors import ServiceError
 from unsserv.common.services_abc import IMembershipService, ISamplingService
+from unsserv.common.structs import Node, Property
 from unsserv.common.utils import get_random_id
-from unsserv.extreme.sampling.config import (
-    ID_LENGTH,
-    MRWB_DEGREE_REFRESH_FREQUENCY,
-    SAMPLING_TIMEOUT,
-    TTL,
-)
+from unsserv.common.utils import stop_task
+from unsserv.extreme.sampling.config import MRWBConfig
 from unsserv.extreme.sampling.protocol import MRWBProtocol
 from unsserv.extreme.sampling.structs import Sample, SampleResult
 
 
 class MRWB(ISamplingService):
     properties = {Property.EXTREME}
+    _protocol: MRWBProtocol
+    _config: MRWBConfig
+
     _neighbours: List[Node]
     _neighbour_degrees: Dict[Node, int]
-    _protocol: MRWBProtocol
     _sampling_queue: Dict[str, Node]
     _sampling_events: Dict[str, asyncio.Event]
 
     def __init__(self, membership: IMembershipService):
         self.my_node = membership.my_node
         self.membership = membership
+        self._protocol = MRWBProtocol(self.my_node)
+        self._config = MRWBConfig()
+
         self._neighbours = []
         self._neighbour_degrees = {}
-        self._protocol = MRWBProtocol(self.my_node)
-
         self._sampling_queue = {}
         self._sampling_events = {}
 
@@ -40,6 +38,7 @@ class MRWB(ISamplingService):
         if self.running:
             raise RuntimeError("Already running Sampling")
         self.service_id = service_id
+        self._config.load_from_dict(configuration)
         # initialize neighbours
         neighbours = self.membership.get_neighbours()
         assert isinstance(neighbours, list)
@@ -57,7 +56,7 @@ class MRWB(ISamplingService):
     async def leave(self):
         if not self.running:
             return
-        self.membership.add_neighbours_handler(None)
+        self.membership.remove_neighbours_handler(self._membership_neighbours_handler)
         self._neighbours = []
         await self._protocol.stop()
         if self._degrees_update_task:  # stop degrees updater task
@@ -67,16 +66,16 @@ class MRWB(ISamplingService):
     async def get_sample(self) -> Node:
         if not self.running:
             raise RuntimeError("Sampling service not running")
-        sample_id = get_random_id(ID_LENGTH)
+        sample_id = get_random_id()
         if not self._neighbours:
             raise ServiceError("Unable to peer with neighbours for sampling.")
         event = asyncio.Event()
         self._sampling_events[sample_id] = event
         random_node = self._choose_next_hop()
-        sample = Sample(id=sample_id, origin_node=self.my_node, ttl=TTL)
+        sample = Sample(id=sample_id, origin_node=self.my_node, ttl=self._config.TTL)
         await self._protocol.sample(random_node, sample)
         try:
-            await asyncio.wait_for(event.wait(), timeout=SAMPLING_TIMEOUT)
+            await asyncio.wait_for(event.wait(), timeout=self._config.TIMEOUT)
         except asyncio.TimeoutError:
             del self._sampling_events[sample_id]
             raise ServiceError("Sampling service timeouted")
@@ -90,7 +89,7 @@ class MRWB(ISamplingService):
         while True:
             for neighbour in self._neighbours:
                 await self._update_degree(neighbour)
-            await asyncio.sleep(MRWB_DEGREE_REFRESH_FREQUENCY)
+            await asyncio.sleep(self._config.MAINTENANCE_SLEEP)
 
     def _choose_next_hop(self) -> Node:
         random_neighbour = random.choice(self._neighbours)

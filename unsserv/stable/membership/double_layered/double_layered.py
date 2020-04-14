@@ -7,11 +7,7 @@ from typing import List, Set, Counter as CounterType
 
 from unsserv.common.structs import Node
 from unsserv.common.utils import stop_task, HandlerManager
-from unsserv.stable.membership.double_layered.config import (
-    ACTIVE_VIEW_SIZE,
-    ACTIVE_VIEW_MAINTAIN_FREQUENCY,
-    TTL,
-)
+from unsserv.stable.membership.double_layered.config import DoubleLayeredConfig
 from unsserv.stable.membership.double_layered.protocol import DoubleLayeredProtocol
 from unsserv.stable.membership.double_layered.structs import ForwardJoin
 
@@ -19,6 +15,8 @@ from unsserv.stable.membership.double_layered.structs import ForwardJoin
 class IDoubleLayered(ABC):
     _handler_manager: HandlerManager
     _doble_layered_protocol: DoubleLayeredProtocol
+    _config: DoubleLayeredConfig
+
     _active_view: Set[Node]
     _candidate_neighbours: CounterType[Node]
     _local_view_maintenance_task: asyncio.Task
@@ -47,7 +45,7 @@ class IDoubleLayered(ABC):
         while (
             bootstrap_nodes
             and len(self._active_view) + len(self._candidate_neighbours)
-            < ACTIVE_VIEW_SIZE
+            < self._config.ACTIVE_VIEW_SIZE
         ):
             candidate_node = bootstrap_nodes.pop(random.randrange(len(bootstrap_nodes)))
             with self._create_candidate_neighbour(candidate_node):
@@ -62,7 +60,7 @@ class IDoubleLayered(ABC):
         await self._join_first_time()
         while True:
             old_active_view = self._active_view.copy()
-            await asyncio.sleep(ACTIVE_VIEW_MAINTAIN_FREQUENCY)
+            await asyncio.sleep(self._config.MAINTENANCE_SLEEP)
             await self._update_active_view()
             self._call_handler_if_view_changed(old_active_view)
 
@@ -78,13 +76,13 @@ class IDoubleLayered(ABC):
             except ConnectionError:
                 inactive_nodes.add(node)
         self._active_view = self._active_view - inactive_nodes
-        if len(self._active_view) >= ACTIVE_VIEW_SIZE:
+        if len(self._active_view) >= self._config.ACTIVE_VIEW_SIZE:
             return
         candidate_neighbours: List[Node] = self._get_passive_view_nodes()
         while (
             candidate_neighbours
             and len(self._active_view) + len(self._candidate_neighbours)
-            < ACTIVE_VIEW_SIZE
+            < self._config.ACTIVE_VIEW_SIZE
         ):
             candidate_neighbour = candidate_neighbours.pop(
                 random.randrange(len(candidate_neighbours))
@@ -110,7 +108,7 @@ class IDoubleLayered(ABC):
             pass
 
     def _force_add_neighbour(self, node: Node):
-        while len(self._active_view) >= ACTIVE_VIEW_SIZE:
+        while len(self._active_view) >= self._config.ACTIVE_VIEW_SIZE:
             random_neighbour = random.choice(list(self._active_view))
             self._active_view.remove(random_neighbour)  # randomly remove
             asyncio.create_task(self._try_disconnect(random_neighbour))
@@ -134,7 +132,7 @@ class IDoubleLayered(ABC):
 
     async def _handler_join(self, sender: Node):
         self._force_add_neighbour(sender)
-        forward_join = ForwardJoin(origin_node=sender, ttl=TTL)
+        forward_join = ForwardJoin(origin_node=sender, ttl=self._config.TTL)
         for neighbour in list(filter(lambda n: n != sender, self._active_view)):
             asyncio.create_task(
                 self._doble_layered_protocol.forward_join(neighbour, forward_join)
@@ -156,7 +154,10 @@ class IDoubleLayered(ABC):
             )
 
     async def _handler_connect(self, sender: Node, is_a_priority: bool):
-        if not is_a_priority and len(self._active_view) >= ACTIVE_VIEW_SIZE:
+        if (
+            not is_a_priority
+            and len(self._active_view) >= self._config.ACTIVE_VIEW_SIZE
+        ):
             return False
         self._force_add_neighbour(sender)
         return True

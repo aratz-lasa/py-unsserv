@@ -1,16 +1,12 @@
-from contextlib import asynccontextmanager
 import asyncio
+from contextlib import asynccontextmanager
 from functools import reduce
 from typing import Optional, Any, List, Dict, Set
 
 from unsserv.common.services_abc import ISearchingService, IMembershipService
 from unsserv.common.structs import Node, Property
 from unsserv.common.utils import get_random_id, stop_task
-from unsserv.stable.searching.config import (
-    BLOOM_FILTER_DEPTH,
-    SEARCH_TIMEOUT,
-    FILTERS_MAINTENANCE_SLEEP,
-)
+from unsserv.stable.searching.config import ABloomConfig
 from unsserv.stable.searching.protocol import ABloomProtocol
 from unsserv.stable.searching.structs import Search, SearchResult, DataChange
 from unsserv.stable.searching.typing import DataID, SearchID
@@ -19,6 +15,8 @@ from unsserv.stable.searching.typing import DataID, SearchID
 class ABloom(ISearchingService):
     properties = {Property.STABLE}
     _protocol: ABloomProtocol
+    _config: ABloomConfig
+
     _neighbours: List[Node]
     _local_data: Dict[DataID, bytes]
     _abloom_filters: Dict[Node, List[Set[DataID]]]
@@ -29,15 +27,18 @@ class ABloom(ISearchingService):
     def __init__(self, membership: IMembershipService):
         self.my_node = membership.my_node
         self.membership = membership
-        self._init_structs()
         self._protocol = ABloomProtocol(self.my_node)
+        self._config = ABloomConfig()
+
+        self._init_structs()
 
     async def join(self, service_id: str, **configuration: Any):
         if self.running:
             raise RuntimeError("Service already running")
         self.service_id = service_id
-        self._init_structs()
         await self._initialize_protocol()
+        self._config.load_from_dict(configuration)
+        self._init_structs()
         self._filters_maintenance_task = asyncio.create_task(
             self._filter_maintenance_loop()
         )
@@ -68,22 +69,22 @@ class ABloom(ISearchingService):
     async def search(self, data_id: str) -> Optional[bytes]:
         if data_id in self._local_data:
             return self._local_data[data_id]
-        next_hop = self._search_data_in_filters(data_id, BLOOM_FILTER_DEPTH)
+        next_hop = self._search_data_in_filters(data_id, self._config.DEPTH)
         if not next_hop:
             return None
         async with self._start_search(data_id, next_hop) as search:
             await asyncio.wait_for(
-                self._search_events[search.id].wait(), timeout=SEARCH_TIMEOUT
+                self._search_events[search.id].wait(), timeout=self._config.TIMEOUT
             )
             return self._search_results[search.id]
 
     async def _publish_to_neighbours(self, data_id: DataID):
-        data_change = DataChange(data_id=data_id, ttl=BLOOM_FILTER_DEPTH)
+        data_change = DataChange(data_id=data_id, ttl=self._config.DEPTH)
         for neighbour in self._neighbours:
             asyncio.create_task(self._protocol.publish(neighbour, data_change))
 
     async def _unpublish_to_neighbours(self, data_id: DataID):
-        data_change = DataChange(data_id=data_id, ttl=BLOOM_FILTER_DEPTH)
+        data_change = DataChange(data_id=data_id, ttl=self._config.DEPTH)
         for neighbour in self._neighbours:
             asyncio.create_task(self._protocol.unpublish(neighbour, data_change))
 
@@ -92,7 +93,7 @@ class ABloom(ISearchingService):
         search = Search(
             id=get_random_id(),
             origin_node=self.my_node,
-            ttl=BLOOM_FILTER_DEPTH,
+            ttl=self._config.DEPTH,
             data_id=data_id,
         )
         self._search_events[search.id] = asyncio.Event()
@@ -126,7 +127,7 @@ class ABloom(ISearchingService):
 
     async def _filter_maintenance_loop(self):
         while True:
-            await asyncio.sleep(FILTERS_MAINTENANCE_SLEEP)
+            await asyncio.sleep(self._config.MAINTENANCE_SLEEP)
             new_neighbours = set(self.membership.get_neighbours())
             old_neighbours = set(self._neighbours)
             for neighbour in old_neighbours - new_neighbours:
@@ -142,7 +143,7 @@ class ABloom(ISearchingService):
         return None
 
     def _remove_id_from_filter(self, data_id: DataID, neighbour: Node):
-        for depth in range(BLOOM_FILTER_DEPTH):
+        for depth in range(self._config.DEPTH):
             if data_id in self._abloom_filters[neighbour][depth]:
                 self._abloom_filters[neighbour][depth].remove(data_id)
                 return
@@ -150,7 +151,7 @@ class ABloom(ISearchingService):
     async def _handler_publish(self, sender: Node, data_change: DataChange):
         if sender not in self._neighbours:
             return
-        depth = BLOOM_FILTER_DEPTH - data_change.ttl
+        depth = self._config.DEPTH - data_change.ttl
         self._abloom_filters[sender][depth].add(data_change.data_id)
         if data_change.ttl < 2:
             return
@@ -163,7 +164,7 @@ class ABloom(ISearchingService):
     async def _handler_unpublish(self, sender: Node, data_change: DataChange):
         if sender not in self._neighbours:
             return
-        depth = BLOOM_FILTER_DEPTH - data_change.ttl
+        depth = self._config.DEPTH - data_change.ttl
         self._abloom_filters[sender][depth].remove(data_change.data_id)
         if data_change.ttl < 2:
             return
@@ -175,7 +176,7 @@ class ABloom(ISearchingService):
 
     async def _handler_get_filter(self, sender: Node):
         filter = [set(self._local_data.keys())]
-        for depth in range(1, BLOOM_FILTER_DEPTH):
+        for depth in range(1, self._config.DEPTH):
             filters = list(
                 map(lambda n: self._abloom_filters[n][depth - 1], self._neighbours)
             )

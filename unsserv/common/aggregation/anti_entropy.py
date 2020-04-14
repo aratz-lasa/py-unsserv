@@ -1,20 +1,13 @@
-from enum import Enum, auto
 from statistics import mean
-from typing import Any, Callable, Dict, Tuple, Optional
+from typing import Any, Callable, Dict, Tuple
 
+from unsserv.common.aggregation.config import AggregateType, AntiConfig
 from unsserv.common.gossip.gossip import Gossip, IGossipSubscriber
 from unsserv.common.gossip.typing import Payload
-from unsserv.common.utils import HandlerManager
+from unsserv.common.services_abc import IAggregationService, IMembershipService
 from unsserv.common.structs import Property
 from unsserv.common.typing import Handler
-from unsserv.common.services_abc import IAggregationService, IMembershipService
-
-
-class AggregateType(Enum):
-    MEAN = auto()
-    MAX = auto()
-    MIN = auto()
-
+from unsserv.common.utils import HandlerManager
 
 aggregate_functions: Dict[AggregateType, Callable] = {
     AggregateType.MEAN: mean,
@@ -28,10 +21,9 @@ class AntiEntropy(IAggregationService, IGossipSubscriber):
 
     properties = {Property.EXTREME, Property.STABLE, Property.HAS_GOSSIP}
     gossip: Gossip
-    _aggregate_value: Any
-    _aggregate_type: Optional[AggregateType]
-    _aggregate_func: Optional[Callable]
+    _config: AntiConfig
     _handler_manager: HandlerManager
+    _aggregate_value: Any
 
     def __init__(self, membership: IMembershipService):
         self.my_node = membership.my_node
@@ -43,17 +35,15 @@ class AntiEntropy(IAggregationService, IGossipSubscriber):
         self.membership = membership
         self.gossip = getattr(membership, "gossip")
         self._aggregate_value = None
-        self._aggregate_type = None
-        self._aggregate_func = None
         self._handler_manager = HandlerManager()
+        self._config = AntiConfig()
 
     async def join(self, service_id: str, **configuration: Any):
         if self.running:
             raise RuntimeError("Already running Aggregation")
-        self._aggregate_type = configuration["aggregate_type"]
+        self._config.load_from_dict(configuration)
         self._aggregate_value = configuration["aggregate_value"]
         self.service_id = service_id
-        self._aggregate_func = aggregate_functions[self._aggregate_type]
         self.gossip.subscribe(self)
         self.running = True
 
@@ -62,7 +52,6 @@ class AntiEntropy(IAggregationService, IGossipSubscriber):
             return
         self.gossip.unsubscribe(self)
         self._handler_manager.remove_all_handlers()
-        self._aggregate_type = None
         self._aggregate_value = None
         self.running = False
 
@@ -79,11 +68,12 @@ class AntiEntropy(IAggregationService, IGossipSubscriber):
 
     async def receive_payload(self, payload: Payload):
         """IGossipSubscriber implementation."""
-        assert callable(self._aggregate_func)
+        aggregate_function = aggregate_functions[self._config.AGGREGATE_TYPE]
+        assert callable(aggregate_function)
         neighbor_aggregate = payload.get(self.service_id, None)
         if not neighbor_aggregate:
             return
-        self._aggregate_value = self._aggregate_func(
+        self._aggregate_value = aggregate_function(
             [self._aggregate_value, neighbor_aggregate]
         )
         self._handler_manager.call_handlers(self._aggregate_value)

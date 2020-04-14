@@ -5,13 +5,13 @@ from typing import Dict
 
 import pytest
 
-from unsserv.common.gossip.config import GOSSIPING_FREQUENCY, LOCAL_VIEW_SIZE
 from tests.utils import init_stable_membership
-from unsserv.stable.searching.config import BLOOM_FILTER_DEPTH
-from unsserv.stable.searching.abloom import ABloom
-from unsserv.stable.searching.structs import Search
+from unsserv.common.gossip.config import GossipConfig
 from unsserv.common.structs import Node
 from unsserv.common.utils import get_random_id
+from unsserv.stable.searching.abloom import ABloom
+from unsserv.stable.searching.config import ABloomConfig
+from unsserv.stable.searching.structs import Search
 
 init_stable_membership = init_stable_membership  # for flake8 compliance
 
@@ -32,7 +32,7 @@ async def init_abloom():
             r_abloom = ABloom(r_xbot)
             await r_abloom.join(SAMPLING_SERVICE_ID, ttl=2)
             r_ablooms.append(r_abloom)
-        await asyncio.sleep(GOSSIPING_FREQUENCY * 7)
+        await asyncio.sleep(GossipConfig.GOSSIPING_FREQUENCY * 7)
         return abloom, r_ablooms
 
     try:
@@ -60,7 +60,7 @@ def check_filter(node: Node, abloom_dict: Dict[Node, ABloom], search: Search):
 
     assert (
         search.data_id
-        in abloom._abloom_filters[search.origin_node][BLOOM_FILTER_DEPTH - search.ttl]
+        in abloom._abloom_filters[search.origin_node][ABloomConfig.DEPTH - search.ttl]
     )
     abloom_dict[node][1] = True  # set as 'checked'
     next_search = Search(
@@ -82,11 +82,11 @@ async def test_publish_unpublish(init_stable_membership, init_abloom):
     data_id = get_random_id()
     await abloom.publish(data_id, data)
 
-    await asyncio.sleep(GOSSIPING_FREQUENCY * 5)
+    await asyncio.sleep(GossipConfig.GOSSIPING_FREQUENCY * 5)
 
     ablooms_dict = {abl.my_node: [abl, False] for abl in r_ablooms + [abloom]}
     search = Search(
-        id="id", origin_node=abloom.my_node, ttl=BLOOM_FILTER_DEPTH, data_id=data_id
+        id="id", origin_node=abloom.my_node, ttl=ABloomConfig.DEPTH, data_id=data_id
     )
     for neighbour in abloom._neighbours:
         check_filter(neighbour, ablooms_dict, search)
@@ -108,7 +108,11 @@ async def test_publish_unpublish(init_stable_membership, init_abloom):
     "amount,replication_percent",
     [
         (amount, repl_percent)
-        for amount in [LOCAL_VIEW_SIZE + 1, LOCAL_VIEW_SIZE + 5, LOCAL_VIEW_SIZE + 100]
+        for amount in [
+            GossipConfig.LOCAL_VIEW_SIZE + 1,
+            GossipConfig.LOCAL_VIEW_SIZE + 5,
+            GossipConfig.LOCAL_VIEW_SIZE + 100,
+        ]
         for repl_percent in [0.3, 0.6, 0.9]
     ],
 )
@@ -119,10 +123,10 @@ async def test_search(init_stable_membership, init_abloom, amount, replication_p
     data = b"data"
     replication_amount = ceil(amount * replication_percent)
 
-    await asyncio.sleep(GOSSIPING_FREQUENCY * 10)
+    await asyncio.sleep(GossipConfig.GOSSIPING_FREQUENCY * 10)
     for r_abloom in random.sample(r_ablooms, replication_amount):
         await r_abloom.publish(data_id, data)
-    await asyncio.sleep(GOSSIPING_FREQUENCY * 5)
+    await asyncio.sleep(GossipConfig.GOSSIPING_FREQUENCY * 5)
 
     found_data = await abloom.search(data_id)
     assert found_data

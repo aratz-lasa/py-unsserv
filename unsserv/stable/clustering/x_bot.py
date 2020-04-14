@@ -6,12 +6,7 @@ from unsserv.common.services_abc import IMembershipService, IClusteringService
 from unsserv.common.structs import Node, Property
 from unsserv.common.typing import Handler
 from unsserv.common.utils import stop_task
-from unsserv.stable.clustering.config import (
-    ACTIVE_VIEW_SIZE,
-    ACTIVE_VIEW_MAINTAIN_FREQUENCY,
-    UNBIASED_NODES,
-    PASSIVE_SCAN_LENGTH,
-)
+from unsserv.stable.clustering.config import XBotConfig
 from unsserv.stable.clustering.protocol import XBotProtocol
 from unsserv.stable.clustering.structs import Replace
 from unsserv.stable.membership.double_layered.double_layered import IDoubleLayered
@@ -22,21 +17,26 @@ RankingFunction = Callable[[Node], Any]
 class XBot(IClusteringService, IDoubleLayered):
     properties = {Property.STABLE, Property.SYMMETRIC}
     _protocol: XBotProtocol
+    _config: XBotConfig
+
     _local_view_optimize_task: asyncio.Task
 
     def __init__(self, membership: IMembershipService):
         super().__init__(membership.my_node)
         self.membership = membership
         self._protocol = XBotProtocol(membership.my_node)
+        self._config = XBotConfig()
+
         self._ranking_function: RankingFunction
 
     async def join(self, service_id: Any, **configuration: Any):
         if self.running:
             raise RuntimeError("Already running Clustering")
         self.service_id = service_id
+        await self._initialize_protocol()
+        self._config.load_from_dict(configuration)
         self._ranking_function = configuration["ranking_function"]
         await self._start_two_layered(f"double_layered-{service_id}")
-        await self._initialize_protocol()
         self._local_view_optimize_task = asyncio.create_task(
             self._optimize_active_view_loop()
         )
@@ -66,11 +66,11 @@ class XBot(IClusteringService, IDoubleLayered):
         return self.membership.get_neighbours()
 
     async def _optimize_active_view_loop(self):
-        await asyncio.sleep(ACTIVE_VIEW_MAINTAIN_FREQUENCY)
+        await asyncio.sleep(self._config.MAINTENANCE_SLEEP)
         while True:
             old_active_view = self._active_view.copy()
-            await asyncio.sleep(ACTIVE_VIEW_MAINTAIN_FREQUENCY)
-            if len(self._active_view) >= ACTIVE_VIEW_SIZE:
+            await asyncio.sleep(self._config.MAINTENANCE_SLEEP)
+            if len(self._active_view) >= self._config.ACTIVE_VIEW_SIZE:
                 await self._optimize_active_view()  # todo: create task instead?
             self._call_handler_if_view_changed(old_active_view)
 
@@ -79,10 +79,11 @@ class XBot(IClusteringService, IDoubleLayered):
         if not candidate_neighbours:
             return
         candidate_neighbours = random.sample(
-            candidate_neighbours, min(len(candidate_neighbours), PASSIVE_SCAN_LENGTH)
+            candidate_neighbours,
+            min(len(candidate_neighbours), self._config.ACTIVE_VIEW_SIZE),
         )
         biasable_nodes = list(sorted(self._active_view, key=self._ranking_function))[
-            UNBIASED_NODES:
+            self._config.UNBIASED_NODES :
         ]
         for old_node in biasable_nodes:
             if not candidate_neighbours:
@@ -108,7 +109,7 @@ class XBot(IClusteringService, IDoubleLayered):
         )
 
     async def _handler_optimization(self, sender: Node, old_node: Node):
-        if len(self._active_view) < ACTIVE_VIEW_SIZE:
+        if len(self._active_view) < self._config.ACTIVE_VIEW_SIZE:
             self._active_view.add(sender)
             return True
 

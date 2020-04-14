@@ -1,7 +1,8 @@
 import asyncio
 import random
 import string
-from typing import List
+from abc import ABC, abstractmethod
+from typing import List, Dict, Any
 
 from unsserv.common.rpc.structs import Message
 from unsserv.common.structs import Node
@@ -58,3 +59,9 @@ class HandlerManager:
 
     async def _sync_handler_wrapper(self, sync_handler: SyncHandler, *args, **kwargs):
         sync_handler(*args, **kwargs)
+
+
+class IConfig(ABC):
+    @abstractmethod
+    def load_from_dict(self, config_dict: Dict[str, Any]):
+        pass

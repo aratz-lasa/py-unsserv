@@ -7,10 +7,7 @@ from unsserv.common.services_abc import IDisseminationService, IMembershipServic
 from unsserv.common.structs import Node, Property
 from unsserv.common.typing import Handler
 from unsserv.common.utils import get_random_id, HandlerManager
-from unsserv.extreme.dissemination.lpbcast.config import (
-    FANOUT,
-    LPBCAST_THRESHOLD,
-)
+from unsserv.extreme.dissemination.lpbcast.config import LpbcastConfig
 from unsserv.extreme.dissemination.lpbcast.protocol import LpbcastProtocol
 from unsserv.extreme.dissemination.lpbcast.structs import Event
 from unsserv.extreme.dissemination.lpbcast.typing import (
@@ -24,6 +21,7 @@ class Lpbcast(IDisseminationService):
     properties = {Property.EXTREME, Property.MANY_TO_MANY}
     _protocol: LpbcastProtocol
     _handler_manager: HandlerManager
+    _config: LpbcastConfig
 
     _events: "OrderedDict[EventId, List[Union[EventData, EventOrigin]]]"
     _events_digest: "OrderedDict[EventId, EventOrigin]"
@@ -31,8 +29,9 @@ class Lpbcast(IDisseminationService):
     def __init__(self, membership: IMembershipService):
         self.my_node = membership.my_node
         self.membership = membership
-        self._handler_manager = HandlerManager()
         self._protocol = LpbcastProtocol(self.my_node)
+        self._handler_manager = HandlerManager()
+        self._config = LpbcastConfig()
 
         self._events = OrderedDict()
         self._events_digest = OrderedDict()
@@ -40,9 +39,10 @@ class Lpbcast(IDisseminationService):
     async def join(self, service_id: str, **configuration: Any):
         if self.running:
             raise RuntimeError("Already running Dissemination")
-        self._handler_manager.add_handler(configuration["broadcast_handler"])
         self.service_id = service_id
+        self._handler_manager.add_handler(configuration["broadcast_handler"])
         await self._initialize_protocol()
+        self._config.load_from_dict(configuration)
         self.running = True
 
     async def leave(self):
@@ -88,7 +88,7 @@ class Lpbcast(IDisseminationService):
     ):
         candidate_neighbours = self.membership.get_neighbours()
         assert isinstance(candidate_neighbours, list)
-        fanout = min(FANOUT, len(candidate_neighbours))
+        fanout = min(self._config.FANOUT, len(candidate_neighbours))
         for neighbour in random.choices(candidate_neighbours, k=fanout):
             try:
                 digest = list(map(lambda e: (e[0], e[1]), self._events_digest.items()))
@@ -100,9 +100,9 @@ class Lpbcast(IDisseminationService):
                 pass  # todo: log the error?
 
     def _purge_events_threshold(self):
-        while LPBCAST_THRESHOLD < len(self._events):
+        while self._config.THRESHOLD < len(self._events):
             self._events.popitem(last=False)
-        while LPBCAST_THRESHOLD < len(self._events_digest):
+        while self._config.THRESHOLD < len(self._events_digest):
             self._events_digest.popitem(last=False)
 
     async def _retrieve_event(

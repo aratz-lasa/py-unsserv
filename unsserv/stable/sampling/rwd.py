@@ -7,23 +7,19 @@ from unsserv.common.services_abc import IMembershipService, ISamplingService
 from unsserv.common.structs import Node, Property
 from unsserv.common.utils import get_random_id
 from unsserv.common.utils import stop_task
-from unsserv.stable.sampling.config import (
-    QUANTUM,
-    MORE_THAN_MAXIMUM,
-    ID_LENGTH,
-    SAMPLING_TIMEOUT,
-    TTL,
-)
+from unsserv.stable.sampling.config import RWDConfig
 from unsserv.stable.sampling.protocol import RWDProtocol
 from unsserv.stable.sampling.structs import Sample, SampleResult
 
 
 class RWD(ISamplingService):
     properties = {Property.STABLE}
+    _protocol: RWDProtocol
+    _config: RWDConfig
+
     _neighbours: List[Node]
     _neighbour_weights: Dict[Node, float]
     _my_weight: float
-    _protocol: RWDProtocol
     _sampling_queue: Dict[str, Node]
     _sampling_events: Dict[str, asyncio.Event]
     _new_neighbours_event: asyncio.Event
@@ -32,10 +28,11 @@ class RWD(ISamplingService):
         self.my_node = membership.my_node
 
         self.membership = membership
+        self._protocol = RWDProtocol(self.my_node)
+        self._config = RWDConfig()
+
         self._neighbours = []
         self._neighbour_weights = {}
-        self._protocol = RWDProtocol(self.my_node)
-
         self._sampling_queue = {}
         self._sampling_events = {}
 
@@ -45,6 +42,8 @@ class RWD(ISamplingService):
         if self.running:
             raise RuntimeError("Already running Sampling")
         self.service_id = service_id
+        await self._initialize_protocol()
+        self._config.load_from_dict(configuration)
         # initialize neighbours
         neighbours = self.membership.get_neighbours()
         assert isinstance(neighbours, list)
@@ -57,13 +56,12 @@ class RWD(ISamplingService):
         self.membership.add_neighbours_handler(
             self._membership_neighbours_handler  # type: ignore
         )
-        await self._initialize_protocol()
         self.running = True
 
     async def leave(self):
         if not self.running:
             return
-        self.membership.add_neighbours_handler(None)
+        self.membership.remove_neighbours_handler(self._membership_neighbours_handler)
         self._neighbours = []
         await self._protocol.stop()
         if self._maintain_weights_task:  # stop degrees updater task
@@ -73,16 +71,16 @@ class RWD(ISamplingService):
     async def get_sample(self) -> Node:
         if not self.running:
             raise RuntimeError("Sampling service not running")
-        sample_id = get_random_id(ID_LENGTH)
+        sample_id = get_random_id()
         if not self._neighbours:
             raise ServiceError("Unable to peer with neighbours for sampling.")
         event = asyncio.Event()
         self._sampling_events[sample_id] = event
         random_node = self._choose_next_hop()
-        sample = Sample(id=sample_id, origin_node=self.my_node, ttl=TTL)
+        sample = Sample(id=sample_id, origin_node=self.my_node, ttl=self._config.TTL)
         await self._protocol.sample(random_node, sample)
         try:
-            await asyncio.wait_for(event.wait(), timeout=SAMPLING_TIMEOUT)
+            await asyncio.wait_for(event.wait(), timeout=self._config.TIMEOUT)
         except asyncio.TimeoutError:
             del self._sampling_events[sample_id]
             raise ServiceError("Sampling service timeouted")
@@ -107,17 +105,17 @@ class RWD(ISamplingService):
 
     def _initialize_weights(self):
         for neighbour in self._neighbours:
-            self._neighbour_weights[neighbour] = 1 / MORE_THAN_MAXIMUM
-        self._my_weight = 1 - (len(self._neighbours) / MORE_THAN_MAXIMUM)
+            self._neighbour_weights[neighbour] = 1 / self._config.MORE_THAN_MAXIMUM
+        self._my_weight = 1 - (len(self._neighbours) / self._config.MORE_THAN_MAXIMUM)
 
     async def _distribute_weights(self):
         neighbours = self._neighbours.copy()
-        while self._my_weight >= QUANTUM and neighbours:
+        while self._my_weight >= self._config.QUANTUM and neighbours:
             neighbour = random.choice(neighbours)
             is_increased = await self._protocol.increase(neighbour)
             if is_increased and neighbour in self._neighbour_weights:
-                self._neighbour_weights[neighbour] += QUANTUM
-                self._my_weight -= QUANTUM
+                self._neighbour_weights[neighbour] += self._config.QUANTUM
+                self._my_weight -= self._config.QUANTUM
             else:
                 neighbours.remove(neighbour)
 
@@ -154,9 +152,12 @@ class RWD(ISamplingService):
         del self._sampling_events[sample_result.sample_id]
 
     def _handler_get_increase(self, sender: Node) -> bool:
-        if self._my_weight >= QUANTUM and sender in self._neighbour_weights:
-            self._neighbour_weights[sender] += QUANTUM
-            self._my_weight -= QUANTUM
+        if (
+            self._my_weight >= self._config.QUANTUM
+            and sender in self._neighbour_weights
+        ):
+            self._neighbour_weights[sender] += self._config.QUANTUM
+            self._my_weight -= self._config.QUANTUM
             return True
         return False
 

@@ -5,8 +5,8 @@ from typing import Any, Dict
 import pytest
 
 from tests.utils import init_extreme_membership
+from unsserv.common.gossip.config import GossipConfig
 from unsserv.common.structs import Node
-from unsserv.common.gossip.config import GOSSIPING_FREQUENCY
 from unsserv.extreme.dissemination.lpbcast.lpbcast import Lpbcast
 
 init_extreme_membership = init_extreme_membership  # for flake8 compliance
@@ -41,7 +41,7 @@ async def init_lpbcast():
                 broadcast_handler=partial(dissemination_handler, r_lpbcast.my_node),
             )
             r_lpbcasts.append(r_lpbcast)
-        await asyncio.sleep(GOSSIPING_FREQUENCY * 7)
+        await asyncio.sleep(GossipConfig.GOSSIPING_FREQUENCY * 7)
         return lpbcast, r_lpbcasts
 
     try:
@@ -67,7 +67,7 @@ async def test_broadcast(init_extreme_membership, init_lpbcast, amount):
 
     data = b"data"
     await lpbcast.broadcast(data)
-    await asyncio.sleep(GOSSIPING_FREQUENCY * 15)
+    await asyncio.sleep(GossipConfig.GOSSIPING_FREQUENCY * 15)
 
     lpbcast_events_received = [
         lpbcast_events[r_lpbcast.my_node].is_set() for r_lpbcast in r_lpbcasts

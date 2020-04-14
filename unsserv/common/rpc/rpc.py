@@ -5,7 +5,7 @@ from rpcudp.protocol import RPCProtocol
 
 from unsserv.common.rpc.structs import Message
 from unsserv.common.structs import Node
-from unsserv.common.gossip import config as config
+from unsserv.common.gossip.config import GossipConfig
 from unsserv.common.typing import Handler
 from unsserv.common.utils import parse_message
 
@@ -25,7 +25,7 @@ class RPC(RPCProtocol):
     registered_services: Dict[Node, Handler]
 
     def __init__(self, node: Node):
-        RPCProtocol.__init__(self, config.RPC_TIMEOUT)
+        RPCProtocol.__init__(self, GossipConfig.RPC_TIMEOUT)
         self.my_node = node
         self.registered_services = {}
 

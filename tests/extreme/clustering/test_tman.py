@@ -1,14 +1,14 @@
 import asyncio
 from collections import Counter
+from functools import partial
 from math import ceil
 
 import pytest
 
-from functools import partial
-from unsserv.common.structs import Node
-from unsserv.common.gossip.config import GOSSIPING_FREQUENCY, LOCAL_VIEW_SIZE
-from unsserv.extreme.clustering.t_man import TMan
 from tests.utils import init_extreme_membership
+from unsserv.common.gossip.config import GossipConfig
+from unsserv.common.structs import Node
+from unsserv.extreme.clustering.t_man import TMan
 
 init_extreme_membership = init_extreme_membership  # for flake8 compliance
 
@@ -34,7 +34,7 @@ async def init_tman():
                 ranking_function=partial(port_distance, r_tman.my_node),
             )
             r_tmans.append(r_tman)
-        await asyncio.sleep(GOSSIPING_FREQUENCY * 7)
+        await asyncio.sleep(GossipConfig.GOSSIPING_FREQUENCY * 7)
         return tman, r_tmans
 
     try:
@@ -51,13 +51,14 @@ def port_distance(my_node: Node, ranked_node: Node):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "amount", [LOCAL_VIEW_SIZE * 2 + 1, LOCAL_VIEW_SIZE * 2 + 5, 100]
+    "amount",
+    [GossipConfig.LOCAL_VIEW_SIZE * 2 + 1, GossipConfig.LOCAL_VIEW_SIZE * 2 + 5, 100],
 )
 async def test_join_tman(init_extreme_membership, init_tman, amount):
     newc, r_newcs = await init_extreme_membership(amount)
     tman, r_tmans = await init_tman(newc, r_newcs)
 
-    await asyncio.sleep(GOSSIPING_FREQUENCY * 40)
+    await asyncio.sleep(GossipConfig.GOSSIPING_FREQUENCY * 40)
 
     cluster_nodes = [tman] + r_tmans
     satisfy_ideal_neighbours = []
@@ -66,19 +67,24 @@ async def test_join_tman(init_extreme_membership, init_tman, amount):
         key_function = partial(port_distance, cluster.my_node)
         ideal_neighbours = set(
             sorted(map(lambda c_n: c_n.my_node, cluster_nodes), key=key_function)[
-                1 : LOCAL_VIEW_SIZE + 1
+                1 : GossipConfig.LOCAL_VIEW_SIZE + 1
             ]
         )
-        satisfies_half_ideal_neighbours = min(amount, LOCAL_VIEW_SIZE) * 0.5 <= len(
-            ideal_neighbours.intersection(neighbours)
-        )
+        satisfies_half_ideal_neighbours = min(
+            amount, GossipConfig.LOCAL_VIEW_SIZE
+        ) * 0.5 <= len(ideal_neighbours.intersection(neighbours))
         satisfy_ideal_neighbours.append(satisfies_half_ideal_neighbours)
     assert sum(satisfy_ideal_neighbours) / (amount + 1) >= 0.5
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "amount", [LOCAL_VIEW_SIZE + 1, LOCAL_VIEW_SIZE + 5, LOCAL_VIEW_SIZE + 100]
+    "amount",
+    [
+        GossipConfig.LOCAL_VIEW_SIZE + 1,
+        GossipConfig.LOCAL_VIEW_SIZE + 5,
+        GossipConfig.LOCAL_VIEW_SIZE + 100,
+    ],
 )
 async def test_leave_tman(init_extreme_membership, init_tman, amount):
     newc, r_newcs = await init_extreme_membership(amount)
@@ -86,7 +92,7 @@ async def test_leave_tman(init_extreme_membership, init_tman, amount):
 
     await tman.leave()
     await newc.leave()
-    await asyncio.sleep(GOSSIPING_FREQUENCY * 40)
+    await asyncio.sleep(GossipConfig.GOSSIPING_FREQUENCY * 40)
 
     all_nodes = Counter(
         [
@@ -104,7 +110,11 @@ async def test_leave_tman(init_extreme_membership, init_tman, amount):
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     "amount",
-    [(LOCAL_VIEW_SIZE * 2) + 1, (LOCAL_VIEW_SIZE * 2) + 5, (LOCAL_VIEW_SIZE * 2) + 100],
+    [
+        (GossipConfig.LOCAL_VIEW_SIZE * 2) + 1,
+        (GossipConfig.LOCAL_VIEW_SIZE * 2) + 5,
+        (GossipConfig.LOCAL_VIEW_SIZE * 2) + 100,
+    ],
 )  # very high neighbours amount,
 # to assure neighbours will change, because it is initailzied by Newscast
 async def test_tman_handler(init_extreme_membership, init_tman, amount):
@@ -120,5 +130,5 @@ async def test_tman_handler(init_extreme_membership, init_tman, amount):
 
     tman.add_neighbours_handler(handler)
 
-    await asyncio.sleep(GOSSIPING_FREQUENCY * 15)
+    await asyncio.sleep(GossipConfig.GOSSIPING_FREQUENCY * 15)
     assert handler_event.is_set()

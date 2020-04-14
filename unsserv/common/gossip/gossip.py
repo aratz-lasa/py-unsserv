@@ -7,16 +7,13 @@ from contextlib import contextmanager
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 from unsserv.common.gossip.config import (
-    GOSSIPING_FREQUENCY,
-    LOCAL_VIEW_SIZE,
-)
-from unsserv.common.gossip.protocol import GossipProtocol
-from unsserv.common.gossip.structs import (
-    PushData,
+    GossipConfig,
     ViewSelectionPolicy,
     PeerSelectionPolicy,
     ViewPropagationPolicy,
 )
+from unsserv.common.gossip.protocol import GossipProtocol
+from unsserv.common.gossip.structs import PushData
 from unsserv.common.gossip.typing import ExternalViewSource, CustomSelectionRanking
 from unsserv.common.gossip.typing import Payload, View
 from unsserv.common.structs import Node
@@ -38,6 +35,7 @@ class Gossip:
     my_node: Node
     local_view: View
     running: bool = False
+    _config: GossipConfig
     _protocol: GossipProtocol
     _handler_manager: HandlerManager
 
@@ -48,29 +46,26 @@ class Gossip:
         local_view_nodes: List[Node] = None,
         local_view_handler: Handler = None,
         external_nodes_source: ExternalViewSource = None,
-        view_selection=ViewSelectionPolicy.HEAD,
-        peer_selection=PeerSelectionPolicy.RAND,
-        view_propagation=ViewPropagationPolicy.PUSHPULL,
         custom_selection_ranking: CustomSelectionRanking = None,
-        local_view_size: int = LOCAL_VIEW_SIZE,
-        gossiping_frequency: float = GOSSIPING_FREQUENCY,
+        **configuration
     ):
         self.my_node = my_node
         self.service_id = service_id
+        self._config = GossipConfig()
+        self._config.load_from_dict(configuration)
+        self._protocol = GossipProtocol(self.my_node)
+
         self.local_view = Counter(
-            random.sample(local_view_nodes, min(len(local_view_nodes), local_view_size))
+            random.sample(
+                local_view_nodes,
+                min(len(local_view_nodes), self._config.LOCAL_VIEW_SIZE),
+            )
             if local_view_nodes
             else []
         )
-        self.get_external_nodes = external_nodes_source
-        self.view_selection_policy = view_selection
-        self.peer_selection_policy = peer_selection
-        self.view_propagation_policy = view_propagation
-        self.custom_selection_ranking = custom_selection_ranking
 
-        self.local_view_size = local_view_size
-        self.gossiping_frequency = gossiping_frequency
-        self._protocol = GossipProtocol(self.my_node)
+        self.get_external_nodes = external_nodes_source
+        self.custom_selection_ranking = custom_selection_ranking
 
         self.subscribers: List[IGossipSubscriber] = []
         self._handler_manager = HandlerManager()
@@ -101,7 +96,7 @@ class Gossip:
     async def _gossip_loop(self):
         while True:
             old_neighbours = set(self.local_view.keys())
-            await asyncio.sleep(self.gossiping_frequency)
+            await asyncio.sleep(self._config.GOSSIPING_FREQUENCY)
             await self._exchange_with_peer()
             self._call_handler_if_view_changed(old_neighbours)
 
@@ -110,16 +105,16 @@ class Gossip:
         if not peer:  # Empty Local view
             return
         subscribers_data = await self._get_data_from_subscribers()
-        if self.view_propagation_policy is ViewPropagationPolicy.PUSH:
+        if self._config.VIEW_PROPAGATION is ViewPropagationPolicy.PUSH:
             push_view = self._merge_views(Counter({self.my_node: 0}), self.local_view)
             push_data = PushData(view=push_view, payload=subscribers_data)
             with self._pop_on_connection_error(peer):
                 await self._protocol.push(peer, push_data)
-        elif self.view_propagation_policy is ViewPropagationPolicy.PULL:
+        elif self._config.VIEW_PROPAGATION is ViewPropagationPolicy.PULL:
             with self._pop_on_connection_error(peer):
                 pull_response = await self._protocol.pull(peer, subscribers_data)
                 await self._handler_push(peer, pull_response)
-        elif self.view_propagation_policy is ViewPropagationPolicy.PUSHPULL:
+        elif self._config.VIEW_PROPAGATION is ViewPropagationPolicy.PUSHPULL:
             push_view = self._merge_views(Counter({self.my_node: 0}), self.local_view)
             push_data = PushData(view=push_view, payload=subscribers_data)
             with self._pop_on_connection_error(peer):
@@ -131,19 +126,20 @@ class Gossip:
             ordered_nodes = self.custom_selection_ranking(view)
         else:
             ordered_nodes = list(map(lambda n: n[0], reversed(view.most_common())))
-        if self.peer_selection_policy is PeerSelectionPolicy.RAND:
+        if self._config.PEER_SELECTION is PeerSelectionPolicy.RAND:
             return random.choice(ordered_nodes) if view else None
-        elif self.peer_selection_policy is PeerSelectionPolicy.HEAD:
+        elif self._config.PEER_SELECTION is PeerSelectionPolicy.HEAD:
             return ordered_nodes[0] if view else None
-        elif self.peer_selection_policy is PeerSelectionPolicy.TAIL:
+        elif self._config.PEER_SELECTION is PeerSelectionPolicy.TAIL:
             return ordered_nodes[-1] if view else None
+        print(type(self._config.PEER_SELECTION))
         raise AttributeError("Invalid Peer Selection policy")
 
     def _select_view(self, view: View) -> View:
         # todo: document what happens here
         if self.my_node in view:
             view.pop(self.my_node)
-        remove_amount = max(len(view) - self.local_view_size, 0)
+        remove_amount = max(len(view) - self._config.LOCAL_VIEW_SIZE, 0)
         if remove_amount < 1:
             return view
         if self.custom_selection_ranking:
@@ -152,13 +148,13 @@ class Gossip:
             ordered_nodes = list(map(lambda n: n[0], reversed(view.most_common())))
 
         new_view = view.copy()
-        if self.view_selection_policy is ViewSelectionPolicy.RAND:
+        if self._config.VIEW_SELECTION is ViewSelectionPolicy.RAND:
             for node in random.sample(ordered_nodes, remove_amount):
                 new_view.pop(node)
-        elif self.view_selection_policy is ViewSelectionPolicy.HEAD:
+        elif self._config.VIEW_SELECTION is ViewSelectionPolicy.HEAD:
             for node in ordered_nodes[-remove_amount:]:
                 new_view.pop(node)
-        elif self.view_selection_policy is ViewSelectionPolicy.TAIL:
+        elif self._config.VIEW_SELECTION is ViewSelectionPolicy.TAIL:
             for node in ordered_nodes[:remove_amount]:
                 new_view.pop(node)
         else:
