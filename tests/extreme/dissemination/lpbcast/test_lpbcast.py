@@ -29,14 +29,14 @@ async def init_lpbcast():
         nonlocal lpbcast, r_lpbcasts
         lpbcast = Lpbcast(newc)
         lpbcast_events[newc.my_node] = asyncio.Event()
-        await lpbcast.join_broadcast(
+        await lpbcast.join(
             DISSEMINATION_SERVICE_ID,
             broadcast_handler=partial(dissemination_handler, lpbcast.my_node),
         )
         for r_newc in r_newcs:
             r_lpbcast = Lpbcast(r_newc)
             lpbcast_events[r_newc.my_node] = asyncio.Event()
-            await r_lpbcast.join_broadcast(
+            await r_lpbcast.join(
                 DISSEMINATION_SERVICE_ID,
                 broadcast_handler=partial(dissemination_handler, r_lpbcast.my_node),
             )
@@ -47,9 +47,9 @@ async def init_lpbcast():
     try:
         yield _init_lpbcast
     finally:
-        await lpbcast.leave_broadcast()
+        await lpbcast.leave()
         for r_lpbcast in r_lpbcasts:
-            await r_lpbcast.leave_broadcast()
+            await r_lpbcast.leave()
 
 
 @pytest.mark.asyncio

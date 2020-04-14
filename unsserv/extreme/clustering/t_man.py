@@ -1,12 +1,13 @@
 from functools import partial
 from typing import Any, Callable, List, Union, Optional
 
+from unsserv.common.utils import HandlerManager
 from unsserv.common.service_properties import Property
 from unsserv.common.services_abc import (
     ClusteringService,
     MembershipService,
-    NeighboursCallback,
 )
+from unsserv.common.typing import Handler
 from unsserv.common.structs import Node
 from unsserv.common.gossip.gossip import (
     Gossip,
@@ -19,15 +20,15 @@ RankingFunction = Callable[[Node], Any]
 class TMan(ClusteringService):
     properties = {Property.EXTREME, Property.HAS_GOSSIP, Property.NON_SYMMETRIC}
 
-    _callbacks: List[NeighboursCallback]
     _gossip: Optional[Gossip]
+    _handler_manager: HandlerManager
 
     def __init__(self, membership: MembershipService):
         self.my_node = membership.my_node
         self.membership = membership
-        self._callbacks = []
         self._ranking_function: RankingFunction
         self._gossip = None
+        self._handler_manager = HandlerManager()
 
     async def join(self, service_id: Any, **configuration: Any):
         if self.running:
@@ -64,19 +65,16 @@ class TMan(ClusteringService):
             return self._gossip.local_view
         return list(self._gossip.local_view.keys())
 
-    def add_neighbours_callback(self, callback: NeighboursCallback):
+    def add_neighbours_handler(self, handler: Handler):
         if not self.running:
             raise RuntimeError("Service not running")
-        self._callbacks.append(callback)
+        self._handler_manager.add_handler(handler)
 
-    def remove_neighbours_callback(self, callback: NeighboursCallback):
-        if callback not in self._callbacks:
-            raise ValueError("Callback not found")
-        self._callbacks.remove(callback)
+    def remove_neighbours_handler(self, handler: Handler):
+        self._handler_manager.remove_handler(handler)
 
     async def _local_view_callback(self, local_view: View):
-        for callback in self._callbacks:
-            await callback(list(local_view.keys()))
+        self._handler_manager.call_handlers(list(local_view.keys()))
 
     def _selection_ranking(self, view: View) -> List[Node]:
         return sorted(view.keys(), key=self._ranking_function)

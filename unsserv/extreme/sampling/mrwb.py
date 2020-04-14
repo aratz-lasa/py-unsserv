@@ -37,7 +37,7 @@ class MRWB(SamplingService):
         self._sampling_queue = {}
         self._sampling_events = {}
 
-    async def join_sampling(self, service_id: str, **configuration: Any):
+    async def join(self, service_id: str, **configuration: Any):
         if self.running:
             raise RuntimeError("Already running Sampling")
         self.service_id = service_id
@@ -50,15 +50,15 @@ class MRWB(SamplingService):
         )  # stop degrees updater task
         # initialize RPC
         await self._initialize_protocol()
-        self.membership.add_neighbours_callback(
+        self.membership.add_neighbours_handler(
             self._membership_neighbours_callback  # type: ignore
         )
         self.running = True
 
-    async def leave_sampling(self):
+    async def leave(self):
         if not self.running:
             return
-        self.membership.add_neighbours_callback(None)
+        self.membership.add_neighbours_handler(None)
         self._neighbours = []
         await self._protocol.stop()
         if self._degrees_update_task:  # stop degrees updater task

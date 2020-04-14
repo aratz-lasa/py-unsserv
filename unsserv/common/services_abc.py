@@ -3,11 +3,7 @@ from typing import Any, List, Union, Optional, Set
 
 from unsserv.common.service_properties import Property
 from unsserv.common.structs import Node
-from unsserv.common.typing import (
-    AggregateCallback,
-    NeighboursCallback,
-    View,
-)
+from unsserv.common.typing import Handler, View
 
 
 class IService(ABC):
@@ -19,10 +15,30 @@ class IService(ABC):
     :ivar running: boolean that represents if the service is running
     """
 
+    @abstractmethod
+    async def join(self, service_id: Any, **configuration: Any):
+        """
+        Join/start service.
+
+        :param service_id: service's id
+        :param configuration: configuration parameters.
+        :return:
+        """
+        pass
+
+    @abstractmethod
+    async def leave(self):
+        """
+        Leave/stop service.
+
+        :return:
+        """
+        pass
+
+    properties: Set[Property]
     my_node: Node
     service_id: Any
     running: bool = False
-    properties: Set[Property]
 
 
 class ISubService(IService):
@@ -40,26 +56,6 @@ class MembershipService(IService):
     """Membership service interface."""
 
     @abstractmethod
-    async def join(self, service_id: Any, **configuration: Any):
-        """
-        Join/start memberhsip service.
-
-        :param service_id: memberhsip service's id
-        :param configuration: configuration parameters.
-        :return:
-        """
-        pass
-
-    @abstractmethod
-    async def leave(self):
-        """
-        Leave/stop membership service.
-
-        :return:
-        """
-        pass
-
-    @abstractmethod
     def get_neighbours(
         self, local_view_format: bool = False
     ) -> Union[List[Node], View]:
@@ -73,22 +69,22 @@ class MembershipService(IService):
         pass
 
     @abstractmethod
-    def add_neighbours_callback(self, callback: NeighboursCallback):
+    def add_neighbours_handler(self, handler: Handler):
         """
         Add a callback that is executed when neighbours change.
 
-        :param callback: function that will be called.
+        :param handler: function that will be called.
         as a list or a View.
         :return:
         """
         pass
 
     @abstractmethod
-    def remove_neighbours_callback(self, callback: NeighboursCallback):
+    def remove_neighbours_handler(self, handler: Handler):
         """
         Remove the callback that is executed when neighbours change.
 
-        :param callback: callback that will be removed.
+        :param handler: callback that will be removed.
         :return:
         """
         pass
@@ -104,26 +100,6 @@ class AggregationService(ISubService):
     """Aggregation service."""
 
     @abstractmethod
-    async def join_aggregation(self, service_id: str, **configuration: Any):
-        """
-        Join/start aggregation service.
-
-        :param service_id: aggregation service's id
-        :param configuration: configuration parameters.
-        :return:
-        """
-        pass
-
-    @abstractmethod
-    async def leave_aggregation(self):
-        """
-        Leave/stop aggregation service.
-
-        :return:
-        """
-        pass
-
-    @abstractmethod
     async def get_aggregate(self) -> Any:
         """
         Get current aggregate value.
@@ -133,38 +109,16 @@ class AggregationService(ISubService):
         pass
 
     @abstractmethod
-    def set_aggregate_callback(self, callback: AggregateCallback):
-        """
-        Set the callback that is executed when aggregate value change.
+    def add_aggregate_handler(self, handler: Handler):
+        pass
 
-        :param callback: function that will be called.
-        :return:
-        """
+    @abstractmethod
+    def remove_aggregate_handler(self, handler: Handler):
         pass
 
 
 class SamplingService(ISubService):
     """Sampling service."""
-
-    @abstractmethod
-    async def join_sampling(self, service_id: str, **configuration: Any):
-        """
-        Join/start sampling service.
-
-        :param service_id: sampling service's id.
-        :param configuration: configuration parameters.
-        :return:
-        """
-        pass
-
-    @abstractmethod
-    async def leave_sampling(self):
-        """
-        Leave/stop sampling service.
-
-        :return:
-        """
-        pass
 
     @abstractmethod
     async def get_sample(self) -> Node:
@@ -178,26 +132,6 @@ class SamplingService(ISubService):
 
 class DisseminationService(ISubService):
     @abstractmethod
-    async def join_broadcast(self, service_id: str, **configuration: Any):
-        """
-        Join/start dissemination service. Duplicates must handle the user.
-
-        :param service_id: sampling service's id
-        :param configuration: configuration parameters.
-        :return:
-        """
-        pass
-
-    @abstractmethod
-    async def leave_broadcast(self):
-        """
-        Leave/stop dissemination service.
-
-        :return:
-        """
-        pass
-
-    @abstractmethod
     async def broadcast(self, data: bytes):
         """
         Disseminates/brodcasts data.
@@ -207,28 +141,16 @@ class DisseminationService(ISubService):
         """
         pass
 
+    @abstractmethod
+    def add_broadcast_handler(self, handler: Handler):
+        pass
+
+    @abstractmethod
+    def remove_broadcast_handler(self, handler: Handler):
+        pass
+
 
 class SearchingService(ISubService):
-    @abstractmethod
-    async def join_searching(self, service_id: str, **configuration: Any):
-        """
-        Join/start search service.
-
-        :param service_id: search service's id
-        :param configuration: configuration parameters.
-        :return:
-        """
-        pass
-
-    @abstractmethod
-    async def leave_searching(self):
-        """
-        Leave/stop search service.
-
-        :return:
-        """
-        pass
-
     @abstractmethod
     async def publish(self, data_id: str, data: bytes):
         """

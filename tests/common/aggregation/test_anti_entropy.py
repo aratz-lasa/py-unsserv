@@ -6,7 +6,7 @@ from unsserv.common.aggregation.anti_entropy import (
     AntiEntropy,
     aggregate_functions,
 )
-from unsserv.common.gossip.config import GOSSIPING_FREQUENCY
+from unsserv.common.gossip.config import GOSSIPING_FREQUENCY, LOCAL_VIEW_SIZE
 from tests.utils import init_extreme_membership
 
 init_extreme_membership = init_extreme_membership  # for flake8 compliance
@@ -23,14 +23,14 @@ async def init_anti_entropy():
     async def _init_anti_entropy(newc, r_newcs):
         nonlocal anti, r_antis
         anti = AntiEntropy(newc)
-        await anti.join_aggregation(
+        await anti.join(
             AGGR_SERVICE_ID,
             aggregate_type=AggregateType.MEAN,
             aggregate_value=anti.my_node.address_info[1],
         )
         for r_newc in r_newcs:
             r_anti = AntiEntropy(r_newc)
-            await r_anti.join_aggregation(
+            await r_anti.join(
                 AGGR_SERVICE_ID,
                 aggregate_type=AggregateType.MEAN,
                 aggregate_value=r_newc.my_node.address_info[1],
@@ -42,9 +42,9 @@ async def init_anti_entropy():
     try:
         yield _init_anti_entropy
     finally:
-        await anti.leave_aggregation()
+        await anti.leave()
         for r_anti in r_antis:
-            await r_anti.leave_aggregation()
+            await r_anti.leave()
 
 
 @pytest.mark.asyncio
@@ -91,3 +91,24 @@ async def test_aggregate(
             / await r_anti.get_aggregate()
             < 0.1
         )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "amount",
+    [(LOCAL_VIEW_SIZE * 2) + 1, (LOCAL_VIEW_SIZE * 2) + 5, (LOCAL_VIEW_SIZE * 2) + 100],
+)
+async def test_aggregate_handler(init_extreme_membership, init_anti_entropy, amount):
+    newc, r_newcs = await init_extreme_membership(amount)
+    anti, r_antis = await init_anti_entropy(newc, r_newcs)
+
+    callback_event = asyncio.Event()
+
+    async def callback(neighbours):
+        nonlocal callback_event
+        callback_event.set()
+
+    anti.add_aggregate_handler(callback)
+
+    await asyncio.sleep(GOSSIPING_FREQUENCY * 7)
+    assert callback_event.is_set()

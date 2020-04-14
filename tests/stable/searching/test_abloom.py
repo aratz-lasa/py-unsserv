@@ -27,10 +27,10 @@ async def init_abloom():
     async def _init_abloom(xbot, r_xbots):
         nonlocal abloom, r_ablooms
         abloom = ABloom(xbot)
-        await abloom.join_searching(SAMPLING_SERVICE_ID, ttl=2)
+        await abloom.join(SAMPLING_SERVICE_ID, ttl=2)
         for r_xbot in r_xbots:
             r_abloom = ABloom(r_xbot)
-            await r_abloom.join_searching(SAMPLING_SERVICE_ID, ttl=2)
+            await r_abloom.join(SAMPLING_SERVICE_ID, ttl=2)
             r_ablooms.append(r_abloom)
         await asyncio.sleep(GOSSIPING_FREQUENCY * 7)
         return abloom, r_ablooms
@@ -38,9 +38,9 @@ async def init_abloom():
     try:
         yield _init_abloom
     finally:
-        await abloom.leave_searching()
+        await abloom.leave()
         for r_abloom in r_ablooms:
-            await r_abloom.leave_searching()
+            await r_abloom.leave()
 
 
 @pytest.mark.asyncio

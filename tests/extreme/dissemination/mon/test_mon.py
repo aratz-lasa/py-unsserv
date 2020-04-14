@@ -30,14 +30,14 @@ async def init_mon():
         nonlocal mon, r_mons
         mon = Mon(newc)
         mon_events[newc.my_node] = asyncio.Event()
-        await mon.join_broadcast(
+        await mon.join(
             DISSEMINATION_SERVICE_ID,
             broadcast_handler=partial(dissemination_handler, mon.my_node),
         )
         for r_newc in r_newcs:
             r_mon = Mon(r_newc)
             mon_events[r_newc.my_node] = asyncio.Event()
-            await r_mon.join_broadcast(
+            await r_mon.join(
                 DISSEMINATION_SERVICE_ID,
                 broadcast_handler=partial(dissemination_handler, r_mon.my_node),
             )
@@ -48,9 +48,9 @@ async def init_mon():
     try:
         yield _init_mon
     finally:
-        await mon.leave_broadcast()
+        await mon.leave()
         for r_mon in r_mons:
-            await r_mon.leave_broadcast()
+            await r_mon.leave()
 
 
 @pytest.mark.asyncio
@@ -73,6 +73,6 @@ async def test_broadcast(init_extreme_membership, init_mon, amount):
     mon_events_received = [mon_events[r_mon.my_node].is_set() for r_mon in r_mons]
     assert int(amount * 0.75) <= sum(mon_events_received)
 
-    await mon.leave_broadcast()
+    await mon.leave()
     for r_mon in r_mons:
-        await r_mon.leave_broadcast()
+        await r_mon.leave()

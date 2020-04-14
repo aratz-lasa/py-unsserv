@@ -6,9 +6,8 @@ from typing import Any, Callable, Union, List
 from unsserv.common.service_properties import Property
 from unsserv.common.services_abc import MembershipService, ClusteringService
 from unsserv.common.structs import Node
+from unsserv.common.typing import View, Handler
 from unsserv.common.utils import stop_task
-from unsserv.common.typing import NeighboursCallback
-from unsserv.common.typing import View
 from unsserv.stable.clustering.config import (
     ACTIVE_VIEW_SIZE,
     ACTIVE_VIEW_MAINTAIN_FREQUENCY,
@@ -25,14 +24,12 @@ RankingFunction = Callable[[Node], Any]
 class XBot(ClusteringService, IDoubleLayered):
     properties = {Property.STABLE, Property.SYMMETRIC}
     _protocol: XBotProtocol
-    _callback: NeighboursCallback
     _local_view_optimize_task: asyncio.Task
 
     def __init__(self, membership: MembershipService):
         super().__init__(membership.my_node)
         self.membership = membership
         self._protocol = XBotProtocol(membership.my_node)
-        self._callback = None
         self._ranking_function: RankingFunction
 
     async def join(self, service_id: Any, **configuration: Any):
@@ -63,15 +60,13 @@ class XBot(ClusteringService, IDoubleLayered):
             Counter(self._active_view) if local_view_format else list(self._active_view)
         )
 
-    def add_neighbours_callback(self, callback: NeighboursCallback):
+    def add_neighbours_handler(self, handler: Handler):
         if not self.running:
             raise RuntimeError("Membership service not running")
-        self._callbacks.append(callback)
+        self._handler_manager.add_handler(handler)
 
-    def remove_neighbours_callback(self, callback: NeighboursCallback):
-        if callback not in self._callbacks:
-            raise ValueError("Callback not found")
-        self._callbacks.remove(callback)
+    def remove_neighbours_handler(self, handler: Handler):
+        self._handler_manager.remove_handler(handler)
 
     def _get_passive_view_nodes(self):
         return self.membership.get_neighbours()

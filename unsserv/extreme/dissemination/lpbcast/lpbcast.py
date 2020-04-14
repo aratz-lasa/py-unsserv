@@ -6,8 +6,8 @@ from typing import Any, List, Union
 from unsserv.common.service_properties import Property
 from unsserv.common.services_abc import DisseminationService, MembershipService
 from unsserv.common.structs import Node
-from unsserv.common.typing import BroadcastHandler
-from unsserv.common.utils import get_random_id
+from unsserv.common.typing import Handler
+from unsserv.common.utils import get_random_id, HandlerManager
 from unsserv.extreme.dissemination.lpbcast.config import (
     FANOUT,
     LPBCAST_THRESHOLD,
@@ -24,7 +24,7 @@ from unsserv.extreme.dissemination.lpbcast.typing import (
 class Lpbcast(DisseminationService):
     properties = {Property.EXTREME, Property.MANY_TO_MANY}
     _protocol: LpbcastProtocol
-    _broadcast_handler: BroadcastHandler
+    _handler_manager: HandlerManager
 
     _events: "OrderedDict[EventId, List[Union[EventData, EventOrigin]]]"
     _events_digest: "OrderedDict[EventId, EventOrigin]"
@@ -32,25 +32,25 @@ class Lpbcast(DisseminationService):
     def __init__(self, membership: MembershipService):
         self.my_node = membership.my_node
         self.membership = membership
-        self._broadcast_handler = None
+        self._handler_manager = HandlerManager()
         self._protocol = LpbcastProtocol(self.my_node)
 
         self._events = OrderedDict()
         self._events_digest = OrderedDict()
 
-    async def join_broadcast(self, service_id: str, **configuration: Any):
+    async def join(self, service_id: str, **configuration: Any):
         if self.running:
             raise RuntimeError("Already running Dissemination")
-        self._broadcast_handler = configuration["broadcast_handler"]
+        self._handler_manager.add_handler(configuration["broadcast_handler"])
         self.service_id = service_id
         await self._initialize_protocol()
         self.running = True
 
-    async def leave_broadcast(self):
+    async def leave(self):
         if not self.running:
             return
         await self._protocol.stop()
-        self._broadcast_handler = None
+        self._handler_manager.remove_all_handlers()
         self.running = False
 
     async def broadcast(self, data: bytes):
@@ -61,6 +61,12 @@ class Lpbcast(DisseminationService):
         await self._handle_new_event(
             event_id, data, self.my_node, broadcast_origin=True
         )
+
+    def add_broadcast_handler(self, handler: Handler):
+        self._handler_manager.add_handler(handler)
+
+    def remove_broadcast_handler(self, handler: Handler):
+        self._handler_manager.remove_handler(handler)
 
     async def _handle_new_event(
         self,
@@ -76,7 +82,7 @@ class Lpbcast(DisseminationService):
         self._purge_events_threshold()
         asyncio.create_task(self._disseminate(event_id, event_data, event_origin))
         if not broadcast_origin:
-            asyncio.create_task(self._broadcast_handler(event_data))
+            self._handler_manager.call_handlers(event_data)
 
     async def _disseminate(
         self, event_id: EventId, event_data: EventData, event_origin: Node

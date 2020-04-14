@@ -6,8 +6,8 @@ from unsserv.common.structs import Node
 from unsserv.common.errors import ServiceError
 from unsserv.common.service_properties import Property
 from unsserv.common.services_abc import DisseminationService, MembershipService
-from unsserv.common.typing import BroadcastHandler
-from unsserv.common.utils import get_random_id
+from unsserv.common.typing import Handler
+from unsserv.common.utils import get_random_id, HandlerManager
 from unsserv.extreme.dissemination.mon.config import MON_FANOUT
 from unsserv.extreme.dissemination.mon.protocol import MonProtocol
 from unsserv.extreme.dissemination.mon.structs import Session, Broadcast
@@ -16,7 +16,7 @@ from unsserv.extreme.dissemination.mon.typing import BroadcastID
 
 class Mon(DisseminationService):
     properties = {Property.EXTREME, Property.ONE_TO_MANY}
-    _broadcast_handler: BroadcastHandler
+    _handler_manager: HandlerManager
     _protocol: MonProtocol
     _levels: Dict[BroadcastID, int]
     _children: Dict[BroadcastID, List[Node]]
@@ -29,7 +29,7 @@ class Mon(DisseminationService):
     def __init__(self, membership: MembershipService):
         self.my_node = membership.my_node
         self.membership = membership
-        self._broadcast_handler = None
+        self._handler_manager = HandlerManager()
         self._protocol = MonProtocol(self.my_node)
 
         self._children = {}
@@ -39,18 +39,18 @@ class Mon(DisseminationService):
 
         self._children_ready_events = {}
 
-    async def join_broadcast(self, service_id: str, **configuration: Any):
+    async def join(self, service_id: str, **configuration: Any):
         if self.running:
             raise RuntimeError("Already running Dissemination")
-        self._broadcast_handler = configuration["broadcast_handler"]
+        self._handler_manager.add_handler(configuration["broadcast_handler"])
         self.service_id = service_id
         await self._initialize_protocol()
         self.running = True
 
-    async def leave_broadcast(self):
+    async def leave(self):
         if not self.running:
             return
-        self._broadcast_handler = None
+        self._handler_manager.remove_all_handlers()
         await self._protocol.stop()
         self.running = False
 
@@ -60,6 +60,12 @@ class Mon(DisseminationService):
         assert isinstance(data, bytes)
         broadcast_id = await self._build_dag()
         await self._disseminate(broadcast_id, data)
+
+    def add_broadcast_handler(self, handler: Handler):
+        self._handler_manager.add_handler(handler)
+
+    def remove_broadcast_handler(self, handler: Handler):
+        self._handler_manager.remove_handler(handler)
 
     async def _build_dag(self) -> str:
         broadcast_id = get_random_id()
@@ -133,9 +139,8 @@ class Mon(DisseminationService):
             broadcast.id not in self._received_data
         ):  # if already received data, ignores it
             self._received_data[broadcast.id] = broadcast.data
-            asyncio.create_task(self._broadcast_handler(broadcast.data))
             asyncio.create_task(self._disseminate(broadcast.id, broadcast.data))
-            # todo: decide how to cleanup all the data from already ended broadcast
+            self._handler_manager.call_handlers(broadcast.data)
 
     async def _initialize_protocol(self):
         self._protocol.set_handler_session(self._handler_session)

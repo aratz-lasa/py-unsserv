@@ -28,7 +28,7 @@ class KWalker(SearchingService):
         self._walk_results = {}
         self._walk_events = {}
 
-    async def join_searching(self, service_id: str, **kwalker_configuration: Any):
+    async def join(self, service_id: str, **kwalker_configuration: Any):
         if self.running:
             raise RuntimeError("Already running Searching service")
         self.service_id = service_id
@@ -41,7 +41,7 @@ class KWalker(SearchingService):
         await self._initialize_protocol()
         self.running = True
 
-    async def leave_searching(self):
+    async def leave(self):
         if not self.running:
             return
         await self._protocol.stop()

@@ -20,10 +20,10 @@ async def init_rwd():
     async def _init_rwd(hypa, r_hypas):
         nonlocal sampl, r_sampls
         sampl = RWD(hypa)
-        await sampl.join_sampling(AGGREGATION_SERVICE_ID)
+        await sampl.join(AGGREGATION_SERVICE_ID)
         for r_hypa in r_hypas:
             r_sampl = RWD(r_hypa)
-            await r_sampl.join_sampling(AGGREGATION_SERVICE_ID)
+            await r_sampl.join(AGGREGATION_SERVICE_ID)
             r_sampls.append(r_sampl)
         await asyncio.sleep(GOSSIPING_FREQUENCY * 7)
         return r_sampls, sampl
@@ -31,9 +31,9 @@ async def init_rwd():
     try:
         yield _init_rwd
     finally:
-        await sampl.leave_sampling()
+        await sampl.leave()
         for r_sampl in r_sampls:
-            await r_sampl.leave_sampling()
+            await r_sampl.leave()
 
 
 @pytest.mark.asyncio

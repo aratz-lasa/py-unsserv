@@ -5,9 +5,8 @@ from collections import Counter
 from contextlib import contextmanager
 from typing import List, Set, Counter as CounterType
 
-from unsserv.common.services_abc import NeighboursCallback
 from unsserv.common.structs import Node
-from unsserv.common.utils import stop_task
+from unsserv.common.utils import stop_task, HandlerManager
 from unsserv.stable.membership.double_layered.config import (
     ACTIVE_VIEW_SIZE,
     ACTIVE_VIEW_MAINTAIN_FREQUENCY,
@@ -18,7 +17,7 @@ from unsserv.stable.membership.double_layered.structs import ForwardJoin
 
 
 class IDoubleLayered(ABC):
-    _callbacks: List[NeighboursCallback]
+    _handler_manager: HandlerManager
     _doble_layered_protocol: DoubleLayeredProtocol
     _active_view: Set[Node]
     _candidate_neighbours: CounterType[Node]
@@ -26,7 +25,7 @@ class IDoubleLayered(ABC):
 
     def __init__(self, my_node: Node):
         self.my_node = my_node
-        self._callbacks = []
+        self._handler_manager = HandlerManager()
         self._doble_layered_protocol = DoubleLayeredProtocol(my_node)
         self._active_view = set()
         self._candidate_neighbours = Counter()
@@ -120,8 +119,7 @@ class IDoubleLayered(ABC):
     def _call_callback_if_view_changed(self, old_local_view: Set):
         if old_local_view == self._active_view:
             return
-        for callback in self._callbacks:
-            asyncio.create_task(callback(list(self._active_view)))
+        self._handler_manager.call_handlers(list(self._active_view))
 
     @contextmanager
     def _create_candidate_neighbour(self, node: Node):

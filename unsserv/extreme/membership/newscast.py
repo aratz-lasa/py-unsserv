@@ -1,20 +1,22 @@
 from typing import Any, List, Union, Optional
 
 from unsserv.common.service_properties import Property
-from unsserv.common.services_abc import MembershipService, NeighboursCallback
+from unsserv.common.services_abc import MembershipService
+from unsserv.common.typing import Handler
 from unsserv.common.structs import Node
 from unsserv.common.gossip.gossip import Gossip, View
+from unsserv.common.utils import HandlerManager
 
 
 class Newscast(MembershipService):
     properties = {Property.EXTREME, Property.HAS_GOSSIP, Property.NON_SYMMETRIC}
     gossip: Optional[Gossip]
-    _callbacks: List[NeighboursCallback]
+    _handler_manager: HandlerManager
 
     def __init__(self, node: Node):
         self.my_node = node
-        self._callbacks = []
         self.gossip = None
+        self._handler_manager = HandlerManager()
 
     async def join(self, service_id: Any, **configuration: Any):
         if self.running:
@@ -45,16 +47,11 @@ class Newscast(MembershipService):
             return self.gossip.local_view
         return list(self.gossip.local_view.keys())
 
-    def add_neighbours_callback(self, callback: NeighboursCallback):
-        if not self.running:
-            raise RuntimeError("Membership service not running")
-        self._callbacks.append(callback)
+    def add_neighbours_handler(self, handler: Handler):
+        self._handler_manager.add_handler(handler)
 
-    def remove_neighbours_callback(self, callback: NeighboursCallback):
-        if callback not in self._callbacks:
-            raise ValueError("Callback not found")
-        self._callbacks.remove(callback)
+    def remove_neighbours_handler(self, handler: Handler):
+        self._handler_manager.remove_handler(handler)
 
     async def _local_view_callback(self, local_view: View):
-        for callback in self._callbacks:
-            await callback(list(local_view.keys()))
+        self._handler_manager.call_handlers(list(local_view.keys()))

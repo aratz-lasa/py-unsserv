@@ -25,14 +25,15 @@ from unsserv.common.gossip.typing import (
 from unsserv.common.gossip.typing import Payload
 from unsserv.common.services_abc import View
 from unsserv.common.structs import Node
-from unsserv.common.utils import stop_task
+from unsserv.common.utils import stop_task, HandlerManager
 
 
 class Gossip:
-    _protocol: GossipProtocol
     my_node: Node
     local_view: View
     running: bool = False
+    _protocol: GossipProtocol
+    _handler_manager: HandlerManager
 
     def __init__(
         self,
@@ -55,7 +56,6 @@ class Gossip:
             if local_view_nodes
             else []
         )
-        self._callback = local_view_callback
         self.get_external_view = external_view_source
         self.view_selection_policy = view_selection
         self.peer_selection_policy = peer_selection
@@ -67,6 +67,9 @@ class Gossip:
         self._protocol = GossipProtocol(self.my_node)
 
         self.subscribers: List[IGossipSubscriber] = []
+        self._handler_manager = HandlerManager()
+        if local_view_callback:
+            self._handler_manager.add_handler(local_view_callback)
 
     async def start(self):
         if self.running:
@@ -185,8 +188,7 @@ class Gossip:
         current_neighbours = set(self.local_view.keys())
         if old_neighbours == current_neighbours:
             return
-        if self._callback:
-            asyncio.create_task(self._callback(self.local_view))
+        self._handler_manager.call_handlers(self.local_view)
 
     async def _handler_push(self, sender: Node, push_data: PushData):
         view = self._increase_hop_count(push_data.view)

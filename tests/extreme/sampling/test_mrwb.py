@@ -21,10 +21,10 @@ async def init_mrwb():
     async def _init_mrwb(newc, r_newcs):
         nonlocal sampl, r_sampls
         sampl = MRWB(newc)
-        await sampl.join_sampling(AGGREGATION_SERVICE_ID)
+        await sampl.join(AGGREGATION_SERVICE_ID)
         for r_newc in r_newcs:
             r_sampl = MRWB(r_newc)
-            await r_sampl.join_sampling(AGGREGATION_SERVICE_ID)
+            await r_sampl.join(AGGREGATION_SERVICE_ID)
             r_sampls.append(r_sampl)
         await asyncio.sleep(GOSSIPING_FREQUENCY * 7)
         return r_sampls, sampl
@@ -32,9 +32,9 @@ async def init_mrwb():
     try:
         yield _init_mrwb
     finally:
-        await sampl.leave_sampling()
+        await sampl.leave()
         for r_sampl in r_sampls:
-            await r_sampl.leave_sampling()
+            await r_sampl.leave()
 
 
 @pytest.mark.asyncio

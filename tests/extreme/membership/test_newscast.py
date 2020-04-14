@@ -105,7 +105,7 @@ async def test_newscast_callback(init_newscast, amount):
         nonlocal callback_event
         callback_event.set()
 
-    newc.add_neighbours_callback(callback)
+    newc.add_neighbours_handler(callback)
 
     await asyncio.sleep(GOSSIPING_FREQUENCY * 7)
     assert callback_event.is_set()

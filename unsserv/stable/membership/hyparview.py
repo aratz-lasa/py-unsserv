@@ -2,10 +2,10 @@ from collections import Counter
 from typing import Union, List, Any, Optional
 
 from unsserv.common.gossip.gossip import Gossip
-from unsserv.common.services_abc import MembershipService
 from unsserv.common.service_properties import Property
+from unsserv.common.services_abc import MembershipService
 from unsserv.common.structs import Node
-from unsserv.common.typing import NeighboursCallback, View
+from unsserv.common.typing import Handler, View
 from unsserv.stable.membership.double_layered.double_layered import IDoubleLayered
 
 
@@ -16,7 +16,6 @@ class HyParView(MembershipService, IDoubleLayered):
     def __init__(self, my_node: Node):
         super().__init__(my_node)
         self.gossip = None
-        self._callback = None
 
     async def join(self, service_id: Any, **configuration: Any):
         if self.running:
@@ -45,15 +44,13 @@ class HyParView(MembershipService, IDoubleLayered):
             Counter(self._active_view) if local_view_format else list(self._active_view)
         )
 
-    def add_neighbours_callback(self, callback: NeighboursCallback):
+    def add_neighbours_handler(self, handler: Handler):
         if not self.running:
             raise RuntimeError("Membership service not running")
-        self._callbacks.append(callback)
+        self._handler_manager.add_handler(handler)
 
-    def remove_neighbours_callback(self, callback: NeighboursCallback):
-        if callback not in self._callbacks:
-            raise ValueError("Callback not found")
-        self._callbacks.remove(callback)
+    def remove_neighbours_handler(self, handler: Handler):
+        self._handler_manager.remove_handler(handler)
 
     def _get_passive_view_nodes(self):
         return list(self.gossip.local_view.keys())

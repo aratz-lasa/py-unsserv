@@ -5,6 +5,7 @@ from typing import List
 
 from unsserv.common.structs import Message
 from unsserv.common.structs import Node
+from unsserv.common.typing import Handler, SyncHandler
 
 
 def parse_node(raw_node: List) -> Node:
@@ -29,3 +30,31 @@ async def stop_task(task: asyncio.Task):
         await task
     except asyncio.CancelledError:
         pass
+
+
+class HandlerManager:
+    _handlers: List[Handler]
+
+    def __init__(self):
+        self._handlers = []
+
+    def add_handler(self, handler: Handler):
+        self._handlers.append(handler)
+
+    def remove_handler(self, handler: Handler):
+        self._handlers.remove(handler)
+
+    def remove_all_handlers(self):
+        self._handlers.clear()
+
+    def call_handlers(self, *args, **kwargs):
+        for handler in self._handlers:
+            if asyncio.iscoroutinefunction(handler):
+                asyncio.create_task(handler(*args, **kwargs))
+            else:
+                asyncio.create_task(
+                    self._sync_handler_wrapper(handler, *args, **kwargs)
+                )
+
+    async def _sync_handler_wrapper(self, sync_handler: SyncHandler, *args, **kwargs):
+        sync_handler(*args, **kwargs)

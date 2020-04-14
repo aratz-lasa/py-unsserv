@@ -23,10 +23,10 @@ async def init_kwalker():
     async def _init_kwalker(newc, r_newcs):
         nonlocal kwalker, r_kwalkers
         kwalker = KWalker(newc)
-        await kwalker.join_searching(SAMPLING_SERVICE_ID, ttl=2)
+        await kwalker.join(SAMPLING_SERVICE_ID, ttl=2)
         for r_newc in r_newcs:
             r_tman = KWalker(r_newc)
-            await r_tman.join_searching(SAMPLING_SERVICE_ID)
+            await r_tman.join(SAMPLING_SERVICE_ID)
             r_kwalkers.append(r_tman)
         await asyncio.sleep(GOSSIPING_FREQUENCY * 7)
         return kwalker, r_kwalkers
@@ -34,9 +34,9 @@ async def init_kwalker():
     try:
         yield _init_kwalker
     finally:
-        await kwalker.leave_searching()
+        await kwalker.leave()
         for r_kwalker in r_kwalkers:
-            await r_kwalker.leave_searching()
+            await r_kwalker.leave()
 
 
 @pytest.mark.asyncio

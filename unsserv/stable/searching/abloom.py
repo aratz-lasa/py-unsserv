@@ -14,7 +14,7 @@ from unsserv.stable.searching.config import (
 )
 from unsserv.stable.searching.protocol import ABloomProtocol
 from unsserv.stable.searching.structs import Search, SearchResult, DataChange
-from unsserv.stable.searching.typing import DataID, WalkID
+from unsserv.stable.searching.typing import DataID, SearchID
 
 
 class ABloom(SearchingService):
@@ -24,8 +24,8 @@ class ABloom(SearchingService):
     _local_data: Dict[DataID, bytes]
     _abloom_filters: Dict[Node, List[Set[DataID]]]
     _filters_maintenance_task: asyncio.Task
-    _search_events: Dict[WalkID, asyncio.Event]
-    _search_results: Dict[WalkID, bytes]
+    _search_events: Dict[SearchID, asyncio.Event]
+    _search_results: Dict[SearchID, bytes]
 
     def __init__(self, membership: MembershipService):
         self.my_node = membership.my_node
@@ -33,7 +33,7 @@ class ABloom(SearchingService):
         self._init_structs()
         self._protocol = ABloomProtocol(self.my_node)
 
-    async def join_searching(self, service_id: str, **configuration: Any):
+    async def join(self, service_id: str, **configuration: Any):
         if self.running:
             raise RuntimeError("Service already running")
         self.service_id = service_id
@@ -44,7 +44,7 @@ class ABloom(SearchingService):
         )
         self.running = True
 
-    async def leave_searching(self):
+    async def leave(self):
         if not self.running:
             return
         await stop_task(self._filters_maintenance_task)
