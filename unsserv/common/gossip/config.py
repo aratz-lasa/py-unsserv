@@ -28,7 +28,7 @@ class GossipConfig(IConfig):
     VIEW_SELECTION = ViewSelectionPolicy.HEAD
     VIEW_PROPAGATION = ViewPropagationPolicy.PUSHPULL
     PEER_SELECTION = PeerSelectionPolicy.RAND
-    RPC_TIMEOUT = 0.5
+    RPC_TIMEOUT = 1
 
     def load_from_dict(self, config_dict: Dict[str, Any]):
         self.LOCAL_VIEW_SIZE = config_dict.get(

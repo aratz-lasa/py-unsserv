@@ -4,10 +4,10 @@ language: python
 matrix:
   include:
     - python: 3.7
-      dist: xenial
+      dist: bionic
       env: TOXENV=py37
     - python: 3.7
-      dist: xenial
+      dist: bionic
       env: TOXENV=lint
 
 # install tox
