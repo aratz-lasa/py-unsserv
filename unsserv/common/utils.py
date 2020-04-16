@@ -52,6 +52,10 @@ class HandlerManager:
         for handler in self._handlers:
             if asyncio.iscoroutinefunction(handler):
                 asyncio.create_task(handler(*args, **kwargs))
+            elif hasattr(handler, "func") and asyncio.iscoroutinefunction(
+                handler.func
+            ):  # in case 'partial' was used
+                asyncio.create_task(handler(*args, **kwargs))
             else:
                 asyncio.create_task(
                     self._sync_handler_wrapper(handler, *args, **kwargs)

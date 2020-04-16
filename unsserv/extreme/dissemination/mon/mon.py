@@ -142,7 +142,6 @@ class Mon(IDisseminationService):
             broadcast.id not in self._received_data
         ):  # if already received data, ignores it
             self._received_data[broadcast.id] = broadcast.data
-            print("RECEIVED DATA")
             asyncio.create_task(self._disseminate(broadcast.id, broadcast.data))
             self._handler_manager.call_handlers(broadcast.data)
 

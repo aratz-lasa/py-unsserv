@@ -132,7 +132,6 @@ class Gossip:
             return ordered_nodes[0] if view else None
         elif self._config.PEER_SELECTION is PeerSelectionPolicy.TAIL:
             return ordered_nodes[-1] if view else None
-        print(type(self._config.PEER_SELECTION))
         raise AttributeError("Invalid Peer Selection policy")
 
     def _select_view(self, view: View) -> View:
