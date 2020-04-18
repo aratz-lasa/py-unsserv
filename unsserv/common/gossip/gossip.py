@@ -102,22 +102,22 @@ class Gossip:
 
     async def _exchange_with_peer(self):
         peer = self._select_peer(self.local_view)
-        if not peer:  # Empty Local view
+        if not peer:  # empty Local view
             return
         subscribers_data = await self._get_data_from_subscribers()
         if self._config.VIEW_PROPAGATION is ViewPropagationPolicy.PUSH:
             push_view = self._merge_views(Counter({self.my_node: 0}), self.local_view)
             push_data = PushData(view=push_view, payload=subscribers_data)
-            with self._pop_on_connection_error(peer):
+            with self._remove_on_connection_error(peer):
                 await self._protocol.push(peer, push_data)
         elif self._config.VIEW_PROPAGATION is ViewPropagationPolicy.PULL:
-            with self._pop_on_connection_error(peer):
+            with self._remove_on_connection_error(peer):
                 pull_response = await self._protocol.pull(peer, subscribers_data)
                 await self._handler_push(peer, pull_response)
         elif self._config.VIEW_PROPAGATION is ViewPropagationPolicy.PUSHPULL:
             push_view = self._merge_views(Counter({self.my_node: 0}), self.local_view)
             push_data = PushData(view=push_view, payload=subscribers_data)
-            with self._pop_on_connection_error(peer):
+            with self._remove_on_connection_error(peer):
                 pull_response = await self._protocol.pushpull(peer, push_data)
                 await self._handler_push(peer, pull_response)
 
@@ -219,7 +219,7 @@ class Gossip:
         await self._protocol.start(self.service_id)
 
     @contextmanager
-    def _pop_on_connection_error(self, node: Node):
+    def _remove_on_connection_error(self, node: Node):
         try:
             yield
         except ConnectionError:
