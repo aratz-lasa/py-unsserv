@@ -33,7 +33,7 @@ async def stop_task(task: asyncio.Task):
         pass
 
 
-class HandlerManager:
+class HandlersManager:
     _handlers: List[Handler]
 
     def __init__(self):

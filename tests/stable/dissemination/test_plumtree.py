@@ -18,6 +18,7 @@ plum_events: Dict[Node, asyncio.Event] = {}
 
 
 async def dissemination_handler(node: Node, data: Any):
+    assert data == dissemination_data
     plum_events[node].set()
 
 

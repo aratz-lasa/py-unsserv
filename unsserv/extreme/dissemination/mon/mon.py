@@ -6,7 +6,7 @@ from unsserv.common.errors import ServiceError
 from unsserv.common.services_abc import IDisseminationService, IMembershipService
 from unsserv.common.structs import Node, Property
 from unsserv.common.typing import Handler
-from unsserv.common.utils import get_random_id, HandlerManager
+from unsserv.common.utils import get_random_id, HandlersManager
 from unsserv.extreme.dissemination.mon.config import MonConfig
 from unsserv.extreme.dissemination.mon.protocol import MonProtocol
 from unsserv.extreme.dissemination.mon.structs import Session, Broadcast
@@ -16,7 +16,7 @@ from unsserv.extreme.dissemination.mon.typing import BroadcastID
 class Mon(IDisseminationService):
     properties = {Property.EXTREME, Property.ONE_TO_MANY}
     _protocol: MonProtocol
-    _handler_manager: HandlerManager
+    _handler_manager: HandlersManager
     _config: MonConfig
 
     _levels: Dict[BroadcastID, int]
@@ -31,7 +31,7 @@ class Mon(IDisseminationService):
         self.my_node = membership.my_node
         self.membership = membership
         self._protocol = MonProtocol(self.my_node)
-        self._handler_manager = HandlerManager()
+        self._handler_manager = HandlersManager()
         self._config = MonConfig()
 
         self._children = {}

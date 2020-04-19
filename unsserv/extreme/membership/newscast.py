@@ -4,18 +4,18 @@ from unsserv.common.gossip.gossip import Gossip, View
 from unsserv.common.services_abc import IMembershipService
 from unsserv.common.structs import Node, Property
 from unsserv.common.typing import Handler
-from unsserv.common.utils import HandlerManager
+from unsserv.common.utils import HandlersManager
 
 
 class Newscast(IMembershipService):
     properties = {Property.EXTREME, Property.HAS_GOSSIP, Property.NON_SYMMETRIC}
     gossip: Optional[Gossip]
-    _handler_manager: HandlerManager
+    _handler_manager: HandlersManager
 
     def __init__(self, node: Node):
         self.my_node = node
         self.gossip = None
-        self._handler_manager = HandlerManager()
+        self._handler_manager = HandlersManager()
 
     async def join(self, service_id: Any, **configuration: Any):
         if self.running:

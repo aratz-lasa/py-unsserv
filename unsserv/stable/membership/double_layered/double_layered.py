@@ -6,14 +6,14 @@ from contextlib import contextmanager
 from typing import List, Set, Counter as CounterType
 
 from unsserv.common.structs import Node
-from unsserv.common.utils import stop_task, HandlerManager
+from unsserv.common.utils import stop_task, HandlersManager
 from unsserv.stable.membership.double_layered.config import DoubleLayeredConfig
 from unsserv.stable.membership.double_layered.protocol import DoubleLayeredProtocol
 from unsserv.stable.membership.double_layered.structs import ForwardJoin
 
 
 class IDoubleLayered(ABC):
-    _handler_manager: HandlerManager
+    _handler_manager: HandlersManager
     _doble_layered_protocol: DoubleLayeredProtocol
     _config: DoubleLayeredConfig
 
@@ -23,7 +23,7 @@ class IDoubleLayered(ABC):
 
     def __init__(self, my_node: Node):
         self.my_node = my_node
-        self._handler_manager = HandlerManager()
+        self._handler_manager = HandlersManager()
         self._doble_layered_protocol = DoubleLayeredProtocol(my_node)
         self._active_view = set()
         self._candidate_neighbours = Counter()

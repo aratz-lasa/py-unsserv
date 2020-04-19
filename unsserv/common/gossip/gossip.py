@@ -18,7 +18,7 @@ from unsserv.common.gossip.typing import ExternalViewSource, CustomSelectionRank
 from unsserv.common.gossip.typing import Payload, View
 from unsserv.common.structs import Node
 from unsserv.common.typing import Handler
-from unsserv.common.utils import stop_task, HandlerManager
+from unsserv.common.utils import stop_task, HandlersManager
 
 
 class IGossipSubscriber(ABC):
@@ -37,7 +37,7 @@ class Gossip:
     running: bool = False
     _config: GossipConfig
     _protocol: GossipProtocol
-    _handler_manager: HandlerManager
+    _handler_manager: HandlersManager
 
     def __init__(
         self,
@@ -68,7 +68,7 @@ class Gossip:
         self.custom_selection_ranking = custom_selection_ranking
 
         self.subscribers: List[IGossipSubscriber] = []
-        self._handler_manager = HandlerManager()
+        self._handler_manager = HandlersManager()
         if local_view_handler:
             self._handler_manager.add_handler(local_view_handler)
 

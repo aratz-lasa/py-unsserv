@@ -6,7 +6,7 @@ from typing import Any, List, Union
 from unsserv.common.services_abc import IDisseminationService, IMembershipService
 from unsserv.common.structs import Node, Property
 from unsserv.common.typing import Handler
-from unsserv.common.utils import get_random_id, HandlerManager
+from unsserv.common.utils import get_random_id, HandlersManager
 from unsserv.extreme.dissemination.lpbcast.config import LpbcastConfig
 from unsserv.extreme.dissemination.lpbcast.protocol import LpbcastProtocol
 from unsserv.extreme.dissemination.lpbcast.structs import Event
@@ -20,7 +20,7 @@ from unsserv.extreme.dissemination.lpbcast.typing import (
 class Lpbcast(IDisseminationService):
     properties = {Property.EXTREME, Property.MANY_TO_MANY}
     _protocol: LpbcastProtocol
-    _handler_manager: HandlerManager
+    _handler_manager: HandlersManager
     _config: LpbcastConfig
 
     _events: "OrderedDict[EventId, List[Union[EventData, EventOrigin]]]"
@@ -30,7 +30,7 @@ class Lpbcast(IDisseminationService):
         self.my_node = membership.my_node
         self.membership = membership
         self._protocol = LpbcastProtocol(self.my_node)
-        self._handler_manager = HandlerManager()
+        self._handler_manager = HandlersManager()
         self._config = LpbcastConfig()
 
         self._events = OrderedDict()

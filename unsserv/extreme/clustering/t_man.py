@@ -10,7 +10,7 @@ from unsserv.common.services_abc import (
 )
 from unsserv.common.structs import Node, Property
 from unsserv.common.typing import Handler
-from unsserv.common.utils import HandlerManager
+from unsserv.common.utils import HandlersManager
 
 RankingFunction = Callable[[Node], Any]
 
@@ -19,14 +19,14 @@ class TMan(IClusteringService):
     properties = {Property.EXTREME, Property.HAS_GOSSIP, Property.NON_SYMMETRIC}
 
     gossip: Optional[Gossip]
-    _handler_manager: HandlerManager
+    _handler_manager: HandlersManager
     _ranking_function: RankingFunction
 
     def __init__(self, membership: IMembershipService):
         self.my_node = membership.my_node
         self.membership = membership
         self.gossip = None
-        self._handler_manager = HandlerManager()
+        self._handler_manager = HandlersManager()
 
     async def join(self, service_id: Any, **configuration: Any):
         if self.running:

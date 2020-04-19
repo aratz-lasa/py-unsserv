@@ -7,7 +7,7 @@ from unsserv.common.gossip.typing import Payload
 from unsserv.common.services_abc import IAggregationService, IMembershipService
 from unsserv.common.structs import Property
 from unsserv.common.typing import Handler
-from unsserv.common.utils import HandlerManager
+from unsserv.common.utils import HandlersManager
 
 aggregate_functions: Dict[AggregateType, Callable] = {
     AggregateType.MEAN: mean,
@@ -22,7 +22,7 @@ class AntiEntropy(IAggregationService, IGossipSubscriber):
     properties = {Property.EXTREME, Property.STABLE, Property.HAS_GOSSIP}
     gossip: Gossip
     _config: AntiConfig
-    _handler_manager: HandlerManager
+    _handler_manager: HandlersManager
     _aggregate_value: Any
 
     def __init__(self, membership: IMembershipService):
@@ -35,7 +35,7 @@ class AntiEntropy(IAggregationService, IGossipSubscriber):
         self.membership = membership
         self.gossip = getattr(membership, "gossip")
         self._aggregate_value = None
-        self._handler_manager = HandlerManager()
+        self._handler_manager = HandlersManager()
         self._config = AntiConfig()
 
     async def join(self, service_id: str, **configuration: Any):
