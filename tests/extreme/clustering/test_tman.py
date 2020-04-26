@@ -34,7 +34,6 @@ async def init_tman():
                 ranking_function=partial(port_distance, r_tman.my_node),
             )
             r_tmans.append(r_tman)
-        await asyncio.sleep(GossipConfig.GOSSIPING_FREQUENCY * 7)
         return tman, r_tmans
 
     try:
@@ -57,6 +56,7 @@ def port_distance(my_node: Node, ranked_node: Node):
 async def test_join_tman(init_extreme_membership, init_tman, amount):
     newc, r_newcs = await init_extreme_membership(amount)
     tman, r_tmans = await init_tman(newc, r_newcs)
+    await asyncio.sleep(GossipConfig.GOSSIPING_FREQUENCY * 7)
 
     await asyncio.sleep(GossipConfig.GOSSIPING_FREQUENCY * 40)
 
@@ -89,6 +89,7 @@ async def test_join_tman(init_extreme_membership, init_tman, amount):
 async def test_leave_tman(init_extreme_membership, init_tman, amount):
     newc, r_newcs = await init_extreme_membership(amount)
     tman, r_tmans = await init_tman(newc, r_newcs)
+    await asyncio.sleep(GossipConfig.GOSSIPING_FREQUENCY * 7)
 
     await tman.leave()
     await newc.leave()
