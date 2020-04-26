@@ -1,5 +1,3 @@
-from typing import List
+from typing import Union
 
-BrisaData = bytes
-BrisaDataId = str
-Digest = List[BrisaDataId]
+BroadcastLevel = Union[int, float]

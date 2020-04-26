@@ -60,6 +60,7 @@ class Plumtree(IDisseminationService):
     async def broadcast(self, data: bytes):
         data_id = get_random_id()
         push = Push(data=data, data_id=data_id)
+        self._received_data[data_id] = data
         await self._forward_push(push, self.my_node)
 
     def add_broadcast_handler(self, handler: Handler):

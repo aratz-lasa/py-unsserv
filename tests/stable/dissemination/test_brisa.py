@@ -35,6 +35,7 @@ async def init_brisa():
         await brisa.join(
             DISSEMINATION_SERVICE_ID,
             broadcast_handler=partial(dissemination_handler, brisa.my_node),
+            im_root=True,
         )
         for r_hypa in r_hypas:
             r_brisa = Brisa(r_hypa)

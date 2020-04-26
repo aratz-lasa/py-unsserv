@@ -6,7 +6,7 @@ from unsserv.common.errors import ServiceError
 from unsserv.common.services_abc import IDisseminationService, IMembershipService
 from unsserv.common.structs import Node, Property
 from unsserv.common.typing import Handler
-from unsserv.common.utils import get_random_id, HandlersManager
+from unsserv.common.utils import get_random_id, HandlersManager, stop_task
 from unsserv.extreme.dissemination.mon.config import MonConfig
 from unsserv.extreme.dissemination.mon.protocol import MonProtocol
 from unsserv.extreme.dissemination.mon.structs import Session, Broadcast
@@ -26,6 +26,7 @@ class Mon(IDisseminationService):
         BroadcastID, Any
     ]  # stores the data received from each broadcast (for avoiding duplicates)
     _children_ready_events: Dict[BroadcastID, asyncio.Event]
+    _cleanup_tasks: List[asyncio.Task]
 
     def __init__(self, membership: IMembershipService):
         self.my_node = membership.my_node
@@ -40,6 +41,7 @@ class Mon(IDisseminationService):
         self._received_data = {}
 
         self._children_ready_events = {}
+        self._cleanup_tasks = []
 
     async def join(self, service_id: str, **configuration: Any):
         if self.running:
@@ -53,6 +55,8 @@ class Mon(IDisseminationService):
     async def leave(self):
         if not self.running:
             return
+        for task in self._cleanup_tasks:
+            await stop_task(task)
         self._handler_manager.remove_all_handlers()
         await self._protocol.stop()
         self.running = False
@@ -61,8 +65,12 @@ class Mon(IDisseminationService):
         if not self.running:
             raise RuntimeError("Dissemination service not running")
         assert isinstance(data, bytes)
-        broadcast_id = await self._build_dag()
-        await self._disseminate(broadcast_id, data)
+        broadcast_id = await asyncio.wait_for(
+            self._build_dag(), timeout=self._config.TIMEOUT
+        )
+        await asyncio.wait_for(
+            self._disseminate(broadcast_id, data), timeout=self._config.TIMEOUT
+        )
 
     def add_broadcast_handler(self, handler: Handler):
         self._handler_manager.add_handler(handler)
@@ -75,7 +83,6 @@ class Mon(IDisseminationService):
         self._levels[broadcast_id] = 0
         self._children_ready_events[broadcast_id] = asyncio.Event()
         candidate_children = self.membership.get_neighbours()
-        assert isinstance(candidate_children, list)
         asyncio.create_task(
             self._initialize_children(
                 broadcast_id, candidate_children, broadcast_origin=True
@@ -88,13 +95,13 @@ class Mon(IDisseminationService):
     ):
         children: List[Node] = []
         fanout = min(len(neighbours), self._config.FANOUT)
-        session = Session(broadcast_id=broadcast_id, level=0)
+        session = Session(broadcast_id=broadcast_id, level=self._levels[broadcast_id])
         while neighbours and len(children) <= fanout:
             child = random.choice(neighbours)
             neighbours.remove(child)
             try:
                 session_ok = await self._protocol.session(child, session)
-            except Exception:
+            except ConnectionError:
                 continue
             if session_ok:
                 children.append(child)
@@ -102,6 +109,10 @@ class Mon(IDisseminationService):
             raise ServiceError("Unable to peer with neighbours for disseminating")
         self._children[broadcast_id] = children
         self._children_ready_events[broadcast_id].set()
+
+        self._cleanup_tasks.append(
+            asyncio.create_task(self._cleanup_tree(broadcast_id))
+        )
 
     async def _disseminate(self, broadcast_id: str, data: Any):
         await self._children_ready_events[
@@ -118,6 +129,17 @@ class Mon(IDisseminationService):
         if pushed_amount == 0:
             raise ServiceError("Unable to peer with neighbours for disseminating")
 
+    async def _cleanup_tree(self, broadcast_id: str):
+        await asyncio.sleep(self._config.TREE_LIFE_TIME)
+        if broadcast_id in self._levels:
+            del self._levels[broadcast_id]
+        if broadcast_id in self._children_ready_events:
+            del self._children_ready_events[broadcast_id]
+        if broadcast_id in self._children:
+            del self._children[broadcast_id]
+        if broadcast_id in self._received_data:
+            del self._received_data[broadcast_id]
+
     async def _handler_session(self, sender: Node, session: Session):
         first_time = session.broadcast_id not in self._levels
         if first_time:
@@ -131,16 +153,16 @@ class Mon(IDisseminationService):
         else:
             if self._levels[session.broadcast_id] <= session.level:
                 return False
-            if (
-                sender not in self._parents[session.broadcast_id]
-            ):  # just in case it is a duplicate
+            if sender not in self._parents[session.broadcast_id]:
                 self._parents[session.broadcast_id].append(sender)
         return True
 
     async def _handler_push(self, sender: Node, broadcast: Broadcast):
+        # if already received data, ignores it
         if (
-            broadcast.id not in self._received_data
-        ):  # if already received data, ignores it
+            broadcast.id in self._children_ready_events
+            and broadcast.id not in self._received_data
+        ):
             self._received_data[broadcast.id] = broadcast.data
             asyncio.create_task(self._disseminate(broadcast.id, broadcast.data))
             self._handler_manager.call_handlers(broadcast.data)
