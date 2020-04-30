@@ -8,9 +8,9 @@ from unsserv.common.services_abc import IDisseminationService, IMembershipServic
 from unsserv.common.structs import Node, Property
 from unsserv.common.typing import Handler
 from unsserv.common.utils import get_random_id, HandlersManager, stop_task
-from unsserv.stable.dissemination.brisa.config import BrisaConfig
-from unsserv.stable.dissemination.brisa.protocol import BrisaProtocol
-from unsserv.stable.dissemination.brisa.typing import BroadcastLevel
+from unsserv.stable.dissemination.one_to_many.config import BrisaConfig
+from unsserv.stable.dissemination.one_to_many.protocol import BrisaProtocol
+from unsserv.stable.dissemination.one_to_many.typing import BroadcastLevel
 
 
 class Brisa(IDisseminationService):

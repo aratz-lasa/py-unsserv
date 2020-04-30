@@ -7,10 +7,10 @@ import pytest
 from tests.utils import init_extreme_membership
 from unsserv.common.gossip.config import GossipConfig
 from unsserv.common.structs import Node
-from unsserv.extreme.dissemination.lpbcast.lpbcast import Lpbcast
+from unsserv.extreme.dissemination.many_to_many.lpbcast import Lpbcast
 
 init_extreme_membership = init_extreme_membership  # for flake8 compliance
-DISSEMINATION_SERVICE_ID = "lpbcast"
+DISSEMINATION_SERVICE_ID = "many_to_many"
 
 lpbcast_events: Dict[Node, asyncio.Event] = {}
 

@@ -7,11 +7,11 @@ import pytest
 from tests.utils import init_stable_membership
 from unsserv.common.gossip.config import GossipConfig
 from unsserv.common.structs import Node
-from unsserv.stable.dissemination.plumtree.plumtree import Plumtree
+from unsserv.stable.dissemination.many_to_many.plumtree import Plumtree
 
 init_stable_membership = init_stable_membership  # for flake8 compliance
 
-DISSEMINATION_SERVICE_ID = "plumtree"
+DISSEMINATION_SERVICE_ID = "many_to_many"
 
 dissemination_data = b"data"
 plum_events: Dict[Node, asyncio.Event] = {}

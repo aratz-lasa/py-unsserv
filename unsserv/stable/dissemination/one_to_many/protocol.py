@@ -4,12 +4,12 @@ from typing import Tuple, Sequence
 from unsserv.common.structs import Node
 from unsserv.common.rpc.structs import Message
 from unsserv.common.rpc.protocol import AProtocol, ITranscoder, Command, Data, Handler
-from unsserv.stable.dissemination.brisa.typing import BroadcastLevel
+from unsserv.stable.dissemination.one_to_many.typing import BroadcastLevel
 
 
-FIELD_COMMAND = "brisa-command"
-FIELD_LEVEL = "brisa-level"
-FIELD_BROADCAST_DATA = "brisa-broadcast-data"
+FIELD_COMMAND = "one_to_many-command"
+FIELD_LEVEL = "one_to_many-level"
+FIELD_BROADCAST_DATA = "one_to_many-broadcast-data"
 
 
 class BrisaCommand(IntEnum):

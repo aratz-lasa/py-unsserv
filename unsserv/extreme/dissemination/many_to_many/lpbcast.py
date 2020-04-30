@@ -7,10 +7,10 @@ from unsserv.common.services_abc import IDisseminationService, IMembershipServic
 from unsserv.common.structs import Node, Property
 from unsserv.common.typing import Handler
 from unsserv.common.utils import get_random_id, HandlersManager
-from unsserv.extreme.dissemination.lpbcast.config import LpbcastConfig
-from unsserv.extreme.dissemination.lpbcast.protocol import LpbcastProtocol
-from unsserv.extreme.dissemination.lpbcast.structs import Event
-from unsserv.extreme.dissemination.lpbcast.typing import (
+from unsserv.extreme.dissemination.many_to_many.config import LpbcastConfig
+from unsserv.extreme.dissemination.many_to_many.protocol import LpbcastProtocol
+from unsserv.extreme.dissemination.many_to_many.structs import Event
+from unsserv.extreme.dissemination.many_to_many.typing import (
     EventId,
     EventData,
     EventOrigin,

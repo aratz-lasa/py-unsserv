@@ -7,11 +7,11 @@ import pytest
 from tests.utils import init_stable_membership
 from unsserv.common.gossip.config import GossipConfig
 from unsserv.common.structs import Node
-from unsserv.stable.dissemination.brisa.brisa import Brisa
+from unsserv.stable.dissemination.one_to_many.brisa import Brisa
 
 init_stable_membership = init_stable_membership  # for flake8 compliance
 
-DISSEMINATION_SERVICE_ID = "brisa"
+DISSEMINATION_SERVICE_ID = "one_to_many"
 
 dissemination_data = b"data"
 brisa_events: Dict[Node, asyncio.Event] = {}

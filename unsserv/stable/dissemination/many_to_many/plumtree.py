@@ -6,10 +6,14 @@ from unsserv.common.services_abc import IDisseminationService, IMembershipServic
 from unsserv.common.structs import Property, Node
 from unsserv.common.typing import Handler
 from unsserv.common.utils import HandlersManager, get_random_id, stop_task
-from unsserv.stable.dissemination.plumtree.config import PlumtreeConfig
-from unsserv.stable.dissemination.plumtree.protocol import PlumtreeProtocol
-from unsserv.stable.dissemination.plumtree.structs import Push
-from unsserv.stable.dissemination.plumtree.typing import PlumDataId, PlumData, Digest
+from unsserv.stable.dissemination.many_to_many.config import PlumtreeConfig
+from unsserv.stable.dissemination.many_to_many.protocol import PlumtreeProtocol
+from unsserv.stable.dissemination.many_to_many.structs import Push
+from unsserv.stable.dissemination.many_to_many.typing import (
+    PlumDataId,
+    PlumData,
+    Digest,
+)
 
 
 class Plumtree(IDisseminationService):

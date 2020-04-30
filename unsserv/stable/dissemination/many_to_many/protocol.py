@@ -4,8 +4,12 @@ from typing import Tuple, Sequence, Optional
 from unsserv.common.rpc.protocol import AProtocol, ITranscoder, Command, Data, Handler
 from unsserv.common.rpc.structs import Message
 from unsserv.common.structs import Node
-from unsserv.stable.dissemination.plumtree.structs import Push
-from unsserv.stable.dissemination.plumtree.typing import Digest, PlumData, PlumDataId
+from unsserv.stable.dissemination.many_to_many.structs import Push
+from unsserv.stable.dissemination.many_to_many.typing import (
+    Digest,
+    PlumData,
+    PlumDataId,
+)
 
 FIELD_COMMAND = "plum-command"
 FIELD_DATA_ID = "plum-data-id"

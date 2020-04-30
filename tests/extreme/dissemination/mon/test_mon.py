@@ -7,11 +7,11 @@ import pytest
 from tests.utils import init_extreme_membership
 from unsserv.common.gossip.config import GossipConfig
 from unsserv.common.structs import Node
-from unsserv.extreme.dissemination.mon.mon import Mon
+from unsserv.extreme.dissemination.one_to_many.mon import Mon
 
 init_extreme_membership = init_extreme_membership  # for flake8 compliance
 
-DISSEMINATION_SERVICE_ID = "mon"
+DISSEMINATION_SERVICE_ID = "one_to_many"
 
 mon_events: Dict[Node, asyncio.Event] = {}
 
