@@ -8,12 +8,12 @@ from unsserv.common.rpc.protocol import AProtocol, ITranscoder, Command, Data, H
 from unsserv.extreme.dissemination.many_to_many.structs import Event
 from unsserv.extreme.dissemination.many_to_many.typing import Digest
 
-FIELD_COMMAND = "many_to_many-command"
-FIELD_EVENT_DATA = "many_to_many-event-data"
-FIELD_EVENT_ID = "many_to_many-event-id"
-FIELD_EVENT_ORIGIN = "many_to_many-event-origin"
-FIELD_DIGEST = "many_to_many-digest"
-FIELD_RETRIEVE_EVENT = "many_to_many-retrieve-events"
+FIELD_COMMAND = "lpbcast-command"
+FIELD_EVENT_DATA = "lpbcast-event-data"
+FIELD_EVENT_ID = "lpbcast-event-id"
+FIELD_EVENT_ORIGIN = "lpbcast-event-origin"
+FIELD_DIGEST = "lpbcast-digest"
+FIELD_RETRIEVE_EVENT = "lpbcast-retrieve-events"
 
 
 class LpbcastCommand(IntEnum):

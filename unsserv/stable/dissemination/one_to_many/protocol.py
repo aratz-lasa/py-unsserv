@@ -7,9 +7,9 @@ from unsserv.common.rpc.protocol import AProtocol, ITranscoder, Command, Data, H
 from unsserv.stable.dissemination.one_to_many.typing import BroadcastLevel
 
 
-FIELD_COMMAND = "one_to_many-command"
-FIELD_LEVEL = "one_to_many-level"
-FIELD_BROADCAST_DATA = "one_to_many-broadcast-data"
+FIELD_COMMAND = "brisa-command"
+FIELD_LEVEL = "brisa-level"
+FIELD_BROADCAST_DATA = "brisa-broadcast-data"
 
 
 class BrisaCommand(IntEnum):

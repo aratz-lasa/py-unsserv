@@ -6,10 +6,10 @@ from unsserv.common.rpc.structs import Message
 from unsserv.common.rpc.protocol import AProtocol, ITranscoder, Command, Data, Handler
 from unsserv.extreme.dissemination.one_to_many.structs import Session, Broadcast
 
-FIELD_COMMAND = "one_to_many-command"
-FIELD_BROADCAST_ID = "one_to_many-broadcast-id"
-FIELD_LEVEL = "one_to_many-level"
-FIELD_BROADCAST_DATA = "one_to_many-broadcast-data"
+FIELD_COMMAND = "mon-command"
+FIELD_BROADCAST_ID = "mon-broadcast-id"
+FIELD_LEVEL = "mon-level"
+FIELD_BROADCAST_DATA = "mon-broadcast-data"
 
 
 class MonCommand(IntEnum):
