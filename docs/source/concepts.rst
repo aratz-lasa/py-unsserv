@@ -26,6 +26,14 @@ application would be a representative scenario where this version could be used.
 
 Services
 ---------
+UnsServ presents its functionalities by means of six services. These services can be seen as
+stacked modular technologies. The first layer is only composed of the Membership service.
+This is the underlay that all the other services use. Next, Clustering is placed on top of Membership.
+It is necessary to denote that this is an optional layer, because biasing is not always needed.
+Finally, we position the remaining services on top of the first two layers: clustering, sampling,
+dissemination and searching.
+
+.. image:: _static/unsserv-stack.png
 
 Membership
 +++++++++++
