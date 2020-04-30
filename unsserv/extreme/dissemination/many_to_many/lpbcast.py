@@ -20,7 +20,7 @@ from unsserv.extreme.dissemination.many_to_many.typing import (
 class Lpbcast(IDisseminationService):
     properties = {Property.EXTREME, Property.MANY_TO_MANY}
     _protocol: LpbcastProtocol
-    _handler_manager: HandlersManager
+    _handlers_manager: HandlersManager
     _config: LpbcastConfig
 
     _events: "OrderedDict[EventId, List[Union[EventData, EventOrigin]]]"
@@ -30,7 +30,7 @@ class Lpbcast(IDisseminationService):
         self.my_node = membership.my_node
         self.membership = membership
         self._protocol = LpbcastProtocol(self.my_node)
-        self._handler_manager = HandlersManager()
+        self._handlers_manager = HandlersManager()
         self._config = LpbcastConfig()
 
         self._events = OrderedDict()
@@ -40,7 +40,8 @@ class Lpbcast(IDisseminationService):
         if self.running:
             raise RuntimeError("Already running Dissemination")
         self.service_id = service_id
-        self._handler_manager.add_handler(configuration["broadcast_handler"])
+        if "broadcast_handler" in configuration:
+            self._handlers_manager.add_handler(configuration["broadcast_handler"])
         await self._initialize_protocol()
         self._config.load_from_dict(configuration)
         self.running = True
@@ -49,7 +50,7 @@ class Lpbcast(IDisseminationService):
         if not self.running:
             return
         await self._protocol.stop()
-        self._handler_manager.remove_all_handlers()
+        self._handlers_manager.remove_all_handlers()
         self.running = False
 
     async def broadcast(self, data: bytes):
@@ -62,10 +63,10 @@ class Lpbcast(IDisseminationService):
         )
 
     def add_broadcast_handler(self, handler: Handler):
-        self._handler_manager.add_handler(handler)
+        self._handlers_manager.add_handler(handler)
 
     def remove_broadcast_handler(self, handler: Handler):
-        self._handler_manager.remove_handler(handler)
+        self._handlers_manager.remove_handler(handler)
 
     async def _handle_new_event(
         self,
@@ -81,7 +82,7 @@ class Lpbcast(IDisseminationService):
         self._purge_events_threshold()
         asyncio.create_task(self._disseminate(event_id, event_data, event_origin))
         if not broadcast_origin:
-            self._handler_manager.call_handlers(event_data)
+            self._handlers_manager.call_handlers(event_data)
 
     async def _disseminate(
         self, event_id: EventId, event_data: EventData, event_origin: Node

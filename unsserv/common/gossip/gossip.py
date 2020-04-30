@@ -37,7 +37,7 @@ class Gossip:
     running: bool = False
     _config: GossipConfig
     _protocol: GossipProtocol
-    _handler_manager: HandlersManager
+    _handlers_manager: HandlersManager
 
     def __init__(
         self,
@@ -68,9 +68,9 @@ class Gossip:
         self.custom_selection_ranking = custom_selection_ranking
 
         self.subscribers: List[IGossipSubscriber] = []
-        self._handler_manager = HandlersManager()
+        self._handlers_manager = HandlersManager()
         if local_view_handler:
-            self._handler_manager.add_handler(local_view_handler)
+            self._handlers_manager.add_handler(local_view_handler)
 
     async def start(self):
         if self.running:
@@ -189,7 +189,7 @@ class Gossip:
         current_neighbours = set(self.local_view.keys())
         if old_neighbours == current_neighbours:
             return
-        self._handler_manager.call_handlers(self.local_view)
+        self._handlers_manager.call_handlers(self.local_view)
 
     async def _handler_push(self, sender: Node, push_data: PushData):
         view = self._increase_hop_count(push_data.view)

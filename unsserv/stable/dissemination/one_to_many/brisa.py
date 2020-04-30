@@ -16,7 +16,7 @@ from unsserv.stable.dissemination.one_to_many.typing import BroadcastLevel
 class Brisa(IDisseminationService):
     properties = {Property.STABLE, Property.ONE_TO_MANY}
     _protocol: BrisaProtocol
-    _handler_manager: HandlersManager
+    _handlers_manager: HandlersManager
     _config: BrisaConfig
 
     _level: BroadcastLevel
@@ -29,7 +29,7 @@ class Brisa(IDisseminationService):
         self.my_node = membership.my_node
         self.membership = membership
         self._protocol = BrisaProtocol(self.my_node)
-        self._handler_manager = HandlersManager()
+        self._handlers_manager = HandlersManager()
         self._config = BrisaConfig()
 
         self._children = set()
@@ -43,7 +43,8 @@ class Brisa(IDisseminationService):
         self.service_id = service_id
         self._im_root = configuration.get("im_root", False)
         await self._initialize_protocol()
-        self._handler_manager.add_handler(configuration["broadcast_handler"])
+        if "broadcast_handler" in configuration:
+            self._handlers_manager.add_handler(configuration["broadcast_handler"])
         self._config.load_from_dict(configuration)
         self._maintenance_task = asyncio.create_task(self._maintain_dag_loop())
         self.running = True
@@ -52,7 +53,7 @@ class Brisa(IDisseminationService):
         if not self.running:
             return
         await stop_task(self._maintenance_task)
-        self._handler_manager.remove_all_handlers()
+        self._handlers_manager.remove_all_handlers()
         await self._protocol.stop()
         self.running = False
 
@@ -65,10 +66,10 @@ class Brisa(IDisseminationService):
         await asyncio.wait_for(self._disseminate(data), timeout=self._config.TIMEOUT)
 
     def add_broadcast_handler(self, handler: Handler):
-        self._handler_manager.add_handler(handler)
+        self._handlers_manager.add_handler(handler)
 
     def remove_broadcast_handler(self, handler: Handler):
-        self._handler_manager.remove_handler(handler)
+        self._handlers_manager.remove_handler(handler)
 
     async def _maintain_dag_loop(self):
         if self._im_root:
@@ -145,7 +146,7 @@ class Brisa(IDisseminationService):
 
     async def _handler_push(self, sender: Node, data: bytes):
         asyncio.create_task(self._disseminate(data))
-        self._handler_manager.call_handlers(data)
+        self._handlers_manager.call_handlers(data)
 
     async def _handler_im_your_child(self, sender: Node):
         return sender in self._children

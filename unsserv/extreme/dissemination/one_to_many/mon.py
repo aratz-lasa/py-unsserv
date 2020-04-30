@@ -16,7 +16,7 @@ from unsserv.extreme.dissemination.one_to_many.typing import BroadcastID
 class Mon(IDisseminationService):
     properties = {Property.EXTREME, Property.ONE_TO_MANY}
     _protocol: MonProtocol
-    _handler_manager: HandlersManager
+    _handlers_manager: HandlersManager
     _config: MonConfig
 
     _levels: Dict[BroadcastID, int]
@@ -32,7 +32,7 @@ class Mon(IDisseminationService):
         self.my_node = membership.my_node
         self.membership = membership
         self._protocol = MonProtocol(self.my_node)
-        self._handler_manager = HandlersManager()
+        self._handlers_manager = HandlersManager()
         self._config = MonConfig()
 
         self._children = {}
@@ -48,7 +48,8 @@ class Mon(IDisseminationService):
             raise RuntimeError("Already running Dissemination")
         self.service_id = service_id
         await self._initialize_protocol()
-        self._handler_manager.add_handler(configuration["broadcast_handler"])
+        if "broadcast_handler" in configuration:
+            self._handlers_manager.add_handler(configuration["broadcast_handler"])
         self._config.load_from_dict(configuration)
         self.running = True
 
@@ -57,7 +58,7 @@ class Mon(IDisseminationService):
             return
         for task in self._cleanup_tasks:
             await stop_task(task)
-        self._handler_manager.remove_all_handlers()
+        self._handlers_manager.remove_all_handlers()
         await self._protocol.stop()
         self.running = False
 
@@ -73,10 +74,10 @@ class Mon(IDisseminationService):
         )
 
     def add_broadcast_handler(self, handler: Handler):
-        self._handler_manager.add_handler(handler)
+        self._handlers_manager.add_handler(handler)
 
     def remove_broadcast_handler(self, handler: Handler):
-        self._handler_manager.remove_handler(handler)
+        self._handlers_manager.remove_handler(handler)
 
     async def _build_dag(self) -> str:
         broadcast_id = get_random_id()
@@ -165,7 +166,7 @@ class Mon(IDisseminationService):
         ):
             self._received_data[broadcast.id] = broadcast.data
             asyncio.create_task(self._disseminate(broadcast.id, broadcast.data))
-            self._handler_manager.call_handlers(broadcast.data)
+            self._handlers_manager.call_handlers(broadcast.data)
 
     async def _initialize_protocol(self):
         self._protocol.set_handler_session(self._handler_session)

@@ -57,10 +57,10 @@ class XBot(IClusteringService, IDoubleLayered):
     def add_neighbours_handler(self, handler: Handler):
         if not self.running:
             raise RuntimeError("Membership service not running")
-        self._handler_manager.add_handler(handler)
+        self._handlers_manager.add_handler(handler)
 
     def remove_neighbours_handler(self, handler: Handler):
-        self._handler_manager.remove_handler(handler)
+        self._handlers_manager.remove_handler(handler)
 
     def _get_passive_view_nodes(self):
         return self.membership.get_neighbours()

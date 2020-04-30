@@ -48,7 +48,7 @@ async def receiver(host: Host, broadcaster_host: Host):
     # initialize dissemination service and add broadcast handler
     async def handler(data: bytes):
         print(data)
-    await get_dissemination_service(membership, "disseminaion.service", broadcast_handler=handler)
+    await get_dissemination_service(membership, "dissemination.id", broadcast_handler=handler)
     # wait for broadcast
     await asyncio.sleep(10)
 
@@ -56,8 +56,8 @@ async def receiver(host: Host, broadcaster_host: Host):
 if __name__ == "__main__":
     broadcaster_host = ("127.0.0.1", 7771)
     receiver_host = ("127.0.0.1", 7772)
-    
-    loop = asyncio.get_running_loop()
+
+    loop = asyncio.new_event_loop()
     loop.create_task(broadcaster(broadcaster_host))
     loop.create_task(receiver(receiver_host, broadcaster_host=broadcaster_host))
     loop.run_forever()

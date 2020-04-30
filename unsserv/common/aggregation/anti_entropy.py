@@ -22,7 +22,7 @@ class AntiEntropy(IAggregationService, IGossipSubscriber):
     properties = {Property.EXTREME, Property.STABLE, Property.HAS_GOSSIP}
     gossip: Gossip
     _config: AntiConfig
-    _handler_manager: HandlersManager
+    _handlers_manager: HandlersManager
     _aggregate_value: Any
 
     def __init__(self, membership: IMembershipService):
@@ -35,7 +35,7 @@ class AntiEntropy(IAggregationService, IGossipSubscriber):
         self.membership = membership
         self.gossip = getattr(membership, "gossip")
         self._aggregate_value = None
-        self._handler_manager = HandlersManager()
+        self._handlers_manager = HandlersManager()
         self._config = AntiConfig()
 
     async def join(self, service_id: str, **configuration: Any):
@@ -51,7 +51,7 @@ class AntiEntropy(IAggregationService, IGossipSubscriber):
         if not self.running:
             return
         self.gossip.unsubscribe(self)
-        self._handler_manager.remove_all_handlers()
+        self._handlers_manager.remove_all_handlers()
         self._aggregate_value = None
         self.running = False
 
@@ -61,10 +61,10 @@ class AntiEntropy(IAggregationService, IGossipSubscriber):
         return self._aggregate_value
 
     def add_aggregate_handler(self, handler: Handler):
-        self._handler_manager.add_handler(handler)
+        self._handlers_manager.add_handler(handler)
 
     def remove_aggregate_handler(self, handler: Handler):
-        self._handler_manager.remove_handler(handler)
+        self._handlers_manager.remove_handler(handler)
 
     async def receive_payload(self, payload: Payload):
         """IGossipSubscriber implementation."""
@@ -76,7 +76,7 @@ class AntiEntropy(IAggregationService, IGossipSubscriber):
         self._aggregate_value = aggregate_function(
             [self._aggregate_value, neighbor_aggregate]
         )
-        self._handler_manager.call_handlers(self._aggregate_value)
+        self._handlers_manager.call_handlers(self._aggregate_value)
 
     async def get_payload(self) -> Tuple[Any, Any]:
         """IGossipSubscriber implementation."""

@@ -13,7 +13,7 @@ from unsserv.stable.membership.double_layered.structs import ForwardJoin
 
 
 class IDoubleLayered(ABC):
-    _handler_manager: HandlersManager
+    _handlers_manager: HandlersManager
     _doble_layered_protocol: DoubleLayeredProtocol
     _config: DoubleLayeredConfig
 
@@ -23,7 +23,7 @@ class IDoubleLayered(ABC):
 
     def __init__(self, my_node: Node):
         self.my_node = my_node
-        self._handler_manager = HandlersManager()
+        self._handlers_manager = HandlersManager()
         self._doble_layered_protocol = DoubleLayeredProtocol(my_node)
         self._active_view = set()
         self._candidate_neighbours = Counter()
@@ -117,7 +117,7 @@ class IDoubleLayered(ABC):
     def _call_handler_if_view_changed(self, old_local_view: Set):
         if old_local_view == self._active_view:
             return
-        self._handler_manager.call_handlers(list(self._active_view))
+        self._handlers_manager.call_handlers(list(self._active_view))
 
     @contextmanager
     def _create_candidate_neighbour(self, node: Node):

@@ -19,14 +19,14 @@ class TMan(IClusteringService):
     properties = {Property.EXTREME, Property.HAS_GOSSIP, Property.NON_SYMMETRIC}
 
     gossip: Optional[Gossip]
-    _handler_manager: HandlersManager
+    _handlers_manager: HandlersManager
     _ranking_function: RankingFunction
 
     def __init__(self, membership: IMembershipService):
         self.my_node = membership.my_node
         self.membership = membership
         self.gossip = None
-        self._handler_manager = HandlersManager()
+        self._handlers_manager = HandlersManager()
 
     async def join(self, service_id: Any, **configuration: Any):
         if self.running:
@@ -50,7 +50,7 @@ class TMan(IClusteringService):
         if not self.running:
             return
         await self.gossip.stop()
-        self._handler_manager.remove_all_handlers()
+        self._handlers_manager.remove_all_handlers()
         self.gossip = None
         self.running = False
 
@@ -62,13 +62,13 @@ class TMan(IClusteringService):
     def add_neighbours_handler(self, handler: Handler):
         if not self.running:
             raise RuntimeError("Service not running")
-        self._handler_manager.add_handler(handler)
+        self._handlers_manager.add_handler(handler)
 
     def remove_neighbours_handler(self, handler: Handler):
-        self._handler_manager.remove_handler(handler)
+        self._handlers_manager.remove_handler(handler)
 
     async def _gossip_local_view_handler(self, local_view: View):
-        self._handler_manager.call_handlers(list(local_view.keys()))
+        self._handlers_manager.call_handlers(list(local_view.keys()))
 
     def _selection_ranking(self, view: View) -> List[Node]:
         return sorted(view.keys(), key=self._ranking_function)  # type: ignore

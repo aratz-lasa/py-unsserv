@@ -10,12 +10,12 @@ from unsserv.common.utils import HandlersManager
 class Newscast(IMembershipService):
     properties = {Property.EXTREME, Property.HAS_GOSSIP, Property.NON_SYMMETRIC}
     gossip: Optional[Gossip]
-    _handler_manager: HandlersManager
+    _handlers_manager: HandlersManager
 
     def __init__(self, node: Node):
         self.my_node = node
         self.gossip = None
-        self._handler_manager = HandlersManager()
+        self._handlers_manager = HandlersManager()
 
     async def join(self, service_id: Any, **configuration: Any):
         if self.running:
@@ -43,10 +43,10 @@ class Newscast(IMembershipService):
         return list(self.gossip.local_view.keys())
 
     def add_neighbours_handler(self, handler: Handler):
-        self._handler_manager.add_handler(handler)
+        self._handlers_manager.add_handler(handler)
 
     def remove_neighbours_handler(self, handler: Handler):
-        self._handler_manager.remove_handler(handler)
+        self._handlers_manager.remove_handler(handler)
 
     async def _gossip_local_view_handler(self, local_view: View):
-        self._handler_manager.call_handlers(list(local_view.keys()))
+        self._handlers_manager.call_handlers(list(local_view.keys()))

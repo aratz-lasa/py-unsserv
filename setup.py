@@ -19,7 +19,7 @@ extras_require = {
 
 setuptools.setup(
     name="unsserv",
-    version="0.0.1",
+    version="0.0.2",
     author="Aratz M. Lasa",
     author_email="aratz.m.lasa@gmail.com",
     description="P2P high-level library",

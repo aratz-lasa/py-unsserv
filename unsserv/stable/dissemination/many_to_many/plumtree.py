@@ -47,7 +47,8 @@ class Plumtree(IDisseminationService):
         if self.running:
             raise RuntimeError("Service already running")
         self.service_id = service_id
-        self._handlers_manager.add_handler(configuration["broadcast_handler"])
+        if "broadcast_handler" in configuration:
+            self._handlers_manager.add_handler(configuration["broadcast_handler"])
         await self._initialize_protocol()
         self._config.load_from_dict(configuration)
         self._maintenance_task = asyncio.create_task(self._maintenance_loop())

@@ -73,7 +73,9 @@ class AProtocol:
         if isinstance(response, list):
             return [self._encode_response(response_item) for response_item in response]
         elif isinstance(response, tuple):
-            return (self._encode_response(response_item) for response_item in response)
+            return tuple(
+                self._encode_response(response_item) for response_item in response
+            )
         elif hasattr(response, "encode"):
             return response.encode()
         elif is_dataclass(response):
