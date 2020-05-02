@@ -18,7 +18,6 @@ py-unsserv: P2P out-of-the-box
 .. image:: http://www.mypy-lang.org/static/mypy_badge.svg
    :target: http://mypy-lang.org/
 
-
 **py-unsserv** is high-level Python library, designed to offer out-of-the-box peer-to-peer (p2p)
 network, as well as a bunch of functionalities on top of it. These functionalities include:
 
