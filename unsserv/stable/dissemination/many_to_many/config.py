@@ -4,12 +4,14 @@ from unsserv.common.utils import IConfig
 
 
 class PlumtreeConfig(IConfig):
-    TIMEOUT = 3  # seconds
+    RETRIEVE_TIMEOUT = 3  # seconds
     MAINTENANCE_SLEEP = 1
     BUFFER_LIMIT = 100
 
     def load_from_dict(self, config_dict: Dict[str, Any]):
-        self.TIMEOUT = config_dict.get("timeout", PlumtreeConfig.TIMEOUT)
+        self.RETRIEVE_TIMEOUT = config_dict.get(
+            "retrieve_timeout", PlumtreeConfig.RETRIEVE_TIMEOUT
+        )
         self.MAINTENANCE_SLEEP = config_dict.get(
             "maintenance_sleep", PlumtreeConfig.MAINTENANCE_SLEEP
         )

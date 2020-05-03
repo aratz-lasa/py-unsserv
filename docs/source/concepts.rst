@@ -8,6 +8,9 @@ intended for providing P2P network maintenace and functionalities (also called s
 out-of-the-box. This library is for using it as the underlying techonology for
 software projects.
 
+UnsServ library was based on the following paper: `UnsServ paper <http://aratz.lasa.eus/file/unsserv.pdf>`_.
+In this paper all the protocols are deeply explained.
+
 Extreme vs Stable
 ------------------
 **py-unsserv** presents two versions or editions of the same functionalities.
@@ -83,3 +86,16 @@ Commonly, **Searching** is implemented by means of structured DHTs, which are ab
 deterministically. But in some cases there is no need for such strong guarantees, and unstructured
 solutions may be preferred as a caching-like service. That is to say, fast-response queries are performed
 through the unstructured search, and only if they fail, structured deterministic queries are carried out.
+
+Gossiping
+----------
+Membership protocols make use of Gossiping.
+
+Gossiping can be well understood when comparing it with how humans spread rumours. Imagine a high-school
+where students talk to each other in the hall whenever they have a break. Each student encounters other
+randomly, and it shares the rumour. If a new rumour is first told in the morning, by the end of the day,
+almost every student will have heard about it. Notice that when a gossip is shared, they do not know if the
+other student already knows about it. So there will be some redundant exchanges. But how is gossiping
+implemented in a peer-to-peer network? Every :code:`t` time units, each node selects a neighbour.
+Then, it communicates with the neighbour and they exchange their local views. And after the exchange,
+each part generates a new local view, by merging the received neighbours with the current ones.

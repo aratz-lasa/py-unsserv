@@ -4,13 +4,12 @@ import random
 from abc import ABC, abstractmethod
 from collections import Counter
 from contextlib import contextmanager
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
 from unsserv.common.gossip.config import (
     GossipConfig,
-    ViewSelectionPolicy,
-    PeerSelectionPolicy,
-    ViewPropagationPolicy,
+    SelectionPolicy,
+    PropagationPolicy,
 )
 from unsserv.common.gossip.protocol import GossipProtocol
 from unsserv.common.gossip.structs import PushData
@@ -19,6 +18,15 @@ from unsserv.common.gossip.typing import Payload, View
 from unsserv.common.structs import Node
 from unsserv.common.typing import Handler
 from unsserv.common.utils import stop_task, HandlersManager
+
+policy_names: Dict[str, Union[SelectionPolicy, PropagationPolicy]] = {
+    "rand": SelectionPolicy.RAND,
+    "head": SelectionPolicy.HEAD,
+    "tail": SelectionPolicy.TAIL,
+    "push": PropagationPolicy.PUSH,
+    "pull": PropagationPolicy.PULL,
+    "pushpull": PropagationPolicy.PUSHPULL,
+}
 
 
 class IGossipSubscriber(ABC):
@@ -105,16 +113,16 @@ class Gossip:
         if not peer:  # empty Local view
             return
         subscribers_data = await self._get_data_from_subscribers()
-        if self._config.VIEW_PROPAGATION is ViewPropagationPolicy.PUSH:
+        if self._config.VIEW_PROPAGATION is PropagationPolicy.PUSH:
             push_view = self._merge_views(Counter({self.my_node: 0}), self.local_view)
             push_data = PushData(view=push_view, payload=subscribers_data)
             with self._remove_on_connection_error(peer):
                 await self._protocol.push(peer, push_data)
-        elif self._config.VIEW_PROPAGATION is ViewPropagationPolicy.PULL:
+        elif self._config.VIEW_PROPAGATION is PropagationPolicy.PULL:
             with self._remove_on_connection_error(peer):
                 pull_response = await self._protocol.pull(peer, subscribers_data)
                 await self._handler_push(peer, pull_response)
-        elif self._config.VIEW_PROPAGATION is ViewPropagationPolicy.PUSHPULL:
+        elif self._config.VIEW_PROPAGATION is PropagationPolicy.PUSHPULL:
             push_view = self._merge_views(Counter({self.my_node: 0}), self.local_view)
             push_data = PushData(view=push_view, payload=subscribers_data)
             with self._remove_on_connection_error(peer):
@@ -126,11 +134,11 @@ class Gossip:
             ordered_nodes = self.custom_selection_ranking(view)
         else:
             ordered_nodes = list(map(lambda n: n[0], reversed(view.most_common())))
-        if self._config.PEER_SELECTION is PeerSelectionPolicy.RAND:
+        if self._config.PEER_SELECTION is SelectionPolicy.RAND:
             return random.choice(ordered_nodes) if view else None
-        elif self._config.PEER_SELECTION is PeerSelectionPolicy.HEAD:
+        elif self._config.PEER_SELECTION is SelectionPolicy.HEAD:
             return ordered_nodes[0] if view else None
-        elif self._config.PEER_SELECTION is PeerSelectionPolicy.TAIL:
+        elif self._config.PEER_SELECTION is SelectionPolicy.TAIL:
             return ordered_nodes[-1] if view else None
         raise AttributeError("Invalid Peer Selection policy")
 
@@ -147,13 +155,13 @@ class Gossip:
             ordered_nodes = list(map(lambda n: n[0], reversed(view.most_common())))
 
         new_view = view.copy()
-        if self._config.VIEW_SELECTION is ViewSelectionPolicy.RAND:
+        if self._config.VIEW_SELECTION is SelectionPolicy.RAND:
             for node in random.sample(ordered_nodes, remove_amount):
                 new_view.pop(node)
-        elif self._config.VIEW_SELECTION is ViewSelectionPolicy.HEAD:
+        elif self._config.VIEW_SELECTION is SelectionPolicy.HEAD:
             for node in ordered_nodes[-remove_amount:]:
                 new_view.pop(node)
-        elif self._config.VIEW_SELECTION is ViewSelectionPolicy.TAIL:
+        elif self._config.VIEW_SELECTION is SelectionPolicy.TAIL:
             for node in ordered_nodes[:remove_amount]:
                 new_view.pop(node)
         else:
@@ -225,3 +233,13 @@ class Gossip:
         except ConnectionError:
             if node in self.local_view:
                 self.local_view.pop(node)
+
+    def _parse_and_set_policies(self, configuration: Dict[Any, Any]):
+        self._parse_and_set_policy("peer_selection", configuration)
+        self._parse_and_set_policy("view_selection", configuration)
+        self._parse_and_set_policy("view_propagation", configuration)
+
+    def _parse_and_set_policy(self, policy_name: str, configuration: Dict[Any, Any]):
+        policy_configuration = configuration.get(policy_name, None)
+        if policy_configuration and isinstance(policy_configuration, str):
+            configuration[policy_name] = policy_names[policy_configuration]

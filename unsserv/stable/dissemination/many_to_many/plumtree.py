@@ -108,7 +108,7 @@ class Plumtree(IDisseminationService):
         asyncio.create_task(self._forward_push(push, sender))
 
     async def _retrieve_unreceived_data(self, sender: Node, data_id: PlumDataId):
-        await asyncio.sleep(self._config.TIMEOUT)
+        await asyncio.sleep(self._config.RETRIEVE_TIMEOUT)
         if data_id not in self._digest:
             data = await self._protocol.get_data(sender, data_id)
             if data:

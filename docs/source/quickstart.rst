@@ -30,6 +30,14 @@ Once the first node is initialized, the other nodes are able to join the netwok,
         )
 :code:`bootstrap_nodes` are nodes that already joined the network. In this case it is the :code:`first_node` address.
 
+Leave/Stop service
+-------------------
+Once a service is running it can be stopped easily by:
+
+.. code-block:: python
+
+    await membership.leave()
+
 Retrieving neighbours
 ----------------------
 After joining the network, it is possible to retrieve the neighbours that is connected to, by just:
@@ -167,6 +175,7 @@ Then, the Dissemination service is instantiated:
 :code:`broadcast_handler` is the callback that is called whenever a broadcast is received.
 
 In order to broadcast data :code::`broadcast` method is called:
+
 .. code-block:: python
 
     await dissemination.broadcast(b"data")

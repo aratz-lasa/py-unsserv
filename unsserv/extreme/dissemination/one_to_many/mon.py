@@ -131,7 +131,7 @@ class Mon(IDisseminationService):
             raise ServiceError("Unable to peer with neighbours for disseminating")
 
     async def _cleanup_tree(self, broadcast_id: str):
-        await asyncio.sleep(self._config.TREE_LIFE_TIME)
+        await asyncio.sleep(self._config.TREE_LIFE)
         if broadcast_id in self._levels:
             del self._levels[broadcast_id]
         if broadcast_id in self._children_ready_events:

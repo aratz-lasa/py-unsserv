@@ -101,9 +101,9 @@ class Lpbcast(IDisseminationService):
                 pass  # todo: log the error?
 
     def _purge_events_threshold(self):
-        while self._config.THRESHOLD < len(self._events):
+        while self._config.BUFFER_LIMIT < len(self._events):
             self._events.popitem(last=False)
-        while self._config.THRESHOLD < len(self._events_digest):
+        while self._config.BUFFER_LIMIT < len(self._events_digest):
             self._events_digest.popitem(last=False)
 
     async def _retrieve_event(

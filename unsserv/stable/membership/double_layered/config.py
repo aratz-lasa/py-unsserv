@@ -14,5 +14,5 @@ class DoubleLayeredConfig(IConfig):
             "active_view_size", DoubleLayeredConfig.ACTIVE_VIEW_SIZE
         )
         self.MAINTENANCE_SLEEP = config_dict.get(
-            "MAINTENANCE_SLEEP", DoubleLayeredConfig.MAINTENANCE_SLEEP
+            "maintenance_sleep", DoubleLayeredConfig.MAINTENANCE_SLEEP
         )

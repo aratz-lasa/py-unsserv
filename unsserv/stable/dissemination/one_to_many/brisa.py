@@ -63,7 +63,7 @@ class Brisa(IDisseminationService):
         if self._im_root is False:
             raise RuntimeError("Node must be root to broadcast")
         assert isinstance(data, bytes)
-        await asyncio.wait_for(self._disseminate(data), timeout=self._config.TIMEOUT)
+        await self._disseminate(data)
 
     def add_broadcast_handler(self, handler: Handler):
         self._handlers_manager.add_handler(handler)

@@ -4,8 +4,8 @@ from unsserv.common.utils import IConfig
 
 
 class ABloomConfig(IConfig):
-    DEPTH = 2
     TIMEOUT = 10
+    DEPTH = 2
     MAINTENANCE_SLEEP = 1
 
     def load_from_dict(self, config_dict: Dict[str, Any]):

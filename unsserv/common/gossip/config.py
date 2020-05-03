@@ -4,19 +4,13 @@ from typing import Dict, Any
 from unsserv.common.utils import IConfig
 
 
-class ViewSelectionPolicy(Enum):
+class SelectionPolicy(Enum):
     RAND = auto()
     HEAD = auto()
     TAIL = auto()
 
 
-class PeerSelectionPolicy(Enum):
-    RAND = auto()
-    HEAD = auto()
-    TAIL = auto()
-
-
-class ViewPropagationPolicy(Enum):
+class PropagationPolicy(Enum):
     PUSH = auto()
     PULL = auto()
     PUSHPULL = auto()
@@ -25,9 +19,9 @@ class ViewPropagationPolicy(Enum):
 class GossipConfig(IConfig):
     LOCAL_VIEW_SIZE = 10  # todo: select a proper size
     GOSSIPING_FREQUENCY = 0.2  # todo: select a proper size
-    VIEW_SELECTION = ViewSelectionPolicy.HEAD
-    VIEW_PROPAGATION = ViewPropagationPolicy.PUSHPULL
-    PEER_SELECTION = PeerSelectionPolicy.RAND
+    VIEW_SELECTION = SelectionPolicy.HEAD
+    VIEW_PROPAGATION = PropagationPolicy.PUSHPULL
+    PEER_SELECTION = SelectionPolicy.RAND
     RPC_TIMEOUT = 1
 
     def load_from_dict(self, config_dict: Dict[str, Any]):

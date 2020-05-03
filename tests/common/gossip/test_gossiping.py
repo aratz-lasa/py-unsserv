@@ -24,12 +24,12 @@ def test_view_selection():
     view = Counter(dict(map(lambda n: (n[1], n[0] + 1), enumerate(r_nodes))))
     gsp = gossip.Gossip(node, SERVICE_ID)
 
-    gsp._config.VIEW_SELECTION = unsserv.common.gossip.config.ViewSelectionPolicy.HEAD
+    gsp._config.VIEW_SELECTION = unsserv.common.gossip.config.SelectionPolicy.HEAD
     assert set(r_nodes[: GossipConfig.LOCAL_VIEW_SIZE]) == set(
         gsp._select_view(view).keys()
     )
 
-    gsp._config.VIEW_SELECTION = unsserv.common.gossip.config.ViewSelectionPolicy.TAIL
+    gsp._config.VIEW_SELECTION = unsserv.common.gossip.config.SelectionPolicy.TAIL
     assert set(r_nodes[GossipConfig.LOCAL_VIEW_SIZE :]) == set(
         gsp._select_view(view).keys()
     )
@@ -40,7 +40,7 @@ def test_view_selection():
     def selection_ranking(view: View) -> List[Node]:
         return sorted(view.keys(), key=ranking)
 
-    gsp._config.VIEW_SELECTION = unsserv.common.gossip.config.ViewSelectionPolicy.HEAD
+    gsp._config.VIEW_SELECTION = unsserv.common.gossip.config.SelectionPolicy.HEAD
     gsp.custom_selection_ranking = selection_ranking
     assert set(sorted(r_nodes, key=ranking)[: GossipConfig.LOCAL_VIEW_SIZE]) == set(
         gsp._select_view(view).keys()
@@ -52,10 +52,10 @@ def test_peer_selection():
     view = Counter(dict(map(lambda n: (n[1], n[0] + 1), enumerate(r_nodes))))
     gsp = gossip.Gossip(node, SERVICE_ID)
 
-    gsp._config.PEER_SELECTION = unsserv.common.gossip.config.PeerSelectionPolicy.HEAD
+    gsp._config.PEER_SELECTION = unsserv.common.gossip.config.SelectionPolicy.HEAD
     assert r_nodes[0] == gsp._select_peer(view)
 
-    gsp._config.PEER_SELECTION = unsserv.common.gossip.config.PeerSelectionPolicy.TAIL
+    gsp._config.PEER_SELECTION = unsserv.common.gossip.config.SelectionPolicy.TAIL
     assert r_nodes[-1] == gsp._select_peer(view)
 
 

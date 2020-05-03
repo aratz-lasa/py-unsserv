@@ -5,8 +5,8 @@ from unsserv.common.utils import IConfig
 
 class LpbcastConfig(IConfig):
     FANOUT = 10
-    THRESHOLD = 10
+    BUFFER_LIMIT = 100
 
     def load_from_dict(self, config_dict: Dict[str, Any]):
         self.FANOUT = config_dict.get("fanout", LpbcastConfig.FANOUT)
-        self.THRESHOLD = config_dict.get("threhold", LpbcastConfig.THRESHOLD)
+        self.BUFFER_LIMIT = config_dict.get("buffer_limit", LpbcastConfig.BUFFER_LIMIT)

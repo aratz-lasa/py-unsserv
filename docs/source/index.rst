@@ -9,8 +9,6 @@ py-unsserv: P2P out-of-the-box
    :target: https://www.python.org/downloads/release/python-370/
 .. image:: https://travis-ci.com/aratz-lasa/py-unsserv.svg?branch=master
    :target: https://travis-ci.com/aratz-lasa/py-unsserv
-.. image:: https://codecov.io/gh/aratz-lasa/py-unsserv/branch/master/graph/badge.svg
-  :target: https://codecov.io/gh/aratz-lasa/py-unsserv
 .. image:: https://img.shields.io/badge/code%20style-pep8-orange.svg
    :target: https://www.python.org/dev/peps/pep-0008/
 .. image:: https://img.shields.io/badge/code%20style-black-000000.svg
@@ -46,7 +44,7 @@ User's guide
 =============
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 3
 
    concepts
    quickstart

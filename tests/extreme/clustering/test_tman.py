@@ -58,7 +58,7 @@ async def test_join_tman(init_extreme_membership, init_tman, amount):
     tman, r_tmans = await init_tman(newc, r_newcs)
     await asyncio.sleep(GossipConfig.GOSSIPING_FREQUENCY * 7)
 
-    await asyncio.sleep(GossipConfig.GOSSIPING_FREQUENCY * 40)
+    await asyncio.sleep(GossipConfig.GOSSIPING_FREQUENCY * 45)
 
     cluster_nodes = [tman] + r_tmans
     satisfy_ideal_neighbours = []

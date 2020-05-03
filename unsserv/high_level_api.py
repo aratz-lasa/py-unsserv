@@ -108,6 +108,10 @@ async def get_searching_service(
     return searching
 
 
+def get_node(ip: str, port: int) -> Node:
+    return Node(address_info=(ip, port))
+
+
 def _bootstrap_nodes_to_structs(boostrap_nodes: List[Tuple[str, int]]) -> List[Node]:
     new_boostrap_nodes = []
     for node in boostrap_nodes:
